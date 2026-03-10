@@ -2,3 +2,7 @@
 env/
 node_modules/
 dist/
+__pycache__/
+redes.md
+extensions.json
+launch.json
