@@ -68,7 +68,11 @@ const ogImage = new URL("/og.png", Astro.site || "https://ligadelincoln.com")
     />
 
     <ViewTransitions />
-  </head>
+    <script>
+      import { inject } from "@vercel/analytics";
+      inject();
+    </script></head
+  >
 
   <body class='bg-[#0f2d0f] min-h-screen font-[Inter,sans-serif] text-white'>
     <!-- Header -->
