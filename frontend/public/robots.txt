@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ligadelincoln.com/sitemap-index.xml
