@@ -1,0 +1,31 @@
+# Lista de rutas
+
+- file:///C|/Users/hecto/Documents/aaPaginas web/torneos anteriores/menu.html
+- https://www.ligaamateurdedeportes.com.ar/alineaciones.html
+- https://www.ligaamateurdedeportes.com.ar/alineaciones2023.html
+- https://www.ligaamateurdedeportes.com.ar/amarillas.html
+- https://www.ligaamateurdedeportes.com.ar/clasificacion.html
+- https://www.ligaamateurdedeportes.com.ar/decima.html
+- https://www.ligaamateurdedeportes.com.ar/estadisticas.html
+- https://www.ligaamateurdedeportes.com.ar/finde.html
+- https://www.ligaamateurdedeportes.com.ar/fixtureporequipos.html
+- https://www.ligaamateurdedeportes.com.ar/formularios/descargaform.html
+- https://www.ligaamateurdedeportes.com.ar/goleadoresapertura.html
+- https://www.ligaamateurdedeportes.com.ar/goleadoresclausura.html
+- https://www.ligaamateurdedeportes.com.ar/goleadoresprimavera.html
+- https://www.ligaamateurdedeportes.com.ar/goleadorestemporada.html
+- https://www.ligaamateurdedeportes.com.ar/goleadorestemporadas.html
+- https://www.ligaamateurdedeportes.com.ar/historial.html
+- https://www.ligaamateurdedeportes.com.ar/horarios.html
+- https://www.ligaamateurdedeportes.com.ar/ligaclubes.html
+- https://www.ligaamateurdedeportes.com.ar/ligainstitucional.html
+- https://www.ligaamateurdedeportes.com.ar/ligatorneos.html
+- https://www.ligaamateurdedeportes.com.ar/multitablas.html
+- https://www.ligaamateurdedeportes.com.ar/novena.html
+- https://www.ligaamateurdedeportes.com.ar/octava.html
+- https://www.ligaamateurdedeportes.com.ar/performance.html
+- https://www.ligaamateurdedeportes.com.ar/primera.html
+- https://www.ligaamateurdedeportes.com.ar/sanciones.html
+- https://www.ligaamateurdedeportes.com.ar/septima.html
+- https://www.ligaamateurdedeportes.com.ar/torneos anteriores/menu.html
+- https://www.ligaamateurdedeportes.com.ar/vallas.html
