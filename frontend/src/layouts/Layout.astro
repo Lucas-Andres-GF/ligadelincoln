@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import { ViewTransitions } from "astro:transitions";
+import Analytics from "@vercel/analytics/astro";
 
 interface Props {
   title?: string;
@@ -68,11 +69,7 @@ const ogImage = new URL("/og.png", Astro.site || "https://ligadelincoln.com")
     />
 
     <ViewTransitions />
-    <script>
-      import { inject } from "@vercel/analytics";
-      inject();
-    </script></head
-  >
+  </head>
 
   <body class='bg-[#0f2d0f] min-h-screen font-[Inter,sans-serif] text-white'>
     <!-- Header -->
@@ -173,5 +170,6 @@ const ogImage = new URL("/og.png", Astro.site || "https://ligadelincoln.com")
         </p>
       </div>
     </footer>
+    <Analytics />
   </body>
 </html>
