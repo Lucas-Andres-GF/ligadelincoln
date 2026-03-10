@@ -6,3 +6,4 @@ __pycache__/
 redes.md
 extensions.json
 launch.json
+*.af
