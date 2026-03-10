@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import { ViewTransitions } from "astro:transitions";
+import SpeedInsights from "@vercel/speed-insights/astro";
 
 interface Props {
   title?: string;
@@ -169,5 +170,7 @@ const ogImage = new URL("/og.png", Astro.site || "https://ligadelincoln.com")
         </p>
       </div>
     </footer>
+
+    <SpeedInsights />
   </body>
 </html>
