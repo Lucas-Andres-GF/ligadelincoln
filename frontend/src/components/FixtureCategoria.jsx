@@ -22,7 +22,6 @@ function detectarFechaActual(grouped) {
   for (const fechaNum of fechas) {
     const dia = grouped[fechaNum][0]?.dia;
     if (!dia) continue;
-    // Permitir tanto formato dd/mm como yyyy-mm-dd
     let fechaPartido;
     if (dia.includes("/")) {
       const [dd, mm] = dia.split("/").map(Number);
@@ -36,16 +35,24 @@ function detectarFechaActual(grouped) {
       mejor = Number(fechaNum);
     }
   }
-
-  // Si no encontró ninguna futura, usar la menor (primera) fecha
   if (mejor === null) {
     mejor = Math.min(...fechas);
   }
-
   return mejor;
 }
 
-export default function Fixture() {
+export default function FixtureCategoria({ categoria }) {
+  // Mapeo simple de id a nombre de categoría
+  const categoriaNombres = {
+    1: "PRIMERA",
+    2: "SEPTIMA",
+    3: "OCTAVA",
+    4: "NOVENA",
+    5: "DECIMA",
+  };
+  const nombreCategoria =
+    categoriaNombres[categoria] || `CATEGORÍA ${categoria}`;
+  // categoria debe ser id (número)
   const [allMatches, setAllMatches] = useState({});
   const [fechaActual, setFechaActual] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,7 +77,8 @@ export default function Fixture() {
         `,
         )
         .order("fecha_id")
-        .order("id");
+        .order("id")
+        .eq("categoria_id", categoria);
 
       if (error) {
         console.error("Error fetching partidos:", error);
@@ -86,7 +94,7 @@ export default function Fixture() {
       setIsLoading(false);
     }
     fetchFixture();
-  }, []);
+  }, [categoria]);
 
   const matches = allMatches[fechaActual] || [];
 
@@ -100,8 +108,6 @@ export default function Fixture() {
 
   return (
     <div className='p-4'>
-      {" "}
-      {/* Agregué un contenedor padre que faltaba */}
       <div className='flex items-center justify-between mb-4'>
         <button
           onClick={() => setFechaActual((f) => Math.max(1, f - 1))}
@@ -110,7 +116,6 @@ export default function Fixture() {
         >
           ‹
         </button>
-
         <div className='relative'>
           <div
             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -131,7 +136,6 @@ export default function Fixture() {
               />
             </svg>
           </div>
-
           {dropdownOpen && (
             <div className='absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-[#143814] border border-green-900/60 rounded-lg shadow-xl z-50 overflow-y-auto max-h-60'>
               {Array.from({ length: TOTAL_FECHAS }, (_, i) => i + 1).map(
@@ -155,7 +159,6 @@ export default function Fixture() {
             </div>
           )}
         </div>
-
         <button
           onClick={() => setFechaActual((f) => Math.min(TOTAL_FECHAS, f + 1))}
           disabled={fechaActual === TOTAL_FECHAS}
@@ -164,7 +167,6 @@ export default function Fixture() {
           ›
         </button>
       </div>
-      {/* Fecha del partido */}
       {matches[0]?.dia && (
         <div className='text-center mb-3'>
           <span className='text-green-600 text-[11px] font-medium'>
@@ -172,13 +174,11 @@ export default function Fixture() {
           </span>
         </div>
       )}
-      {/* Partidos */}
       <div className='space-y-2'>
         {matches.map((match, i) => {
           const isLibre = match.visitante_id === null;
           const seJugo =
             match.goles_local !== null && match.goles_visitante !== null;
-
           if (isLibre) {
             return (
               <div
@@ -187,7 +187,7 @@ export default function Fixture() {
               >
                 <span className='text-[10px] text-green-700 font-mono w-10 shrink-0 text-center'></span>
                 <a
-                  href={`/equipo/${slugify(match.local?.nombre || "")}`}
+                  href={`/club/${slugify(match.local?.nombre || "")}`}
                   className='flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80'
                 >
                   {match.local?.escudo_url && (
@@ -208,62 +208,67 @@ export default function Fixture() {
               </div>
             );
           }
-
-          return (
+            // Formatear la hora para mostrar solo HH:MM
+            let horaFormateada = "16:00";
+            if (match.hora) {
+            // Si viene como "16:00:00", tomar solo los primeros 5 caracteres
+            horaFormateada = match.hora.slice(0, 5);
+            }
+            return (
             <div
               key={i}
               className='flex items-center gap-2 py-2 px-3 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors'
             >
               <span className='text-[10px] text-green-700 font-mono w-10 shrink-0 text-center'>
-                {match.hora || "15:00"}
+              {horaFormateada}
               </span>
               <a
-                href={`/equipo/${slugify(match.local?.nombre || "")}`}
-                className='flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80'
+              href={`/club/${slugify(match.local?.nombre || "")}`}
+              className='flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80'
               >
-                <span className='truncate text-green-100 font-semibold text-right'>
-                  {match.local?.nombre}
-                </span>
-                {match.local?.escudo_url && (
-                  <img
-                    src={match.local.escudo_url}
-                    alt={match.local.nombre}
-                    className='w-5 h-5 object-contain shrink-0'
-                  />
-                )}
+              <span className='truncate text-green-100 font-semibold text-right'>
+                {match.local?.nombre}
+              </span>
+              {match.local?.escudo_url && (
+                <img
+                src={match.local.escudo_url}
+                alt={match.local.nombre}
+                className='w-5 h-5 object-contain shrink-0'
+                />
+              )}
               </a>
               <div className='flex items-center gap-1 shrink-0 px-2'>
-                {seJugo ? (
-                  <>
-                    <span className='font-black text-green-400 text-sm w-4 text-center'>
-                      {match.goles_local}
-                    </span>
-                    <span className='text-green-700'>–</span>
-                    <span className='font-black text-green-400 text-sm w-4 text-center'>
-                      {match.goles_visitante}
-                    </span>
-                  </>
-                ) : (
-                  <span className='text-green-700 font-bold text-sm'>vs</span>
-                )}
+              {seJugo ? (
+                <>
+                <span className='font-black text-green-400 text-sm w-4 text-center'>
+                  {match.goles_local}
+                </span>
+                <span className='text-green-700'>–</span>
+                <span className='font-black text-green-400 text-sm w-4 text-center'>
+                  {match.goles_visitante}
+                </span>
+                </>
+              ) : (
+                <span className='text-green-700 font-bold text-sm'>vs</span>
+              )}
               </div>
               <a
-                href={`/equipo/${slugify(match.visitante?.nombre || "")}`}
-                className='flex items-center gap-1.5 flex-1 min-w-0 hover:opacity-80'
+              href={`/club/${slugify(match.visitante?.nombre || "")}`}
+              className='flex items-center gap-1.5 flex-1 min-w-0 hover:opacity-80'
               >
-                {match.visitante?.escudo_url && (
-                  <img
-                    src={match.visitante.escudo_url}
-                    alt={match.visitante.nombre}
-                    className='w-5 h-5 object-contain shrink-0'
-                  />
-                )}
-                <span className='truncate text-green-100 font-semibold'>
-                  {match.visitante?.nombre}
-                </span>
+              {match.visitante?.escudo_url && (
+                <img
+                src={match.visitante.escudo_url}
+                alt={match.visitante.nombre}
+                className='w-5 h-5 object-contain shrink-0'
+                />
+              )}
+              <span className='truncate text-green-100 font-semibold'>
+                {match.visitante?.nombre}
+              </span>
               </a>
             </div>
-          );
+            );
         })}
       </div>
     </div>

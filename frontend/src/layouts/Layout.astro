@@ -77,8 +77,11 @@ const ogImage = new URL("/og.png", Astro.site || "https://ligadelincoln.com")
 
   <body class='bg-[#0f2d0f] min-h-screen font-[Inter,sans-serif] text-white'>
     <!-- Header -->
+
     <header class='bg-[#143814] border-b border-green-900/50 sticky top-0 z-50'>
-      <div class='max-w-6xl mx-auto px-4 py-4 text-center'>
+      <div
+        class='max-w-6xl mx-auto px-4 py-4 flex items-center justify-between'
+      >
         <a
           href='/'
           class='inline-flex items-center gap-2 text-2xl font-extrabold tracking-tight hover:opacity-80 transition-opacity uppercase italic'
@@ -94,6 +97,35 @@ const ogImage = new URL("/og.png", Astro.site || "https://ligadelincoln.com")
             decoding='async'
           />
         </a>
+        <nav
+          class='hidden md:flex gap-4 text-green-300 font-semibold uppercase text-xs'
+        >
+          <a href='/primera' class='hover:text-green-400 transition'>Primera</a>
+          <a href='/septima' class='hover:text-green-400 transition'>Séptima</a>
+          <a href='/octava' class='hover:text-green-400 transition'>Octava</a>
+          <a href='/decima' class='hover:text-green-400 transition'>Décima</a>
+        </nav>
+        <!-- Hamburguesa -->
+        <div class='md:hidden relative'>
+          <input id='menu-toggle' type='checkbox' class='hidden peer' />
+          <label for='menu-toggle' class='flex flex-col gap-1 cursor-pointer'>
+            <span class='block w-6 h-0.5 bg-green-400'></span>
+            <span class='block w-6 h-0.5 bg-green-400'></span>
+            <span class='block w-6 h-0.5 bg-green-400'></span>
+          </label>
+          <div
+            class='absolute right-0 top-12 z-50 bg-[#143814] rounded-lg shadow-lg border border-green-900/40 p-4 flex flex-col gap-3 text-green-200 font-semibold uppercase text-xs min-w-[120px] hidden peer-checked:flex'
+          >
+            <a href='/primera' class='hover:text-green-400 transition'
+              >Primera</a
+            >
+            <a href='/septima' class='hover:text-green-400 transition'
+              >Séptima</a
+            >
+            <a href='/octava' class='hover:text-green-400 transition'>Octava</a>
+            <a href='/decima' class='hover:text-green-400 transition'>Décima</a>
+          </div>
+        </div>
       </div>
     </header>
 

@@ -1,0 +1,29 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import ClubProfile from "../../components/ClubProfile.jsx";
+import { createClient } from "@supabase/supabase-js";
+import { slugify } from "../../utils/slugify";
+
+export async function getStaticPaths() {
+  const supabase = createClient(
+    import.meta.env.PUBLIC_SUPABASE_URL,
+    import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+  );
+  const { data: clubes } = await supabase
+    .from("clubes")
+    .select("id, nombre, escudo_url");
+
+  return (clubes || []).map((club) => ({
+    params: { slug: slugify(club.nombre) },
+    props: { club },
+  }));
+}
+
+const { club } = Astro.props;
+const seoTitle = `${club.nombre} - Fixture por Categoría | Liga De Lincoln`;
+const seoDesc = `Fixture completo por categoría y estadísticas de ${club.nombre} en la Liga Amateur de Deportes de Lincoln, Buenos Aires.`;
+---
+
+<Layout title={seoTitle} description={seoDesc}>
+  <ClubProfile client:load club={club} />
+</Layout>
