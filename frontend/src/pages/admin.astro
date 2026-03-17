@@ -1,0 +1,51 @@
+---
+import Layout from "../layouts/Layout.astro";
+import AdminPartidos from "../components/AdminPartidos.jsx";
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+---
+
+<script is:inline>
+  if (!sessionStorage.getItem("admin_logged")) {
+    window.location.href = "/login";
+  }
+</script>
+
+<Layout title="Admin Partidos - Liga De Lincoln">
+  <div class="max-w-4xl mx-auto">
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="text-2xl font-bold text-green-400">
+        Administración de Partidos
+      </h1>
+      <button
+        id="logout-btn"
+        class="px-4 py-2 bg-red-700 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors"
+      >
+        Cerrar sesión
+      </button>
+    </div>
+    
+    <div id="admin-content">
+      <AdminPartidos 
+        client:only="react" 
+        supabaseUrl={supabaseUrl} 
+        supabaseKey={supabaseKey} 
+      />
+    </div>
+  </div>
+  
+  <script>
+    import { createClient } from "@supabase/supabase-js";
+    
+    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+    const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      sessionStorage.removeItem("admin_logged");
+      window.location.href = "/login";
+    });
+  </script>
+</Layout>
