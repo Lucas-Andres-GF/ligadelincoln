@@ -167,8 +167,7 @@ export default function Fixture() {
       {/* Fecha del partido */}
       {matches[0]?.dia && (
         <div className='text-center mb-3'>
-          <span className='text-green-600 text-[11px] font-medium'>
-            Dom {matches[0].dia}
+          <span className='text-green-600 text-[11px] font-medium'>            {matches[0].dia}
           </span>
         </div>
       )}
