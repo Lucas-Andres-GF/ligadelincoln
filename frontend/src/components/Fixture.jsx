@@ -214,7 +214,7 @@ export default function Fixture() {
               className='flex items-center gap-2 py-2 px-3 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors'
             >
               <span className='text-[10px] text-green-700 font-mono w-10 shrink-0 text-center'>
-                {match.hora || "15:00"}
+                {match.hora || "hh:mm"}
               </span>
               <a
                 href={`/equipo/${slugify(match.local?.nombre || "")}`}
