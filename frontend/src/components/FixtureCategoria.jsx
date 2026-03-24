@@ -41,8 +41,19 @@ function detectarFechaActual(grouped) {
   return mejor;
 }
 
+function formatearFechaMostrar(dia) {
+  if (!dia) return "";
+  if (dia.includes("/")) {
+    return dia;
+  }
+  if (dia.includes("-")) {
+    const [aa, mm, dd] = dia.split("-");
+    return `${dd}/${mm}`;
+  }
+  return dia;
+}
+
 export default function FixtureCategoria({ categoria }) {
-  // Mapeo simple de id a nombre de categoría
   const categoriaNombres = {
     1: "PRIMERA",
     2: "SEPTIMA",
@@ -52,7 +63,6 @@ export default function FixtureCategoria({ categoria }) {
   };
   const nombreCategoria =
     categoriaNombres[categoria] || `CATEGORÍA ${categoria}`;
-  // categoria debe ser id (número)
   const [allMatches, setAllMatches] = useState({});
   const [fechaActual, setFechaActual] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -167,25 +177,19 @@ export default function FixtureCategoria({ categoria }) {
           ›
         </button>
       </div>
-      {matches[0]?.dia && (
-        <div className='text-center mb-3'>
-          <span className='text-green-600 text-[11px] font-medium'>
-              {matches[0].dia}
-          </span>
-        </div>
-      )}
       <div className='space-y-2'>
         {matches.map((match, i) => {
           const isLibre = match.visitante_id === null;
-          const seJugo =
-            match.goles_local !== null && match.goles_visitante !== null;
+          const seJugo = match.estado === "jugado" || (match.goles_local !== null && match.goles_visitante !== null);
+          
           if (isLibre) {
             return (
               <div
                 key={i}
                 className='flex items-center gap-2 py-2 px-3 rounded-lg bg-green-950/20 border border-dashed border-green-900/30'
               >
-                <span className='text-[10px] text-green-700 font-mono w-10 shrink-0 text-center'></span>
+                <span className='text-[10px] text-green-700 font-mono w-16 shrink-0 text-left'>
+                </span>
                 <a
                   href={`/club/${slugify(match.local?.nombre || "")}`}
                   className='flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80'
@@ -208,67 +212,66 @@ export default function FixtureCategoria({ categoria }) {
               </div>
             );
           }
-            // Formatear la hora para mostrar solo HH:MM
-            let horaFormateada = "16:00";
-            if (match.hora) {
-            // Si viene como "16:00:00", tomar solo los primeros 5 caracteres
-            horaFormateada = match.hora.slice(0, 5);
-            }
-            return (
+
+          return (
             <div
               key={i}
               className='flex items-center gap-2 py-2 px-3 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors'
             >
-              <span className='text-[10px] text-green-700 font-mono w-10 shrink-0 text-center'>
-              {horaFormateada}
+              <span className='text-[10px] text-green-700 font-mono w-16 shrink-0 text-left'>
+                {seJugo ? (
+                  <span>
+                    {formatearFechaMostrar(match.dia) || "A DEFINIR"} <span className='font-bold text-green-400'>JUGADO</span>
+                  </span>
+                ) : (match.hora ? `${formatearFechaMostrar(match.dia) || "A DEFINIR"} - ${match.hora.slice(0, 5)}hs` : (formatearFechaMostrar(match.dia) || <span className='font-bold text-green-400'>A DEFINIR</span>))}
               </span>
               <a
-              href={`/club/${slugify(match.local?.nombre || "")}`}
-              className='flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80'
+                href={`/club/${slugify(match.local?.nombre || "")}`}
+                className='flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80'
               >
-              <span className='truncate text-green-100 font-semibold text-right'>
-                {match.local?.nombre}
-              </span>
-              {match.local?.escudo_url && (
-                <img
-                src={match.local.escudo_url}
-                alt={match.local.nombre}
-                className='w-5 h-5 object-contain shrink-0'
-                />
-              )}
+                <span className='truncate text-green-100 font-semibold text-right'>
+                  {match.local?.nombre}
+                </span>
+                {match.local?.escudo_url && (
+                  <img
+                    src={match.local.escudo_url}
+                    alt={match.local.nombre}
+                    className='w-5 h-5 object-contain shrink-0'
+                  />
+                )}
               </a>
-              <div className='flex items-center gap-1 shrink-0 px-2'>
-              {seJugo ? (
-                <>
-                <span className='font-black text-green-400 text-sm w-4 text-center'>
-                  {match.goles_local}
-                </span>
-                <span className='text-green-700'>–</span>
-                <span className='font-black text-green-400 text-sm w-4 text-center'>
-                  {match.goles_visitante}
-                </span>
-                </>
-              ) : (
-                <span className='text-green-700 font-bold text-sm'>vs</span>
-              )}
+              <div className='flex items-center gap-1 shrink-0 px-2 min-w-[50px] justify-center'>
+                {seJugo ? (
+                  <>
+                    <span className='font-black text-green-400 text-sm w-4 text-center'>
+                      {match.goles_local}
+                    </span>
+                    <span className='text-green-700'>–</span>
+                    <span className='font-black text-green-400 text-sm w-4 text-center'>
+                      {match.goles_visitante}
+                    </span>
+                  </>
+                ) : (
+                  <span className='text-green-700 font-bold text-sm'>vs</span>
+                )}
               </div>
               <a
-              href={`/club/${slugify(match.visitante?.nombre || "")}`}
-              className='flex items-center gap-1.5 flex-1 min-w-0 hover:opacity-80'
+                href={`/club/${slugify(match.visitante?.nombre || "")}`}
+                className='flex items-center gap-1.5 flex-1 min-w-0 hover:opacity-80'
               >
-              {match.visitante?.escudo_url && (
-                <img
-                src={match.visitante.escudo_url}
-                alt={match.visitante.nombre}
-                className='w-5 h-5 object-contain shrink-0'
-                />
-              )}
-              <span className='truncate text-green-100 font-semibold'>
-                {match.visitante?.nombre}
-              </span>
+                {match.visitante?.escudo_url && (
+                  <img
+                    src={match.visitante.escudo_url}
+                    alt={match.visitante.nombre}
+                    className='w-5 h-5 object-contain shrink-0'
+                  />
+                )}
+                <span className='truncate text-green-100 font-semibold'>
+                  {match.visitante?.nombre}
+                </span>
               </a>
             </div>
-            );
+          );
         })}
       </div>
     </div>
