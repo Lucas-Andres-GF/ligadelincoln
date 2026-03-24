@@ -8,11 +8,11 @@ SUPABASE_KEY = "sb_publishable_FtAEpnKNqCYoIF5sFOqaVQ_Xom0Cf37"
 # Conexión global
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Mapeo oficial verificado con tus fotos
+# Mapeo de equipos (todos los equipos posibles)
 MAPEO_CLUBES = {
     "ARGENTINO": 1, 
     "ATL. PASTEUR": 2, 
-    "ATL PASTEUR": 2, # Por si el HTML varía
+    "ATL PASTEUR": 2,
     "ATL. ROBERTS": 3,
     "ATL ROBERTS": 3,
     "CA. PINTENSE": 4, 
@@ -26,10 +26,19 @@ MAPEO_CLUBES = {
     "JUVENTUD UNIDA": 9,
     "SAN MARTIN": 10,
     "VILLA FRANCIA": 11,
-    "CAEL": 8 # Usado a veces para El Linqueño
+    "CAEL": 12,  # El Linqueño B (novena)
 }
 
-# IDs de Categorías según tu foto
+# Equipos por categoría (los que participan en cada división)
+EQUIPOS_POR_CATEGORIA = {
+    1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],  # Primera: todos
+    2: [8, 2, 4, 7, 5, 9, 1, 3],  # Séptima
+    3: [1, 7, 6, 11, 4, 10, 8, 9, 2],  # Octava (agregado ATL PASTEUR)
+    4: [1, 12, 4, 7, 8, 10],  # Novena (usa CAEL)
+    5: [8, 6, 4, 5, 2, 10, 1, 9, 7, 11, 3],  # Décima
+}
+
+# IDs de Categorías
 CATEGORIAS = {
     "primera": 1,
     "septima": 2,
