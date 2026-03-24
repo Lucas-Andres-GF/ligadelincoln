@@ -244,8 +244,7 @@ def actualizar_partidos(partidos):
             result = supabase.table("partidos").update({
                 "goles_local": p['goles_local'],
                 "goles_visitante": p['goles_visitante'],
-                "estado": "jugado",
-                "dia": p['dia']
+                "estado": "jugado"
             }).eq("categoria_id", p['categoria_id']).eq("fecha_id", p['fecha_id']).eq("local_id", p['local_id']).eq("visitante_id", p['visitante_id']).execute()
             
             if result.data:
