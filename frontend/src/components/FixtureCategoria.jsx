@@ -117,19 +117,19 @@ export default function FixtureCategoria({ categoria }) {
   }
 
   return (
-    <div className='p-4'>
-      <div className='flex items-center justify-between mb-4'>
+    <div className='p-2 md:p-4'>
+      <div className='flex items-center justify-between mb-2 md:mb-4'>
         <button
           onClick={() => setFechaActual((f) => Math.max(1, f - 1))}
           disabled={fechaActual === 1}
-          className='w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/40 text-green-400 hover:bg-green-400 hover:text-black transition-all cursor-pointer disabled:opacity-30'
+          className='w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-lg bg-green-900/40 text-green-400 hover:bg-green-400 hover:text-black transition-all cursor-pointer disabled:opacity-30 text-sm md:text-base'
         >
           ‹
         </button>
         <div className='relative'>
           <div
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className='flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-900/40 text-green-400 hover:bg-green-900/60 transition-all font-bold text-sm uppercase tracking-wide cursor-pointer'
+            className='flex items-center gap-1 px-2 py-1 md:px-3 md:py-1.5 rounded-lg bg-green-900/40 text-green-400 hover:bg-green-900/60 transition-all font-bold text-xs md:text-sm uppercase tracking-wide cursor-pointer'
           >
             Fecha {fechaActual}
             <svg
@@ -147,7 +147,7 @@ export default function FixtureCategoria({ categoria }) {
             </svg>
           </div>
           {dropdownOpen && (
-            <div className='absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-[#143814] border border-green-900/60 rounded-lg shadow-xl z-50 overflow-y-auto max-h-60'>
+            <div className='absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-[#143814] border border-green-900/60 rounded-lg shadow-xl z-50 overflow-y-auto max-h-60 min-w-[80px]'>
               {Array.from({ length: TOTAL_FECHAS }, (_, i) => i + 1).map(
                 (f) => (
                   <button
@@ -156,7 +156,7 @@ export default function FixtureCategoria({ categoria }) {
                       setFechaActual(f);
                       setDropdownOpen(false);
                     }}
-                    className={`block w-full px-6 py-1.5 text-left text-xs font-semibold whitespace-nowrap transition-colors ${
+                    className={`block w-full px-3 py-1 text-center text-xs font-semibold whitespace-nowrap transition-colors ${
                       f === fechaActual
                         ? "bg-green-400 text-black"
                         : "text-green-400 hover:bg-green-900/40"
@@ -172,7 +172,7 @@ export default function FixtureCategoria({ categoria }) {
         <button
           onClick={() => setFechaActual((f) => Math.min(TOTAL_FECHAS, f + 1))}
           disabled={fechaActual === TOTAL_FECHAS}
-          className='w-8 h-8 flex items-center justify-center rounded-lg bg-green-900/40 text-green-400 hover:bg-green-400 hover:text-black transition-all cursor-pointer disabled:opacity-30'
+          className='w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-lg bg-green-900/40 text-green-400 hover:bg-green-400 hover:text-black transition-all cursor-pointer disabled:opacity-30 text-sm md:text-base'
         >
           ›
         </button>
@@ -186,27 +186,27 @@ export default function FixtureCategoria({ categoria }) {
             return (
               <div
                 key={i}
-                className='flex items-center gap-2 py-2 px-3 rounded-lg bg-green-950/20 border border-dashed border-green-900/30'
+                className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/20 border border-dashed border-green-900/30 text-xs'
               >
-                <span className='text-[10px] text-green-700 font-mono w-16 shrink-0 text-left'>
+                <span className='text-[9px] text-green-700 font-mono w-12 shrink-0 text-left'>
                 </span>
                 <a
                   href={`/club/${slugify(match.local?.nombre || "")}`}
-                  className='flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80'
+                  className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
                 >
                   {match.local?.escudo_url && (
                     <img
                       src={match.local.escudo_url}
                       alt={match.local.nombre}
-                      className='w-5 h-5 object-contain'
+                      className='w-4 h-4 object-contain'
                     />
                   )}
-                  <span className='truncate text-green-100 font-semibold text-right'>
+                  <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
                     {match.local?.nombre}
                   </span>
                 </a>
-                <span className='text-green-700 font-bold text-sm '></span>
-                <span className='flex-1 text-left text-green-400 font-bold uppercase '>
+                <span className='text-green-700 font-bold text-[10px] '></span>
+                <span className='flex-1 text-left text-green-400 font-bold uppercase text-[10px]'>
                   LIBRE
                 </span>
               </div>
@@ -216,57 +216,61 @@ export default function FixtureCategoria({ categoria }) {
           return (
             <div
               key={i}
-              className='flex items-center gap-2 py-2 px-3 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors'
+              className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors text-xs'
             >
-              <span className='text-[10px] text-green-700 font-mono w-16 shrink-0 text-left'>
+              <span className='text-[9px] text-green-700 font-mono w-12 shrink-0 text-left'>
                 {seJugo ? (
                   <span>
-                    {formatearFechaMostrar(match.dia) || "A DEFINIR"} <span className='font-bold text-green-400'>JUGADO</span>
+                    {formatearFechaMostrar(match.dia) ? (
+                      <span>{formatearFechaMostrar(match.dia)} <span className='font-bold text-green-400'>JUGADO</span></span>
+                    ) : (
+                      <span className='font-bold text-green-400'>JUGADO</span>
+                    )}
                   </span>
-                ) : (match.hora ? `${formatearFechaMostrar(match.dia) || "A DEFINIR"} - ${match.hora.slice(0, 5)}hs` : (formatearFechaMostrar(match.dia) || <span className='font-bold text-green-400'>A DEFINIR</span>))}
+                ) : (match.hora ? `${formatearFechaMostrar(match.dia) || "A DEF"} - ${match.hora.slice(0, 5)}hs` : (formatearFechaMostrar(match.dia) || <span className='font-bold text-green-400'>A DEF</span>))}
               </span>
               <a
                 href={`/club/${slugify(match.local?.nombre || "")}`}
-                className='flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80'
+                className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
               >
-                <span className='truncate text-green-100 font-semibold text-right'>
+                <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
                   {match.local?.nombre}
                 </span>
                 {match.local?.escudo_url && (
                   <img
                     src={match.local.escudo_url}
                     alt={match.local.nombre}
-                    className='w-5 h-5 object-contain shrink-0'
+                    className='w-4 h-4 object-contain shrink-0'
                   />
                 )}
               </a>
-              <div className='flex items-center gap-1 shrink-0 px-2 min-w-[50px] justify-center'>
+              <div className='flex items-center gap-1 shrink-0 px-1 min-w-[40px] justify-center'>
                 {seJugo ? (
                   <>
-                    <span className='font-black text-green-400 text-sm w-4 text-center'>
+                    <span className='font-black text-green-400 text-xs w-3 text-center'>
                       {match.goles_local}
                     </span>
                     <span className='text-green-700'>–</span>
-                    <span className='font-black text-green-400 text-sm w-4 text-center'>
+                    <span className='font-black text-green-400 text-xs w-3 text-center'>
                       {match.goles_visitante}
                     </span>
                   </>
                 ) : (
-                  <span className='text-green-700 font-bold text-sm'>vs</span>
+                  <span className='text-green-700 font-bold text-[10px]'>vs</span>
                 )}
               </div>
               <a
                 href={`/club/${slugify(match.visitante?.nombre || "")}`}
-                className='flex items-center gap-1.5 flex-1 min-w-0 hover:opacity-80'
+                className='flex items-center gap-1 flex-1 min-w-0 hover:opacity-80'
               >
                 {match.visitante?.escudo_url && (
                   <img
                     src={match.visitante.escudo_url}
                     alt={match.visitante.nombre}
-                    className='w-5 h-5 object-contain shrink-0'
+                    className='w-4 h-4 object-contain shrink-0'
                   />
                 )}
-                <span className='truncate text-green-100 font-semibold'>
+                <span className='truncate text-green-100 font-semibold text-[10px]'>
                   {match.visitante?.nombre}
                 </span>
               </a>

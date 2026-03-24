@@ -10,8 +10,19 @@ const CATEGORIAS = [
   { id: 1, nombre: "Primera" },
   { id: 2, nombre: "Séptima" },
   { id: 3, nombre: "Octava" },
+  { id: 4, nombre: "Novena" },
   { id: 5, nombre: "Décima" },
 ];
+
+function formatearFecha(dia) {
+  if (!dia) return "";
+  if (dia.includes("/")) return dia;
+  if (dia.includes("-")) {
+    const [aa, mm, dd] = dia.split("-");
+    return `${dd}/${mm}`;
+  }
+  return dia;
+}
 
 export default function ClubProfile({ club }) {
   const [categoriaId, setCategoriaId] = useState(CATEGORIAS[0].id);
@@ -137,7 +148,7 @@ export default function ClubProfile({ club }) {
                     <div>Fecha {match.fecha_id}</div>
                     {match.dia && (
                       <div className='text-green-800 font-normal'>
-                        {match.dia}
+                        {formatearFecha(match.dia)}
                       </div>
                     )}
                   </div>
