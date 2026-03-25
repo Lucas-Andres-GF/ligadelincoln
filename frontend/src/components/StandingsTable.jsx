@@ -50,8 +50,9 @@ export default function StandingsTable({
     );
 
   return (
-    <div className='w-full overflow-x-auto text-xs'>
-      <table className='w-full border-collapse min-w-[500px]'>
+    <div className='relative'>
+      <div className='w-full overflow-x-auto text-xs'>
+        <table className='w-full border-collapse min-w-[500px]'>
         <thead>
           <tr className='text-green-500/50 border-b border-green-900/30 uppercase italic'>
             <th className='py-1 text-left px-1'>Club</th>
@@ -74,7 +75,7 @@ export default function StandingsTable({
             >
               <td className='py-2 px-1 font-bold text-green-100'>
                 <a
-                  href={`/club/${slugify(row.clubes?.nombre || "")}`}
+                  href={`/club/${slugify(row.clubes?.nombre || "")}?categoria=${categoriaId}`}
                   className='flex items-center gap-1 hover:opacity-80 transition-opacity'
                 >
                   <span className='text-[9px] text-green-700 w-3'>
@@ -144,6 +145,12 @@ export default function StandingsTable({
           ))}
         </tbody>
       </table>
+      </div>
+      <div className='pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0f2d0f] to-transparent md:hidden flex items-center justify-end pr-2'>
+        <svg className='w-4 h-4 text-green-600 animate-pulse' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
+        </svg>
+      </div>
     </div>
   );
 }
