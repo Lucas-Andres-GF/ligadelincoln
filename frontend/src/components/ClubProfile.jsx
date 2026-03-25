@@ -14,6 +14,17 @@ const CATEGORIAS = [
   { id: 5, nombre: "Décima" },
 ];
 
+function getInitialCategoriaId() {
+  if (typeof window === 'undefined') return CATEGORIAS[0].id;
+  const params = new URLSearchParams(window.location.search);
+  const categoria = params.get("categoria");
+  const parsed = parseInt(categoria, 10);
+  if (parsed >= 1 && parsed <= 5) {
+    return parsed;
+  }
+  return CATEGORIAS[0].id;
+}
+
 function formatearFecha(dia) {
   if (!dia) return "";
   if (dia.includes("/")) return dia;
@@ -25,7 +36,7 @@ function formatearFecha(dia) {
 }
 
 export default function ClubProfile({ club }) {
-  const [categoriaId, setCategoriaId] = useState(CATEGORIAS[0].id);
+  const [categoriaId, setCategoriaId] = useState(getInitialCategoriaId);
   const [fixture, setFixture] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 

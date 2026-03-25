@@ -192,7 +192,7 @@ export default function FixtureCategoria({ categoria }) {
               >
                 <span className='text-[9px] text-green-700 font-mono w-12 shrink-0 text-left'></span>
                 <a
-                  href={`/club/${slugify(match.local?.nombre || '')}`}
+                  href={`/club/${slugify(match.local?.nombre || '')}?categoria=${categoria}`}
                   className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
                 >
                   {match.local?.escudo_url && (
@@ -272,7 +272,7 @@ export default function FixtureCategoria({ categoria }) {
                 )}
               </div>
               <a
-                href={`/club/${slugify(match.visitante?.nombre || '')}`}
+                href={`/club/${slugify(match.visitante?.nombre || '')}?categoria=${categoria}`}
                 className='flex items-center gap-1 flex-1 min-w-0 hover:opacity-80'
               >
                 {match.visitante?.escudo_url && (
