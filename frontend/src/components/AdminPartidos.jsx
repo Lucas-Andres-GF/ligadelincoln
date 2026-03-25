@@ -12,6 +12,16 @@ const CATEGORIAS = [
 
 const TOTAL_FECHAS = 11;
 
+function formatearFecha(dia) {
+  if (!dia) return "";
+  if (dia.includes("/")) return dia;
+  if (dia.includes("-")) {
+    const [aa, mm, dd] = dia.split("-");
+    return `${dd}/${mm}`;
+  }
+  return dia;
+}
+
 function detectarFechaActual(grouped) {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
@@ -123,8 +133,8 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
       arbitro: partido.arbitro,
       cancha: partido.cancha,
       estado: partido.estado,
-      goles_local: partido.goles_local === "" ? null : Number(partido.goles_local),
-      goles_visitante: partido.goles_visitante === "" ? null : Number(partido.goles_visitante),
+      goles_local: partido.goles_local === "" || partido.goles_local === null ? null : Number(partido.goles_local),
+      goles_visitante: partido.goles_visitante === "" || partido.goles_visitante === null ? null : Number(partido.goles_visitante),
     };
 
     const { error } = await supabase
@@ -256,15 +266,6 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
         </div>
       </div>
 
-      {/* Fecha del partido */}
-      {matches[0]?.dia && (
-        <div className="text-center mb-3">
-          <span className="text-green-600 text-[11px] font-medium">
-            {matches[0].dia}
-          </span>
-        </div>
-      )}
-
       {loading ? (
         <p className="text-green-400 animate-pulse text-center py-8">Cargando...</p>
       ) : error ? (
@@ -276,8 +277,7 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
         <div className="space-y-2">
           {matches.map((match, i) => {
             const isLibre = match.visitante_id === null;
-            const seJugo =
-              match.goles_local !== null && match.goles_visitante !== null;
+            const seJugo = match.estado === "jugado" || (match.goles_local !== null && match.goles_visitante !== null);
 
             if (isLibre) {
               return (
@@ -314,8 +314,16 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
                 key={i}
                 className="flex items-center gap-2 py-2 px-3 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors"
               >
-                <span className="text-[10px] text-green-700 font-mono w-10 shrink-0 text-center">
-                  {match.hora || "hh:mm"}
+                <span className="text-[10px] text-green-700 font-mono w-16 shrink-0 text-left">
+                  {seJugo ? (
+                    <span>
+                      {formatearFecha(match.dia) ? (
+                        <span>{formatearFecha(match.dia)} <span className="font-bold text-green-400">JUGADO</span></span>
+                      ) : (
+                        <span className="font-bold text-green-400">JUGADO</span>
+                      )}
+                    </span>
+                  ) : (match.hora ? `${formatearFecha(match.dia) || "A DEFINIR"} - ${match.hora.slice(0, 5)}hs` : (formatearFecha(match.dia) || <span className="font-bold text-green-400">A DEFINIR</span>))}
                 </span>
                 <a
                   href={`/equipo/${slugify(match.local?.nombre || "")}`}

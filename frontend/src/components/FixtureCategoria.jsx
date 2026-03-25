@@ -1,77 +1,77 @@
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { slugify } from "../utils/slugify";
+import { useEffect, useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import { slugify } from '../utils/slugify'
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+const supabase = createClient(supabaseUrl, supabaseKey)
 
-const TOTAL_FECHAS = 11;
+const TOTAL_FECHAS = 11
 
 function detectarFechaActual(grouped) {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const anio = hoy.getFullYear();
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const anio = hoy.getFullYear()
 
-  let mejor = null;
-  let menorDiff = Infinity;
+  let mejor = null
+  let menorDiff = Infinity
   let fechas = Object.keys(grouped)
     .map(Number)
-    .sort((a, b) => a - b);
+    .sort((a, b) => a - b)
 
   for (const fechaNum of fechas) {
-    const dia = grouped[fechaNum][0]?.dia;
-    if (!dia) continue;
-    let fechaPartido;
-    if (dia.includes("/")) {
-      const [dd, mm] = dia.split("/").map(Number);
-      fechaPartido = new Date(anio, mm - 1, dd);
+    const dia = grouped[fechaNum][0]?.dia
+    if (!dia) continue
+    let fechaPartido
+    if (dia.includes('/')) {
+      const [dd, mm] = dia.split('/').map(Number)
+      fechaPartido = new Date(anio, mm - 1, dd)
     } else {
-      fechaPartido = new Date(dia);
+      fechaPartido = new Date(dia)
     }
-    const diff = fechaPartido - hoy;
+    const diff = fechaPartido - hoy
     if (diff >= 0 && diff < menorDiff) {
-      menorDiff = diff;
-      mejor = Number(fechaNum);
+      menorDiff = diff
+      mejor = Number(fechaNum)
     }
   }
   if (mejor === null) {
-    mejor = Math.min(...fechas);
+    mejor = Math.min(...fechas)
   }
-  return mejor;
+  return mejor
 }
 
 function formatearFechaMostrar(dia) {
-  if (!dia) return "";
-  if (dia.includes("/")) {
-    return dia;
+  if (!dia) return ''
+  if (dia.includes('/')) {
+    return dia
   }
-  if (dia.includes("-")) {
-    const [aa, mm, dd] = dia.split("-");
-    return `${dd}/${mm}`;
+  if (dia.includes('-')) {
+    const [aa, mm, dd] = dia.split('-')
+    return `${dd}/${mm}`
   }
-  return dia;
+  return dia
 }
 
 export default function FixtureCategoria({ categoria }) {
   const categoriaNombres = {
-    1: "PRIMERA",
-    2: "SEPTIMA",
-    3: "OCTAVA",
-    4: "NOVENA",
-    5: "DECIMA",
-  };
+    1: 'PRIMERA',
+    2: 'SEPTIMA',
+    3: 'OCTAVA',
+    4: 'NOVENA',
+    5: 'DECIMA',
+  }
   const nombreCategoria =
-    categoriaNombres[categoria] || `CATEGORÍA ${categoria}`;
-  const [allMatches, setAllMatches] = useState({});
-  const [fechaActual, setFechaActual] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+    categoriaNombres[categoria] || `CATEGORÍA ${categoria}`
+  const [allMatches, setAllMatches] = useState({})
+  const [fechaActual, setFechaActual] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   useEffect(() => {
     async function fetchFixture() {
       const { data, error } = await supabase
-        .from("partidos")
+        .from('partidos')
         .select(
           `
           fecha_id,
@@ -86,34 +86,34 @@ export default function FixtureCategoria({ categoria }) {
           visitante:visitante_id ( nombre, escudo_url )
         `,
         )
-        .order("fecha_id")
-        .order("id")
-        .eq("categoria_id", categoria);
+        .order('fecha_id')
+        .order('id')
+        .eq('categoria_id', categoria)
 
       if (error) {
-        console.error("Error fetching partidos:", error);
+        console.error('Error fetching partidos:', error)
       } else {
-        const grouped = {};
+        const grouped = {}
         for (const m of data) {
-          if (!grouped[m.fecha_id]) grouped[m.fecha_id] = [];
-          grouped[m.fecha_id].push(m);
+          if (!grouped[m.fecha_id]) grouped[m.fecha_id] = []
+          grouped[m.fecha_id].push(m)
         }
-        setAllMatches(grouped);
-        setFechaActual(detectarFechaActual(grouped));
+        setAllMatches(grouped)
+        setFechaActual(detectarFechaActual(grouped))
       }
-      setIsLoading(false);
+      setIsLoading(false)
     }
-    fetchFixture();
-  }, [categoria]);
+    fetchFixture()
+  }, [categoria])
 
-  const matches = allMatches[fechaActual] || [];
+  const matches = allMatches[fechaActual] || []
 
   if (isLoading) {
     return (
       <div className='text-center py-8 text-green-700 animate-pulse text-xs uppercase tracking-widest'>
         Cargando...
       </div>
-    );
+    )
   }
 
   return (
@@ -133,7 +133,7 @@ export default function FixtureCategoria({ categoria }) {
           >
             Fecha {fechaActual}
             <svg
-              className={`w-3 h-3 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+              className={`w-3 h-3 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
               fill='none'
               viewBox='0 0 24 24'
               stroke='currentColor'
@@ -153,13 +153,13 @@ export default function FixtureCategoria({ categoria }) {
                   <button
                     key={f}
                     onClick={() => {
-                      setFechaActual(f);
-                      setDropdownOpen(false);
+                      setFechaActual(f)
+                      setDropdownOpen(false)
                     }}
                     className={`block w-full px-3 py-1 text-center text-xs font-semibold whitespace-nowrap transition-colors ${
                       f === fechaActual
-                        ? "bg-green-400 text-black"
-                        : "text-green-400 hover:bg-green-900/40"
+                        ? 'bg-green-400 text-black'
+                        : 'text-green-400 hover:bg-green-900/40'
                     }`}
                   >
                     Fecha {f}
@@ -179,19 +179,20 @@ export default function FixtureCategoria({ categoria }) {
       </div>
       <div className='space-y-2'>
         {matches.map((match, i) => {
-          const isLibre = match.visitante_id === null;
-          const seJugo = match.estado === "jugado" || (match.goles_local !== null && match.goles_visitante !== null);
-          
+          const isLibre = match.visitante_id === null
+          const seJugo =
+            match.estado === 'jugado' ||
+            (match.goles_local !== null && match.goles_visitante !== null)
+
           if (isLibre) {
             return (
               <div
                 key={i}
                 className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/20 border border-dashed border-green-900/30 text-xs'
               >
-                <span className='text-[9px] text-green-700 font-mono w-12 shrink-0 text-left'>
-                </span>
+                <span className='text-[9px] text-green-700 font-mono w-12 shrink-0 text-left'></span>
                 <a
-                  href={`/club/${slugify(match.local?.nombre || "")}`}
+                  href={`/club/${slugify(match.local?.nombre || '')}`}
                   className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
                 >
                   {match.local?.escudo_url && (
@@ -210,7 +211,7 @@ export default function FixtureCategoria({ categoria }) {
                   LIBRE
                 </span>
               </div>
-            );
+            )
           }
 
           return (
@@ -222,15 +223,24 @@ export default function FixtureCategoria({ categoria }) {
                 {seJugo ? (
                   <span>
                     {formatearFechaMostrar(match.dia) ? (
-                      <span>{formatearFechaMostrar(match.dia)} <span className='font-bold text-green-400'>JUGADO</span></span>
+                      <span>
+                        {formatearFechaMostrar(match.dia)}{' '}
+                        <span className='font-bold text-green-400'>JUGADO</span>
+                      </span>
                     ) : (
                       <span className='font-bold text-green-400'>JUGADO</span>
                     )}
                   </span>
-                ) : (match.hora ? `${formatearFechaMostrar(match.dia) || "A DEF"} - ${match.hora.slice(0, 5)}hs` : (formatearFechaMostrar(match.dia) || <span className='font-bold text-green-400'>A DEF</span>))}
+                ) : match.hora ? (
+                  `${formatearFechaMostrar(match.dia) || 'A DEFINIR'} - ${match.hora.slice(0, 5)}hs`
+                ) : (
+                  formatearFechaMostrar(match.dia) || (
+                    <span className='font-bold text-green-400'>A DEFINIR</span>
+                  )
+                )}
               </span>
               <a
-                href={`/club/${slugify(match.local?.nombre || "")}`}
+                href={`/club/${slugify(match.local?.nombre || '')}`}
                 className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
               >
                 <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
@@ -256,11 +266,13 @@ export default function FixtureCategoria({ categoria }) {
                     </span>
                   </>
                 ) : (
-                  <span className='text-green-700 font-bold text-[10px]'>vs</span>
+                  <span className='text-green-700 font-bold text-[10px]'>
+                    vs
+                  </span>
                 )}
               </div>
               <a
-                href={`/club/${slugify(match.visitante?.nombre || "")}`}
+                href={`/club/${slugify(match.visitante?.nombre || '')}`}
                 className='flex items-center gap-1 flex-1 min-w-0 hover:opacity-80'
               >
                 {match.visitante?.escudo_url && (
@@ -275,9 +287,9 @@ export default function FixtureCategoria({ categoria }) {
                 </span>
               </a>
             </div>
-          );
+          )
         })}
       </div>
     </div>
-  );
+  )
 }
