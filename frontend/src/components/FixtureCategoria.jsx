@@ -27,7 +27,7 @@ function formatearFechaMostrar(dia) {
     return dia
   }
   if (dia.includes('-')) {
-    const [aa, dd, mm] = dia.split('-')
+    const [aa, mm, dd] = dia.split('-')
     return `${dd}/${mm}`
   }
   return dia
