@@ -12,6 +12,28 @@ const CATEGORIAS = [
 
 const TOTAL_FECHAS = 11;
 
+function parseDate(dia) {
+  if (!dia) return null;
+  const anio = new Date().getFullYear();
+  if (dia.includes("/")) {
+    const parts = dia.split("/");
+    if (parts.length === 3) {
+      const [dd, mm, aa] = parts;
+      return new Date(aa.includes("20") ? anio : `20${aa}`, parseInt(mm) - 1, parseInt(dd));
+    }
+    const [dd, mm] = parts.map(Number);
+    if (dd > 12) {
+      return new Date(anio, parseInt(mm) - 1, dd);
+    }
+    return new Date(anio, dd - 1, parseInt(mm));
+  }
+  if (dia.includes("-")) {
+    const [aa, mm, dd] = dia.split("-");
+    return new Date(aa.includes("20") ? anio : `20${aa}`, parseInt(mm) - 1, parseInt(dd));
+  }
+  return null;
+}
+
 function formatearFecha(dia) {
   if (!dia) return "";
   if (dia.includes("/")) return dia;
@@ -108,6 +130,29 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
           if (!grouped[m.fecha_id]) grouped[m.fecha_id] = [];
           grouped[m.fecha_id].push(m);
         }
+        
+        // Ordenar cada fecha por dia y hora
+        for (const fecha of Object.keys(grouped)) {
+          grouped[fecha].sort((a, b) => {
+            // LIBRE siempre al final
+            if (a.visitante_id === null && b.visitante_id !== null) return 1;
+            if (b.visitante_id === null && a.visitante_id !== null) return -1;
+            
+            const fechaA = parseDate(a.dia);
+            const fechaB = parseDate(b.dia);
+            if (fechaA && fechaB) {
+              if (fechaA.getTime() !== fechaB.getTime()) {
+                return fechaA - fechaB;
+              }
+            } else if (fechaA) return -1;
+            else if (fechaB) return 1;
+            
+            const horaA = a.hora || "";
+            const horaB = b.hora || "";
+            return horaA.localeCompare(horaB);
+          });
+        }
+        
         setAllMatches(grouped);
         setFechaActual(detectarFechaActual(grouped));
         setError(null);
@@ -129,7 +174,7 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
     
     const updates = {
       dia: partido.dia,
-      hora: partido.hora,
+      hora: partido.hora === "" || partido.hora === null ? null : partido.hora,
       arbitro: partido.arbitro,
       cancha: partido.cancha,
       estado: partido.estado,
@@ -422,11 +467,10 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
                   Hora
                 </label>
                 <input
-                  type="text"
+                  type="time"
                   value={getEditing(partidoEditando.id)?.hora || partidoEditando.hora || ""}
                   onChange={(e) => handleChange("hora", e.target.value)}
                   className="w-full px-3 py-2 bg-green-950/50 border border-green-800 rounded text-white"
-                  placeholder="hh:mm"
                 />
               </div>
               <div>

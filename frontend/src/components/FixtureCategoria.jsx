@@ -8,6 +8,28 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 const TOTAL_FECHAS = 11
 
+function parseDate(dia) {
+  if (!dia) return null
+  const anio = new Date().getFullYear()
+  if (dia.includes('/')) {
+    const parts = dia.split('/')
+    if (parts.length === 3) {
+      const [dd, mm, aa] = parts
+      return new Date(aa.includes('20') ? anio : `20${aa}`, parseInt(mm) - 1, parseInt(dd))
+    }
+    const [dd, mm] = parts.map(Number)
+    if (dd > 12) {
+      return new Date(anio, parseInt(mm) - 1, dd)
+    }
+    return new Date(anio, dd - 1, parseInt(mm))
+  }
+  if (dia.includes('-')) {
+    const [aa, mm, dd] = dia.split('-')
+    return new Date(aa.includes('20') ? anio : `20${aa}`, parseInt(mm) - 1, parseInt(dd))
+  }
+  return null
+}
+
 function detectarFechaActual(grouped) {
   const hoy = new Date()
   const diaSemana = hoy.getDay()
@@ -86,6 +108,30 @@ export default function FixtureCategoria({ categoria }) {
           if (!grouped[m.fecha_id]) grouped[m.fecha_id] = []
           grouped[m.fecha_id].push(m)
         }
+        
+        // Ordenar cada fecha por dia y hora
+        for (const fecha of Object.keys(grouped)) {
+          grouped[fecha].sort((a, b) => {
+            // LIBRE siempre al final
+            if (a.visitante_id === null && b.visitante_id !== null) return 1
+            if (b.visitante_id === null && a.visitante_id !== null) return -1
+            
+            const fechaA = parseDate(a.dia)
+            const fechaB = parseDate(b.dia)
+            if (fechaA && fechaB) {
+              if (fechaA.getTime() !== fechaB.getTime()) {
+                return fechaA - fechaB
+              }
+            } else if (fechaA) return -1
+            else if (fechaB) return 1
+            
+            // Si son el mismo día, ordenar por hora
+            const horaA = a.hora || ''
+            const horaB = b.hora || ''
+            return horaA.localeCompare(horaB)
+          })
+        }
+        
         setAllMatches(grouped)
         setFechaActual(detectarFechaActual(grouped))
       }
@@ -178,7 +224,7 @@ export default function FixtureCategoria({ categoria }) {
                 key={i}
                 className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/20 border border-dashed border-green-900/30 text-xs'
               >
-                <span className='text-[9px] text-green-700 font-mono w-12 shrink-0 text-left'></span>
+                <span className='text-[10px] text-green-500 font-bold w-12 shrink-0 text-left'></span>
                 <a
                   href={`/club/${slugify(match.local?.nombre || '')}?categoria=${categoria}`}
                   className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
@@ -207,7 +253,7 @@ export default function FixtureCategoria({ categoria }) {
               key={i}
               className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors text-xs'
             >
-              <span className='text-[9px] text-green-700 font-mono w-12 shrink-0 text-left'>
+              <span className='text-[10px] text-green-500 font-bold w-12 shrink-0 text-left'>
                 {seJugo ? (
                   <span>
                     {formatearFechaMostrar(match.dia) ? (

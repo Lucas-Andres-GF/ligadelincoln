@@ -8,6 +8,28 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const TOTAL_FECHAS = 11;
 
+function parseDate(dia) {
+  if (!dia) return null;
+  const anio = new Date().getFullYear();
+  if (dia.includes("/")) {
+    const parts = dia.split("/");
+    if (parts.length === 3) {
+      const [dd, mm, aa] = parts;
+      return new Date(aa.includes("20") ? anio : `20${aa}`, parseInt(mm) - 1, parseInt(dd));
+    }
+    const [dd, mm] = parts.map(Number);
+    if (dd > 12) {
+      return new Date(anio, parseInt(mm) - 1, dd);
+    }
+    return new Date(anio, dd - 1, parseInt(mm));
+  }
+  if (dia.includes("-")) {
+    const [aa, mm, dd] = dia.split("-");
+    return new Date(aa.includes("20") ? anio : `20${aa}`, parseInt(mm) - 1, parseInt(dd));
+  }
+  return null;
+}
+
 function detectarFechaActual(grouped) {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
@@ -80,6 +102,29 @@ export default function Fixture() {
           if (!grouped[m.fecha_id]) grouped[m.fecha_id] = [];
           grouped[m.fecha_id].push(m);
         }
+        
+        // Ordenar cada fecha por dia y hora
+        for (const fecha of Object.keys(grouped)) {
+          grouped[fecha].sort((a, b) => {
+            // LIBRE siempre al final
+            if (a.visitante_id === null && b.visitante_id !== null) return 1;
+            if (b.visitante_id === null && a.visitante_id !== null) return -1;
+            
+            const fechaA = parseDate(a.dia);
+            const fechaB = parseDate(b.dia);
+            if (fechaA && fechaB) {
+              if (fechaA.getTime() !== fechaB.getTime()) {
+                return fechaA - fechaB;
+              }
+            } else if (fechaA) return -1;
+            else if (fechaB) return 1;
+            
+            const horaA = a.hora || "";
+            const horaB = b.hora || "";
+            return horaA.localeCompare(horaB);
+          });
+        }
+        
         setAllMatches(grouped);
         setFechaActual(detectarFechaActual(grouped));
       }
