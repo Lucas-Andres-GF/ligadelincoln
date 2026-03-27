@@ -24,6 +24,14 @@ function detectarFechaActual(grouped) {
 function formatearFechaMostrar(dia) {
   if (!dia) return ''
   if (dia.includes('/')) {
+    const parts = dia.split('/')
+    if (parts.length === 3) {
+      const [dd, mm, aa] = parts
+      if (parseInt(dd) > 12) {
+        return `${dd}/${mm}`
+      }
+      return `${mm}/${dd}`
+    }
     return dia
   }
   if (dia.includes('-')) {
