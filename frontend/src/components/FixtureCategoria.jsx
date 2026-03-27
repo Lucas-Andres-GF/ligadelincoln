@@ -10,35 +10,15 @@ const TOTAL_FECHAS = 11
 
 function detectarFechaActual(grouped) {
   const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
-  const anio = hoy.getFullYear()
-
-  let mejor = null
-  let menorDiff = Infinity
-  let fechas = Object.keys(grouped)
-    .map(Number)
-    .sort((a, b) => a - b)
-
-  for (const fechaNum of fechas) {
-    const dia = grouped[fechaNum][0]?.dia
-    if (!dia) continue
-    let fechaPartido
-    if (dia.includes('/')) {
-      const [dd, mm] = dia.split('/').map(Number)
-      fechaPartido = new Date(anio, mm - 1, dd)
-    } else {
-      fechaPartido = new Date(dia)
-    }
-    const diff = fechaPartido - hoy
-    if (diff >= 0 && diff < menorDiff) {
-      menorDiff = diff
-      mejor = Number(fechaNum)
-    }
+  const diaSemana = hoy.getDay()
+  
+  // Desde el miércoles (día 3), mostrar fecha 2
+  if (diaSemana >= 3) {
+    return 2
   }
-  if (mejor === null) {
-    mejor = Math.min(...fechas)
-  }
-  return mejor
+  
+  // Antes del miércoles, mostrar fecha 1
+  return 1
 }
 
 function formatearFechaMostrar(dia) {
