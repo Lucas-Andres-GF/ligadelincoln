@@ -79,7 +79,7 @@ const currentPath = Astro.url.pathname;
 
   <body class="bg-[#0f2d0f] min-h-screen font-[Inter,sans-serif] text-white">
     <!-- Header -->
-    <header class="bg-[#143814] border-b border-green-900/50 sticky top-0 z-50">
+    <header class="bg-[#143814] border-b border-green-900/50 sticky top-0 z-[60]">
       <div
         class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4"
       >
@@ -195,12 +195,12 @@ const currentPath = Astro.url.pathname;
           <!-- Overlay (tocar para cerrar) -->
           <label
             for="menu-toggle"
-            class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 cursor-default hidden peer-checked:block"
+            class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] cursor-default hidden peer-checked:block"
           ></label>
 
           <!-- Menu Mobile -->
           <div
-            class="absolute right-0 top-14 z-50 bg-[#143814] rounded-xl shadow-2xl border border-green-900/40 p-2 w-56 hidden peer-checked:flex flex-col animate-in slide-in-from-top-2 fade-in duration-200"
+            class="absolute right-0 top-14 z-[80] bg-[#143814] rounded-xl shadow-2xl border border-green-900/40 p-2 w-56 hidden peer-checked:flex flex-col animate-in slide-in-from-top-2 fade-in duration-200"
           >
             <div
               class="flex items-center justify-between px-3 py-2 border-b border-green-900/30 mb-2"
