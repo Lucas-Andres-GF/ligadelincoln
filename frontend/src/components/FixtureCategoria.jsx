@@ -151,7 +151,7 @@ export default function FixtureCategoria({ categoria }) {
   }
 
   return (
-    <div className='p-2 md:p-4'>
+    <div className='p-2 md:p-4 pb-16'>
       <div className='flex items-center justify-between mb-2 md:mb-4'>
         <button
           onClick={() => setFechaActual((f) => Math.max(1, f - 1))}
@@ -181,7 +181,12 @@ export default function FixtureCategoria({ categoria }) {
             </svg>
           </div>
           {dropdownOpen && (
-            <div className='absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-[#143814] border border-green-900/60 rounded-lg shadow-xl z-50 overflow-y-auto max-h-60 min-w-[80px]'>
+            <>
+              <div 
+                className='fixed inset-0 z-[99]' 
+                onClick={() => setDropdownOpen(false)}
+              />
+              <div className='absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-[#143814] border border-green-900/60 rounded-lg shadow-2xl z-[100] overflow-y-auto max-h-60 min-w-[80px]'>
               {Array.from({ length: TOTAL_FECHAS }, (_, i) => i + 1).map(
                 (f) => (
                   <button
@@ -201,6 +206,7 @@ export default function FixtureCategoria({ categoria }) {
                 ),
               )}
             </div>
+            </>
           )}
         </div>
         <button
