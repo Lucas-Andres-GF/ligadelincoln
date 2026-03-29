@@ -32,15 +32,34 @@ function parseDate(dia) {
 
 function detectarFechaActual(grouped) {
   const hoy = new Date()
-  const diaSemana = hoy.getDay()
+  hoy.setHours(0, 0, 0, 0)
+  const anio = hoy.getFullYear()
   
-  // Desde el miércoles (día 3), mostrar fecha 2
-  if (diaSemana >= 3) {
-    return 2
+  // Buscar la fecha mas cercana con partidos
+  let mejor = 1
+  let menorDiff = Infinity
+  
+  const fechas = Object.keys(grouped)
+    .map(Number)
+    .sort((a, b) => a - b)
+
+  for (const fechaNum of fechas) {
+    const partido = grouped[fechaNum][0]
+    if (!partido?.dia) continue
+    
+    const fechaPartido = parseDate(partido.dia)
+    if (!fechaPartido) continue
+    
+    const diff = fechaPartido.getTime() - hoy.getTime()
+    
+    // Priorizar la fecha actual o la proxima
+    if (diff >= 0 && diff < menorDiff) {
+      menorDiff = diff
+      mejor = fechaNum
+    }
   }
   
-  // Antes del miércoles, mostrar fecha 1
-  return 1
+  return mejor
 }
 
 function formatearFechaMostrar(dia) {
