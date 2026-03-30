@@ -3,6 +3,10 @@ name: Scraper Partidos
 on:
   schedule:
     - cron: '*/30 14-21 * * 6,0'  # Cada 30 min, 14-21hs, sábados y domingos
+    - cron: '0 21 2 4 *'  # 2 de abril 2026 a las 21:00
+    - cron: '0 0 3 4 *'   # 3 de abril 2026 a las 00:00
+    - cron: '0 1 3 4 *'   # 3 de abril 2026 a las 01:00
+    - cron: '0 2 3 4 *'   # 3 de abril 2026 a las 02:00
   workflow_dispatch:
     inputs:
       skip:
