@@ -35,9 +35,10 @@ function detectarFechaActual(grouped) {
   hoy.setHours(0, 0, 0, 0)
   const anio = hoy.getFullYear()
   
-  // Buscar la fecha mas cercana con partidos
   let mejor = 1
   let menorDiff = Infinity
+  let mejorPasado = 1
+  let mayorDiffMenorCero = -Infinity
   
   const fechas = Object.keys(grouped)
     .map(Number)
@@ -52,14 +53,18 @@ function detectarFechaActual(grouped) {
     
     const diff = fechaPartido.getTime() - hoy.getTime()
     
-    // Priorizar la fecha actual o la proxima
     if (diff >= 0 && diff < menorDiff) {
       menorDiff = diff
       mejor = fechaNum
     }
+    
+    if (diff < 0 && diff > mayorDiffMenorCero) {
+      mayorDiffMenorCero = diff
+      mejorPasado = fechaNum
+    }
   }
   
-  return mejor
+  return menorDiff !== Infinity ? mejor : mejorPasado
 }
 
 function formatearFechaMostrar(dia) {
