@@ -1,9 +1,13 @@
 # config.py
+import os
 from supabase import create_client
 
-# Credenciales de Supabase
-SUPABASE_URL = "https://orrimhgwimzbgzicnlcc.supabase.co"
-SUPABASE_KEY = "sb_publishable_FtAEpnKNqCYoIF5sFOqaVQ_Xom0Cf37"
+# Credenciales de Supabase (desde variables de entorno)
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Faltan credenciales de Supabase. Definir SUPABASE_URL y SUPABASE_KEY")
 
 # Conexión global
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
