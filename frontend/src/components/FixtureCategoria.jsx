@@ -8,6 +8,30 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 const TOTAL_FECHAS = 11
 
+function getEscudoPath(nombre) {
+  if (!nombre) return '/escudos/argentino.png'
+  const mapa = {
+    'argentino': '/escudos/argentino.png',
+    'atl. pasteur': '/escudos/atl.pasteur.png',
+    'atl. roberts': '/escudos/atl.roberts.png',
+    'ca. pintense': '/escudos/ca.pintense.png',
+    'c a pintense': '/escudos/ca.pintense.png',
+    'ca pintense': '/escudos/ca.pintense.png',
+    'pintense': '/escudos/ca.pintense.png',
+    'caset': '/escudos/caset.png',
+    'dep. arenaza': '/escudos/dep.arenaza.png',
+    'dep. gral pinto': '/escudos/dep.pinto.png',
+    'dep gral pinto': '/escudos/dep.pinto.png',
+    'el linqueño': '/escudos/el.linqueño.png',
+    'juventud unida': '/escudos/juventud.unida.png',
+    'san martin': '/escudos/san.martin.png',
+    'villa francia': '/escudos/villa.francia.png',
+    'cael': '/escudos/el.linqueño.png',
+  }
+  const key = nombre.toLowerCase().trim()
+  return mapa[key] || '/escudos/argentino.png'
+}
+
 function parseDate(dia) {
   if (!dia) return null
   const anio = new Date().getFullYear()
@@ -116,8 +140,8 @@ export default function FixtureCategoria({ categoria }) {
           estado,
           local_id,
           visitante_id,
-          local:local_id ( nombre, escudo_url ),
-          visitante:visitante_id ( nombre, escudo_url )
+          local:local_id ( nombre ),
+          visitante:visitante_id ( nombre )
         `,
         )
         .order('fecha_id')
@@ -259,11 +283,11 @@ export default function FixtureCategoria({ categoria }) {
                   href={`/club/${slugify(match.local?.nombre || '')}?categoria=${categoria}`}
                   className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
                 >
-                  {match.local?.escudo_url && (
+                {match.local?.nombre && (
                     <img
-                      src={match.local.escudo_url}
+                      src={getEscudoPath(match.local.nombre)}
                       alt={match.local.nombre}
-                      className='w-4 h-4 object-contain'
+                      className="w-4 h-4 object-contain"
                     />
                   )}
                   <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
@@ -310,9 +334,9 @@ export default function FixtureCategoria({ categoria }) {
                 <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
                   {match.local?.nombre}
                 </span>
-                {match.local?.escudo_url && (
+                {match.local?.nombre && (
                   <img
-                    src={match.local.escudo_url}
+                    src={getEscudoPath(match.local.nombre)}
                     alt={match.local.nombre}
                     className='w-4 h-4 object-contain shrink-0'
                   />
@@ -339,9 +363,9 @@ export default function FixtureCategoria({ categoria }) {
                 href={`/club/${slugify(match.visitante?.nombre || '')}?categoria=${categoria}`}
                 className='flex items-center gap-1 flex-1 min-w-0 hover:opacity-80'
               >
-                {match.visitante?.escudo_url && (
+                {match.visitante?.nombre && (
                   <img
-                    src={match.visitante.escudo_url}
+                    src={getEscudoPath(match.visitante.nombre)}
                     alt={match.visitante.nombre}
                     className='w-4 h-4 object-contain shrink-0'
                   />

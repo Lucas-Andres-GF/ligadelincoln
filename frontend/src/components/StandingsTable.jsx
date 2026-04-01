@@ -6,6 +6,30 @@ const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+function getEscudoPath(nombre) {
+  if (!nombre) return '/escudos/argentino.png'
+  const mapa = {
+    'argentino': '/escudos/argentino.png',
+    'atl. pasteur': '/escudos/atl.pasteur.png',
+    'atl. roberts': '/escudos/atl.roberts.png',
+    'ca. pintense': '/escudos/ca.pintense.png',
+    'c a pintense': '/escudos/ca.pintense.png',
+    'ca pintense': '/escudos/ca.pintense.png',
+    'pintense': '/escudos/ca.pintense.png',
+    'caset': '/escudos/caset.png',
+    'dep. arenaza': '/escudos/dep.arenaza.png',
+    'dep. gral pinto': '/escudos/dep.pinto.png',
+    'dep gral pinto': '/escudos/dep.pinto.png',
+    'el linqueño': '/escudos/el.linqueño.png',
+    'juventud-unida': '/escudos/juventud.unida.png',
+    'san martin': '/escudos/san.martin.png',
+    'villa francia': '/escudos/villa.francia.png',
+    'cael': '/escudos/el.linqueño.png',
+  }
+  const key = nombre.toLowerCase().trim()
+  return mapa[key] || '/escudos/argentino.png'
+}
+
 export default function StandingsTable({
   categoriaId = 1,
   showUltimos5 = true,
@@ -18,7 +42,7 @@ export default function StandingsTable({
       const { data, error } = await supabase
         .from("posiciones")
         .select(
-          `pts, pj, pg, pe, pp, gf, gc, dif, ultimos_5, clubes ( nombre, escudo_url )`,
+          `pts, pj, pg, pe, pp, gf, gc, dif, ultimos_5, clubes ( nombre )`,
         )
         .eq("categoria_id", categoriaId)
         .order("pts", { ascending: false })
@@ -81,12 +105,12 @@ export default function StandingsTable({
                   <span className='text-[9px] text-green-700 w-3'>
                     {index + 1}
                   </span>
-                  {row.clubes?.escudo_url && (
-                    <img
-                      src={row.clubes.escudo_url}
-                      alt={row.clubes.nombre}
-                      className='w-4 h-4 object-contain'
-                    />
+                  {row.clubes?.nombre && (
+                      <img
+                        src={getEscudoPath(row.clubes.nombre)}
+                        alt={row.clubes.nombre}
+                        className="w-5 h-5 object-contain"
+                      />
                   )}
                   <span className='truncate text-[10px]'>{row.clubes?.nombre}</span>
                 </a>
