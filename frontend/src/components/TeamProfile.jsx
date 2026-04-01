@@ -6,6 +6,30 @@ const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+function getEscudoPath(nombre) {
+  if (!nombre) return '/escudos/argentino.png'
+  const mapa = {
+    'argentino': '/escudos/argentino.png',
+    'atl. pasteur': '/escudos/atl.pasteur.png',
+    'atl. roberts': '/escudos/atl.roberts.png',
+    'ca. pintense': '/escudos/ca.pintense.png',
+    'c a pintense': '/escudos/ca.pintense.png',
+    'ca pintense': '/escudos/ca.pintense.png',
+    'pintense': '/escudos/ca.pintense.png',
+    'caset': '/escudos/caset.png',
+    'dep. arenaza': '/escudos/dep.arenaza.png',
+    'dep. gral pinto': '/escudos/dep.pinto.png',
+    'dep gral pinto': '/escudos/dep.pinto.png',
+    'el linqueño': '/escudos/el.linqueño.png',
+    'juventud-unida': '/escudos/juventud.unida.png',
+    'san martin': '/escudos/san.martin.png',
+    'villa francia': '/escudos/villa.francia.png',
+    'cael': '/escudos/el.linqueño.png',
+  }
+  const key = nombre.toLowerCase().trim()
+  return mapa[key] || '/escudos/argentino.png'
+}
+
 export default function TeamProfile({ equipo }) {
   const [matches, setMatches] = useState([]);
   const [posicion, setPosicion] = useState(null);
@@ -18,8 +42,8 @@ export default function TeamProfile({ equipo }) {
           .from("fixture")
           .select(
             `fecha, dia, hora, goles_local, goles_visitante, observaciones,
-             local:equipos!fixture_local_id_fkey ( id, nombre, escudo_url ),
-             visitante:equipos!fixture_visitante_id_fkey ( id, nombre, escudo_url )`,
+             local:equipos!fixture_local_id_fkey ( id, nombre ),
+             visitante:equipos!fixture_visitante_id_fkey ( id, nombre )`,
           )
           .or(`local_id.eq.${equipo.id},visitante_id.eq.${equipo.id}`)
           .order("fecha"),
@@ -48,12 +72,12 @@ export default function TeamProfile({ equipo }) {
     <div className='max-w-2xl mx-auto'>
       {/* Header */}
       <div className='flex items-center gap-5 mb-8'>
-        {equipo.escudo_url && (
-          <img
-            src={equipo.escudo_url}
-            alt={equipo.nombre}
-            className='w-20 h-20 object-contain'
-          />
+        {equipo.nombre && (
+            <img
+              src={getEscudoPath(equipo.nombre)}
+              alt={equipo.nombre}
+              className='w-16 h-16 object-contain'
+            />
         )}
         <div>
           <h1 className='text-3xl font-extrabold text-white uppercase tracking-tight'>
@@ -152,9 +176,9 @@ export default function TeamProfile({ equipo }) {
                       href={`/equipo/${slugify(rival?.nombre || "")}`}
                       className='flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity'
                     >
-                      {rival?.escudo_url && (
+                      {rival?.nombre && (
                         <img
-                          src={rival.escudo_url}
+                          src={getEscudoPath(rival.nombre)}
                           alt={rival.nombre}
                           className='w-5 h-5 object-contain shrink-0'
                         />

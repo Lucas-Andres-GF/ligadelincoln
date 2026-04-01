@@ -14,6 +14,30 @@ const CATEGORIAS = [
   { id: 5, nombre: "Décima" },
 ];
 
+function getEscudoPath(nombre) {
+  if (!nombre) return '/escudos/argentino.png'
+  const mapa = {
+    'argentino': '/escudos/argentino.png',
+    'atl. pasteur': '/escudos/atl.pasteur.png',
+    'atl. roberts': '/escudos/atl.roberts.png',
+    'ca. pintense': '/escudos/ca.pintense.png',
+    'c a pintense': '/escudos/ca.pintense.png',
+    'ca pintense': '/escudos/ca.pintense.png',
+    'pintense': '/escudos/ca.pintense.png',
+    'caset': '/escudos/caset.png',
+    'dep. arenaza': '/escudos/dep.arenaza.png',
+    'dep. gral pinto': '/escudos/dep.pinto.png',
+    'dep gral pinto': '/escudos/dep.pinto.png',
+    'el linqueño': '/escudos/el.linqueño.png',
+    'juventud-unida': '/escudos/juventud.unida.png',
+    'san martin': '/escudos/san.martin.png',
+    'villa francia': '/escudos/villa.francia.png',
+    'cael': '/escudos/el.linqueño.png',
+  }
+  const key = nombre.toLowerCase().trim()
+  return mapa[key] || '/escudos/argentino.png'
+}
+
 function getInitialCategoriaId() {
   if (typeof window === 'undefined') return CATEGORIAS[0].id;
   const params = new URLSearchParams(window.location.search);
@@ -46,7 +70,7 @@ export default function ClubProfile({ club }) {
       const { data, error } = await supabase
         .from("partidos")
         .select(
-          `fecha_id, dia, hora, goles_local, goles_visitante, estado, categoria_id, local:local_id ( id, nombre, escudo_url ), visitante:visitante_id ( id, nombre, escudo_url )`,
+          `fecha_id, dia, hora, goles_local, goles_visitante, estado, categoria_id, local:local_id ( id, nombre ), visitante:visitante_id ( id, nombre )`,
         )
         .or(`local_id.eq.${club.id},visitante_id.eq.${club.id}`)
         .eq("categoria_id", categoriaId)
@@ -60,9 +84,9 @@ export default function ClubProfile({ club }) {
   return (
     <div className='max-w-2xl mx-auto'>
       <div className='flex items-center gap-5 mb-8'>
-        {club.escudo_url && (
+        {club.nombre && (
           <img
-            src={club.escudo_url}
+            src={getEscudoPath(club.nombre)}
             alt={club.nombre}
             className='w-20 h-20 object-contain'
           />
@@ -170,9 +194,9 @@ export default function ClubProfile({ club }) {
                     href={`/club/${slugify(rival?.nombre || "")}`}
                     className='flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity'
                   >
-                    {rival?.escudo_url && (
+                    {rival?.nombre && (
                       <img
-                        src={rival.escudo_url}
+                        src={getEscudoPath(rival.nombre)}
                         alt={rival.nombre}
                         className='w-5 h-5 object-contain shrink-0'
                       />

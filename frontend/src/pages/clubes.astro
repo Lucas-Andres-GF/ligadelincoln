@@ -7,9 +7,33 @@ const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+function getEscudoPath(nombre) {
+  if (!nombre) return '/escudos/argentino.png'
+  const mapa = {
+    'argentino': '/escudos/argentino.png',
+    'atl. pasteur': '/escudos/atl.pasteur.png',
+    'atl. roberts': '/escudos/atl.roberts.png',
+    'ca. pintense': '/escudos/ca.pintense.png',
+    'c a pintense': '/escudos/ca.pintense.png',
+    'ca pintense': '/escudos/ca.pintense.png',
+    'pintense': '/escudos/ca.pintense.png',
+    'caset': '/escudos/caset.png',
+    'dep. arenaza': '/escudos/dep.arenaza.png',
+    'dep. gral pinto': '/escudos/dep.pinto.png',
+    'dep gral pinto': '/escudos/dep.pinto.png',
+    'el linqueño': '/escudos/el.linqueño.png',
+    'juventud-unida': '/escudos/juventud.unida.png',
+    'san martin': '/escudos/san.martin.png',
+    'villa francia': '/escudos/villa.francia.png',
+    'cael': '/escudos/el.linqueño.png',
+  }
+  const key = nombre.toLowerCase().trim()
+  return mapa[key] || '/escudos/argentino.png'
+}
+
 const { data: clubs } = await supabase
   .from("clubes")
-  .select("id, nombre, escudo_url")
+  .select("id, nombre")
   .order("nombre");
 ---
 
@@ -28,17 +52,11 @@ const { data: clubs } = await supabase
         href={`/club/${slugify(club.nombre)}`}
         class="group flex flex-col items-center gap-2 p-4 bg-[#143814] rounded-xl border border-green-900/40 hover:bg-green-900/20 hover:border-green-700/40 transition-all"
       >
-        {club.escudo_url ? (
-          <img
-            src={club.escudo_url}
-            alt={club.nombre}
-            class="w-16 h-16 object-contain group-hover:scale-110 transition-transform"
-          />
-        ) : (
-          <div class="w-16 h-16 flex items-center justify-center bg-green-900/30 rounded-full">
-            <span class="text-2xl">⚽</span>
-          </div>
-        )}
+        <img
+          src={getEscudoPath(club.nombre)}
+          alt={club.nombre}
+          class="w-16 h-16 object-contain group-hover:scale-110 transition-transform"
+        />
         <span class="text-xs font-medium text-green-200 text-center line-clamp-2 group-hover:text-green-400 transition-colors">
           {club.nombre}
         </span>
