@@ -1,0 +1,28 @@
+name: Scraper Horarios
+
+on:
+  schedule:
+    - cron: '23 23 * * 5'  # Viernes 23:23 UTC (20:23hs Argentina)
+  workflow_dispatch:
+
+jobs:
+  scraper-horarios:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 supabase python-dotenv
+
+      - name: Run scraper de horarios
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: cd backend/scripts && python scraper_horarios.py
