@@ -32,9 +32,6 @@ function getEscudoPath(nombre) {
   const key = nombre.toLowerCase().trim()
   return mapa[key] || '/escudos/argentino.png'
 }
-  const key = nombre.toLowerCase().trim()
-  return mapa[key] || '/escudos/argentino.png'
-}
 
 function parseDate(dia) {
   if (!dia) return null
