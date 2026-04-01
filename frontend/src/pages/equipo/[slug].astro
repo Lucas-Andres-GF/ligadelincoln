@@ -11,7 +11,7 @@ export async function getStaticPaths() {
   );
   const { data: equipos } = await supabase
     .from("equipos")
-    .select("id, nombre, escudo_url");
+    .select("id, nombre");
 
   return (equipos || []).map((equipo) => ({
     params: { slug: slugify(equipo.nombre) },

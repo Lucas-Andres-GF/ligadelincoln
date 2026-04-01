@@ -22,6 +22,30 @@ const CATEGORIAS_ROUTES = {
   5: '/decima',
 }
 
+function getEscudoPath(nombre) {
+  if (!nombre) return '/escudos/argentino.png'
+  const mapa = {
+    'argentino': '/escudos/argentino.png',
+    'atl. pasteur': '/escudos/atl.pasteur.png',
+    'atl. roberts': '/escudos/atl.roberts.png',
+    'ca. pintense': '/escudos/ca.pintense.png',
+    'c a pintense': '/escudos/ca.pintense.png',
+    'ca pintense': '/escudos/ca.pintense.png',
+    'pintense': '/escudos/ca.pintense.png',
+    'caset': '/escudos/caset.png',
+    'dep. arenaza': '/escudos/dep.arenaza.png',
+    'dep. gral pinto': '/escudos/dep.pinto.png',
+    'dep gral pinto': '/escudos/dep.pinto.png',
+    'el linqueño': '/escudos/el.linqueño.png',
+    'juventud-unida': '/escudos/juventud.unida.png',
+    'san martin': '/escudos/san.martin.png',
+    'villa francia': '/escudos/villa.francia.png',
+    'cael': '/escudos/el.linqueño.png',
+  }
+  const key = nombre.toLowerCase().trim()
+  return mapa[key] || '/escudos/argentino.png'
+}
+
 function parseDate(dia) {
   if (!dia) return null
   const anio = new Date().getFullYear()
@@ -136,8 +160,8 @@ export default function PartidosHoy() {
           categoria_id,
           local_id,
           visitante_id,
-          local:local_id ( nombre, escudo_url ),
-          visitante:visitante_id ( nombre, escudo_url )
+          local:local_id ( nombre ),
+          visitante:visitante_id ( nombre )
         `)
         .gte('dia', startOfDay)
         .lte('dia', endOfDay)
@@ -310,12 +334,12 @@ export default function PartidosHoy() {
                             href={`/club/${slugify(match.local?.nombre || '')}?categoria=${match.categoria_id}`}
                             className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
                           >
-                            {match.local?.escudo_url && (
-                              <img
-                                src={match.local.escudo_url}
-                                alt={match.local.nombre}
-                                className='w-4 h-4 object-contain'
-                              />
+                            {match.local?.nombre && (
+                                <img
+                                  src={getEscudoPath(match.local.nombre)}
+                                  alt={match.local.nombre}
+                                  className="w-8 h-8 object-contain"
+                                />
                             )}
                             <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
                               {match.local?.nombre}
@@ -344,13 +368,13 @@ export default function PartidosHoy() {
                           <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
                             {match.local?.nombre}
                           </span>
-                          {match.local?.escudo_url && (
-                            <img
-                              src={match.local.escudo_url}
-                              alt={match.local.nombre}
-                              className='w-4 h-4 object-contain shrink-0'
-                            />
-                          )}
+                          {match.local?.nombre && (
+                                <img
+                                  src={getEscudoPath(match.local.nombre)}
+                                  alt={match.local.nombre}
+                                  className="w-6 h-6 object-contain"
+                                />
+                            )}
                         </a>
                         <div className='flex items-center gap-1 shrink-0 px-1 min-w-[40px] justify-center'>
                           {seJugo ? (
@@ -373,13 +397,13 @@ export default function PartidosHoy() {
                           href={`/club/${slugify(match.visitante?.nombre || '')}?categoria=${match.categoria_id}`}
                           className='flex items-center gap-1 flex-1 min-w-0 hover:opacity-80'
                         >
-                          {match.visitante?.escudo_url && (
-                            <img
-                              src={match.visitante.escudo_url}
-                              alt={match.visitante.nombre}
-                              className='w-4 h-4 object-contain shrink-0'
-                            />
-                          )}
+                          {match.visitante?.nombre && (
+                                <img
+                                  src={getEscudoPath(match.visitante.nombre)}
+                                  alt={match.visitante.nombre}
+                                  className="w-6 h-6 object-contain"
+                                />
+                            )}
                           <span className='truncate text-green-100 font-semibold text-[10px]'>
                             {match.visitante?.nombre}
                           </span>
