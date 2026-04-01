@@ -33,9 +33,6 @@ function getEscudoPath(nombre) {
   const keySinEspacios = nombre.toLowerCase().replace(' ', '').trim()
   return mapa[keyConEspacios] || mapa[keySinEspacios] || '/escudos/argentino.png'
 }
-  const key = nombre.toLowerCase().trim()
-  return mapa[key] || '/escudos/argentino.png'
-}
 
 export default function StandingsTable({
   categoriaId = 1,
