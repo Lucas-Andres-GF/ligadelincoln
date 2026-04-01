@@ -22,6 +22,7 @@ function getEscudoPath(nombre) {
     'dep gral pinto': '/escudos/dep.pinto.png',
     'el linqueño': '/escudos/el.linqueño.png',
     'juventud-unida': '/escudos/juventud.unida.png',
+    'juventudunida': '/escudos/juventud.unida.png',
     'san martin': '/escudos/san.martin.png',
     'villa francia': '/escudos/villa.francia.png',
     'cael': '/escudos/el.linqueño.png',
