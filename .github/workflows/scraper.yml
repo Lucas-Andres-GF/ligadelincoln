@@ -2,8 +2,9 @@ name: Scraper Partidos
 
 on:
   schedule:
-    - cron: '*/30 17-1 * * 6,0'  # Cada 30 min, 17-01 UTC (14-22hs Argentina), sábados y domingos
-    - cron: '*/30 17-0 2 4 *'  # 2 de abril 2026 (jueves), 17-00 UTC (14-21hs Argentina)
+    - cron: '*/30 17-23 * * 6,0'  # Cada 30 min, 17-23 UTC (14-20hs Argentina), sábados y domingos
+    - cron: '*/30 0-1 * * 6,0'    # Cada 30 min, 00-01 UTC (21-22hs Argentina), sábados y domingos
+    - cron: '*/30 17-21 2 4 *'   # 2 de abril 2026 (jueves), 17-21 UTC (14-18hs Argentina)
   workflow_dispatch:
     inputs:
       skip:
