@@ -105,35 +105,36 @@ export default function PartidosHoy() {
 
   useEffect(() => {
     async function fetchDates() {
-      const { data } = await supabase
+      const { data: allPartidos } = await supabase
         .from('partidos')
         .select('dia')
-        .not('visitante_id', 'is', null)
+        .not('dia', 'is', null)
       
-      if (data) {
-        const uniqueDates = [...new Set(data.map(p => p.dia))].filter(Boolean).sort()
-        setDatesWithMatches(uniqueDates)
+      if (allPartidos && allPartidos.length > 0) {
+        const dates = [...new Set(allPartidos.map(p => p.dia))].filter(Boolean)
+        setDatesWithMatches(dates)
         
-        // Encontrar la fecha más cercana a hoy
         const hoy = new Date()
         hoy.setHours(0, 0, 0, 0)
         
-        let closestDate = null
-        let minDiff = Infinity
+        // Buscar la proxima fecha (futura)
+        let nextDate = null
+        let minFutureDiff = Infinity
         
-        for (const dia of uniqueDates) {
+        // Buscar la fecha mas cercana futura
+        for (const dia of dates) {
           const matchDate = parseDate(dia)
           if (matchDate) {
-            const diff = Math.abs(matchDate.getTime() - hoy.getTime())
-            if (diff < minDiff) {
-              minDiff = diff
-              closestDate = matchDate
+            const diff = matchDate.getTime() - hoy.getTime()
+            if (diff >= 0 && diff < minFutureDiff) {
+              minFutureDiff = diff
+              nextDate = matchDate
             }
           }
         }
         
-        if (closestDate) {
-          setSelectedDate(closestDate)
+        if (nextDate) {
+          setSelectedDate(nextDate)
         } else {
           setSelectedDate(hoy)
         }

@@ -230,6 +230,41 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
     setGuardando(false);
   }
 
+  async function resetPartido(id) {
+    if (!confirm("¿Estás seguro de resetear este partido? Se borrará fecha, hora, resultado y cambiará a estado 'programado'.")) {
+      return;
+    }
+    
+    setGuardando(true);
+    
+    const { error } = await supabase
+      .from("partidos")
+      .update({
+        dia: null,
+        hora: null,
+        arbitro: null,
+        cancha: null,
+        estado: "programado",
+        goles_local: null,
+        goles_visitante: null,
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert("Error al resetear: " + error.message);
+    } else {
+      setEditando((prev) => {
+        const newState = { ...(prev || {}) };
+        delete newState[id];
+        return newState;
+      });
+      setModalOpen(false);
+      setPartidoEditando(null);
+      fetchPartidos();
+    }
+    setGuardando(false);
+  }
+
   function iniciarEdicion(partido) {
     setEditando((prev) => ({
       ...(prev || {}),
@@ -572,6 +607,13 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
                 className="flex-1 py-2 bg-green-600 hover:bg-green-500 text-black font-semibold rounded transition-colors disabled:opacity-50"
               >
                 {guardando ? "Guardando..." : "Guardar"}
+              </button>
+              <button
+                onClick={() => resetPartido(partidoEditando.id)}
+                disabled={guardando}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-medium rounded transition-colors disabled:opacity-50"
+              >
+                Reset
               </button>
               <button
                 onClick={cerrarModal}
