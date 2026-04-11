@@ -364,7 +364,7 @@ export default function PartidosHoy() {
                         className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors text-xs'
                       >
                         <span className='text-[10px] text-green-500 font-bold w-12 shrink-0 text-left'>
-                          {match.hora ? match.hora.slice(0, 5) + 'hs' : ''}
+                          {seJugo ? 'JUGADO' : (match.hora ? match.hora.slice(0, 5) + 'hs' : '')}
                         </span>
                         <a
                           href={`/club/${slugify(match.local?.nombre || '')}?categoria=${match.categoria_id}`}
