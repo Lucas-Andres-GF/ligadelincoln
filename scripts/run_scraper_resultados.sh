@@ -14,4 +14,6 @@ export SUPABASE_KEY
 
 pip install --break-system-packages -q requests beautifulsoup4 supabase
 
-python3 scraper_resultados.py
+echo "=== $(date '+%Y-%m-%d %H:%M:%S') ===" >> /home/gallardo/logs/scraper_resultados.log 2>&1
+
+python3 scraper_resultados.py >> /home/gallardo/logs/scraper_resultados.log 2>&1
