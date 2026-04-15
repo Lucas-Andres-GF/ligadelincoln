@@ -83,10 +83,19 @@ def scrape():
     tabla = soup.find_all('table')[2]
     filas = tabla.find_all('tr')
     
+    postergados_encontrado = False
+    
     for fila in filas:
         celdas = [c.get_text(strip=True) for c in fila.find_all('td')]
         
         if not celdas:
+            continue
+        
+        if any('Postergados' in c for c in celdas):
+            postergados_encontrado = True
+            continue
+        
+        if postergados_encontrado:
             continue
         
         texto = ' '.join(celdas)
