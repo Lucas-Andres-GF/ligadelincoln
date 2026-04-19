@@ -1,0 +1,64 @@
+[Unit]
+Description=Timer scraper resultados - Sáb/Dom 14-21hs Argentina
+
+[Timer]
+OnCalendar=Sat 14:00
+OnCalendar=Sat 14:15
+OnCalendar=Sat 14:30
+OnCalendar=Sat 14:45
+OnCalendar=Sat 15:00
+OnCalendar=Sat 15:15
+OnCalendar=Sat 15:30
+OnCalendar=Sat 15:45
+OnCalendar=Sat 16:00
+OnCalendar=Sat 16:15
+OnCalendar=Sat 16:30
+OnCalendar=Sat 16:45
+OnCalendar=Sat 17:00
+OnCalendar=Sat 17:15
+OnCalendar=Sat 17:30
+OnCalendar=Sat 17:45
+OnCalendar=Sat 18:00
+OnCalendar=Sat 18:15
+OnCalendar=Sat 18:30
+OnCalendar=Sat 18:45
+OnCalendar=Sat 19:00
+OnCalendar=Sat 19:15
+OnCalendar=Sat 19:30
+OnCalendar=Sat 19:45
+OnCalendar=Sat 20:00
+OnCalendar=Sat 20:15
+OnCalendar=Sat 20:30
+OnCalendar=Sat 20:45
+OnCalendar=Sun 14:00
+OnCalendar=Sun 14:15
+OnCalendar=Sun 14:30
+OnCalendar=Sun 14:45
+OnCalendar=Sun 15:00
+OnCalendar=Sun 15:15
+OnCalendar=Sun 15:30
+OnCalendar=Sun 15:45
+OnCalendar=Sun 16:00
+OnCalendar=Sun 16:15
+OnCalendar=Sun 16:30
+OnCalendar=Sun 16:45
+OnCalendar=Sun 17:00
+OnCalendar=Sun 17:15
+OnCalendar=Sun 17:30
+OnCalendar=Sun 17:45
+OnCalendar=Sun 18:00
+OnCalendar=Sun 18:15
+OnCalendar=Sun 18:30
+OnCalendar=Sun 18:45
+OnCalendar=Sun 19:00
+OnCalendar=Sun 19:15
+OnCalendar=Sun 19:30
+OnCalendar=Sun 19:45
+OnCalendar=Sun 20:00
+OnCalendar=Sun 20:15
+OnCalendar=Sun 20:30
+OnCalendar=Sun 20:45
+Persistent=true
+
+[Install]
+WantedBy=timers.target

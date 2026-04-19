@@ -1,0 +1,6 @@
+[Unit]
+Description=Scraper de resultados - Liga de Lincoln
+
+[Service]
+Type=oneshot
+ExecStart=/home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_resultados.sh

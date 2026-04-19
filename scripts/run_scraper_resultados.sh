@@ -21,7 +21,7 @@ if [[ "$DAY" != "6" && "$DAY" != "0" ]]; then
 fi
 
 if [[ "$HOUR" -lt 14 || "$HOUR" -ge 21 ]]; then
-    echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Outside horario (14-21hs), omitiendo" >> /home/gallardo/logs/scraper_resultados.log 2>&1
+    echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Outside horario (14-21hs ARG), omitiendo" >> /home/gallardo/logs/scraper_resultados.log 2>&1
     exit 0
 fi
 
