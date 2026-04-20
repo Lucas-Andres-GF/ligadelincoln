@@ -80,20 +80,32 @@ def scrapear_ultima_fecha(url, cat_name):
     
     modo_partidos = False
     encabezados_ok = False
+    fecha_actual = None  # Trackear qué fecha estamos procesando
     
     for idx, fila in enumerate(filas):
         celdas = [c.get_text(strip=True) for c in fila.find_all('td')]
         if not celdas:
             continue
         
+        celdas_up = [c.upper() for c in celdas]
+        texto_celda = ' '.join(celdas_up)
+        
+        # Si ya encontramos la fecha y esta fila tiene UNA FECHA DIFERENTE, salir SIN procesar
+        if 'FECHA' in texto_celda and fecha_actual is not None:
+            match = re.search(r'FECHA\s*:?[\s\u00A0]*(\d+)', texto_celda)
+            if match and int(match.group(1)) != fecha_actual:
+                print(f"  -> Cambió de fecha {fecha_actual} a {match.group(1)}, saliendo")
+                return partidos, fecha_num
+        
         for i, celda in enumerate(celdas):
             celda_up = celda.upper()
-            if 'FECHA' in celda_up and fecha_num is None:
+            if 'FECHA' in celda_up and fecha_actual is None:
                 match = re.search(r'FECHA\s*:?[\s\u00A0]*(\d+)', celda_up)
                 if match:
                     fecha_num = int(match.group(1))
                 elif i+1 < len(celdas) and celdas[i+1].isdigit():
                     fecha_num = int(celdas[i+1])
+                fecha_actual = fecha_num
                 
                 for off in range(1, 5):
                     if idx + off < len(filas):
@@ -105,8 +117,14 @@ def scrapear_ultima_fecha(url, cat_name):
                         if fecha_date:
                             break
                 break
-        
-        celdas_up = [c.upper() for c in celdas]
+            
+            # Si encontramos OTRA FECHA diferente, salir del loop
+            if 'FECHA' in celda_up:
+                match = re.search(r'FECHA\s*:?[\s\u00A0]*(\d+)', celda_up)
+                if match:
+                    nueva_fecha = int(match.group(1))
+                    if nueva_fecha != fecha_actual:
+                        return partidos, fecha_num
         
         if 'LOCAL' in celdas_up and 'VISITANTE' in celdas_up:
             encabezados_ok = True
@@ -167,8 +185,9 @@ def scrapear_ultima_fecha(url, cat_name):
     
     return partidos, fecha_num
 
-def calcular_posiciones(cat_id, partidos):
-    if not partidos:
+def calcular_posiciones(cat_id, todos_partidos):
+    """Calcula posiciones usando TODOS los partidos jugados de la DB."""
+    if not todos_partidos:
         return []
     
     equipos_validos = EQUIPOS_POR_CATEGORIA.get(cat_id, [])
@@ -177,11 +196,14 @@ def calcular_posiciones(cat_id, partidos):
     for club_id in equipos_validos:
         stats[club_id] = {'pts': 0, 'pj': 0, 'pg': 0, 'pe': 0, 'pp': 0, 'gf': 0, 'gc': 0, 'ultimos': []}
     
-    for p in partidos:
+    # Ordenar partidos por fecha_id para tener los más recientes al final
+    todos_partidos_ordenados = sorted(todos_partidos, key=lambda p: (p.get('fecha_id', 0), p.get('id', 0)))
+    
+    for p in todos_partidos_ordenados:
         loc = p['local_id']
         vis = p['visitante_id']
-        gl = p['goles_local']
-        gv = p['goles_visitante']
+        gl = p.get('goles_local', 0) or 0
+        gv = p.get('goles_visitante', 0) or 0
         
         if loc not in stats:
             continue
@@ -261,33 +283,43 @@ def main():
     for cat_name, url in URLS.items():
         try:
             cat_id = CATEGORIAS[cat_name]
+            
+            # Limpiar tabla de posiciones
             limpiar_tabla_posiciones(cat_id)
             
-            partidos, fecha = scrapear_ultima_fecha(url, cat_name)
+            # Scrapear última fecha (para actualizar resultados nuevos)
+            partidos_nuevos, fecha = scrapear_ultima_fecha(url, cat_name)
             
-            if partidos:
-                resultados.extend(partidos)
+            if partidos_nuevos:
+                resultados.extend(partidos_nuevos)
                 
-                actualizados = actualizar_partidos(partidos)
+                # Actualizar partidos en DB
+                actualizados = actualizar_partidos(partidos_nuevos)
                 print(f"  {actualizados} partidos actualizados")
-                
-                posiciones = calcular_posiciones(cat_id, partidos)
-                
-                for pos in posiciones:
-                    pos['created_at'] = datetime.now().isoformat()
-                    try:
-                        supabase.table("posiciones").insert(pos).execute()
-                    except Exception as e:
-                        pass
-                
-                print(f"  {len(posiciones)} posiciones guardadas")
-            else:
-                print(f"  WARN: Sin partidos")
-                
+            
+            # Obtener TODOS los partidos jugados de esta categoría de la DB (YA ACTUALIZADOS)
+            todos_partidos = supabase.table("partidos").select(
+                "id, fecha_id, local_id, visitante_id, goles_local, goles_visitante"
+            ).eq("categoria_id", cat_id).eq("estado", "jugado").execute()
+            
+            partidos_data = todos_partidos.data if todos_partidos.data else []
+            
+            # Calcular posiciones con TODOS los partidos (solo usar partidos_data, ya incluye los actualizados)
+            posiciones = calcular_posiciones(cat_id, partidos_data)
+            
+            for pos in posiciones:
+                pos['created_at'] = datetime.now().isoformat()
+                try:
+                    supabase.table("posiciones").insert(pos).execute()
+                except Exception as e:
+                    pass
+            
+            print(f"  {len(posiciones)} posiciones guardadas ({len(partidos_data)} partidos en DB)")
+            
         except Exception as e:
             print(f"  ERROR {cat_name}: {e}")
     
-    print(f"\n=== Total: {len(resultados)} partidos ===")
+    print(f"\n=== Total: {len(resultados)} partidos nuevos ===")
 
 if __name__ == "__main__":
     main()
