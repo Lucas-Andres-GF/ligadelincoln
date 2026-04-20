@@ -2,23 +2,27 @@
 import '../styles/global.css'
 import { ViewTransitions } from 'astro:transitions'
 import Analytics from '@vercel/analytics/astro'
+import MobileMenu from '../components/MobileMenu.jsx'
 
 interface Props {
   title?: string
   description?: string
+  ogImage?: string
 }
 
 const {
   title = 'Liga De Lincoln - Fixture, Posiciones y Resultados del Fútbol de Lincoln',
   description = 'Seguí el fútbol de Lincoln: fixture, tabla de posiciones, resultados y equipos de la Liga Amateur de Deportes de Lincoln, Buenos Aires. Primera División actualizada.',
+  ogImage: customOgImage,
 } = Astro.props
 
 const canonicalURL = new URL(
   Astro.url.pathname,
   Astro.site || 'https://ligadelincoln.com',
 )
-const ogImage = new URL('/og.png', Astro.site || 'https://ligadelincoln.com')
-  .href
+const ogImage = customOgImage 
+  ? new URL(customOgImage, Astro.site || 'https://ligadelincoln.com').href
+  : new URL('/og.png', Astro.site || 'https://ligadelincoln.com').href
 
 const currentPath = Astro.url.pathname
 ---
@@ -176,188 +180,8 @@ const currentPath = Astro.url.pathname
           >
         </nav>
 
-        <!-- Hamburguesa -->
-        <div class='md:hidden'>
-          <input id='menu-toggle' type='checkbox' class='hidden peer' />
-          <label
-            for='menu-toggle'
-            class='flex flex-col gap-1.5 cursor-pointer p-2 -mr-2'
-          >
-            <span class='block w-6 h-0.5 bg-green-400 rounded-full'></span>
-            <span class='block w-6 h-0.5 bg-green-400 rounded-full'></span>
-            <span class='block w-6 h-0.5 bg-green-400 rounded-full'></span>
-          </label>
-
-          <!-- Overlay (tocar para cerrar) -->
-          <label
-            for='menu-toggle'
-            class='fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] cursor-default hidden peer-checked:block'
-          ></label>
-
-          <!-- Menu Mobile -->
-          <div
-            class='absolute right-0 top-14 z-[80] bg-[#143814] rounded-xl shadow-2xl border border-green-900/40 p-2 w-56 hidden peer-checked:flex flex-col animate-in slide-in-from-top-2 fade-in duration-200'
-          >
-            <div
-              class='flex items-center justify-between px-3 py-2 border-b border-green-900/30 mb-2'
-            >
-              <span class='text-green-400 font-bold text-sm uppercase'
-                >Menú</span
-              >
-              <label
-                for='menu-toggle'
-                class='text-green-500 hover:text-green-300 cursor-pointer p-1'
-              >
-                <svg
-                  class='w-5 h-5'
-                  fill='none'
-                  viewBox='0 0 24 24'
-                  stroke='currentColor'
-                >
-                  <path
-                    stroke-linecap='round'
-                    stroke-linejoin='round'
-                    stroke-width='2'
-                    d='M6 18L18 6M6 6l12 12'></path>
-                </svg>
-              </label>
-            </div>
-
-            <nav class='flex flex-col gap-1'>
-              <a
-                href='/'
-                class:list={[
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium',
-                  currentPath === '/'
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-green-200 hover:bg-green-900/30',
-                ]}
-              >
-                <svg
-                  class='w-5 h-5'
-                  fill='none'
-                  viewBox='0 0 24 24'
-                  stroke='currentColor'
-                >
-                  <path
-                    stroke-linecap='round'
-                    stroke-linejoin='round'
-                    stroke-width='2'
-                    d='M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
-                  ></path>
-                </svg>
-                Inicio
-              </a>
-              <a
-                href='/clubes'
-                class:list={[
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium',
-                  currentPath === '/clubes'
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-green-200 hover:bg-green-900/30',
-                ]}
-              >
-                <svg
-                  class='w-5 h-5'
-                  fill='none'
-                  viewBox='0 0 24 24'
-                  stroke='currentColor'
-                >
-                  <path
-                    stroke-linecap='round'
-                    stroke-linejoin='round'
-                    stroke-width='2'
-                    d='M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'
-                  ></path>
-                </svg>
-                Clubes
-              </a>
-
-              <div class='h-px bg-green-900/40 my-2'></div>
-
-              <span
-                class='px-3 py-1 text-xs text-green-600 font-semibold uppercase'
-                >Categorías</span
-              >
-
-              <a
-                href='/primera'
-                class:list={[
-                  'flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm',
-                  currentPath.startsWith('/primera')
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-green-200 hover:bg-green-900/30',
-                ]}
-              >
-                <span
-                  class='w-6 h-6 rounded bg-green-900/50 flex items-center justify-center text-xs font-bold'
-                  >1</span
-                >
-                Primera
-              </a>
-              <a
-                href='/septima'
-                class:list={[
-                  'flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm',
-                  currentPath.startsWith('/septima')
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-green-200 hover:bg-green-900/30',
-                ]}
-              >
-                <span
-                  class='w-6 h-6 rounded bg-green-900/50 flex items-center justify-center text-xs font-bold'
-                  >7</span
-                >
-                Séptima
-              </a>
-              <a
-                href='/octava'
-                class:list={[
-                  'flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm',
-                  currentPath.startsWith('/octava')
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-green-200 hover:bg-green-900/30',
-                ]}
-              >
-                <span
-                  class='w-6 h-6 rounded bg-green-900/50 flex items-center justify-center text-xs font-bold'
-                  >8</span
-                >
-                Octava
-              </a>
-              <a
-                href='/novena'
-                class:list={[
-                  'flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm',
-                  currentPath.startsWith('/novena')
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-green-200 hover:bg-green-900/30',
-                ]}
-              >
-                <span
-                  class='w-6 h-6 rounded bg-green-900/50 flex items-center justify-center text-xs font-bold'
-                  >9</span
-                >
-                Novena
-              </a>
-              <a
-                href='/decima'
-                class:list={[
-                  'flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm',
-                  currentPath.startsWith('/decima')
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-green-200 hover:bg-green-900/30',
-                ]}
-              >
-                <span
-                  class='w-6 h-6 rounded bg-green-900/50 flex items-center justify-center text-xs font-bold'
-                  >10</span
-                >
-                Décima
-              </a>
-            </nav>
-          </div>
-        </div>
+        <!-- Menú Mobile -->
+        <MobileMenu client:load currentPath={currentPath} />
       </div>
     </header>
 

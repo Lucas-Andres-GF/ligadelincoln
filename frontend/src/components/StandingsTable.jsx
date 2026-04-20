@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { cachedQuery } from "../utils/supabaseCached";
 import { slugify } from "../utils/slugify";
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
@@ -43,14 +44,18 @@ export default function StandingsTable({
 
   useEffect(() => {
     async function getStandingsData() {
-      const { data, error } = await supabase
-        .from("posiciones")
-        .select(
-          `pts, pj, pg, pe, pp, gf, gc, dif, ultimos_5, clubes ( nombre )`,
-        )
-        .eq("categoria_id", categoriaId)
-        .order("pts", { ascending: false })
-        .order("dif", { ascending: false });
+      const cacheKey = `standings_categoria_${categoriaId}`
+      
+      const { data, error } = await cachedQuery(cacheKey, () =>
+        supabase
+          .from("posiciones")
+          .select(
+            `pts, pj, pg, pe, pp, gf, gc, dif, ultimos_5, clubes ( nombre )`,
+          )
+          .eq("categoria_id", categoriaId)
+          .order("pts", { ascending: false })
+          .order("dif", { ascending: false })
+      )
 
       if (error) {
         console.error("Supabase error:", error);
@@ -151,7 +156,9 @@ export default function StandingsTable({
                       if (!ult) return <span className='text-green-700/50'>-</span>;
                       const arr = typeof ult === 'string' ? JSON.parse(ult) : ult;
                       if (!Array.isArray(arr) || arr.length === 0) return <span className='text-green-700/50'>-</span>;
-                      return arr.map((r, i) => (
+                      // Invertir para mostrar el más reciente a la izquierda
+                      const arrInvertido = [...arr].reverse();
+                      return arrInvertido.map((r, i) => (
                         <span
                           key={i}
                           className={`w-4 h-4 flex items-center justify-center rounded text-[10px] font-bold ${
