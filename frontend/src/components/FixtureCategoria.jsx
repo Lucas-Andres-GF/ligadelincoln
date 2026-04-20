@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { cachedQuery } from '../utils/supabaseCached'
 import { slugify } from '../utils/slugify'
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
@@ -132,25 +133,29 @@ export default function FixtureCategoria({ categoria }) {
 
   useEffect(() => {
     async function fetchFixture() {
-      const { data, error } = await supabase
-        .from('partidos')
-        .select(
-          `
-          fecha_id,
-          dia,
-          hora,
-          goles_local,
-          goles_visitante,
-          estado,
-          local_id,
-          visitante_id,
-          local:local_id ( nombre ),
-          visitante:visitante_id ( nombre )
-        `,
-        )
-        .order('fecha_id')
-        .order('id')
-        .eq('categoria_id', categoria)
+      const cacheKey = `fixture_categoria_${categoria}`
+      
+      const { data, error } = await cachedQuery(cacheKey, () =>
+        supabase
+          .from('partidos')
+          .select(
+            `
+            fecha_id,
+            dia,
+            hora,
+            goles_local,
+            goles_visitante,
+            estado,
+            local_id,
+            visitante_id,
+            local:local_id ( nombre ),
+            visitante:visitante_id ( nombre )
+          `,
+          )
+          .order('fecha_id')
+          .order('id')
+          .eq('categoria_id', categoria)
+      )
 
       if (error) {
         console.error('Error fetching partidos:', error)
