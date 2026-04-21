@@ -1,5 +1,8 @@
 # config.py
 import os
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
 from supabase import create_client
 
 # Credenciales de Supabase (desde variables de entorno)
