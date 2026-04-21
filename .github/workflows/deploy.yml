@@ -27,11 +27,7 @@ jobs:
         run: |
           echo "PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }}" > .env
           echo "PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}" >> .env
-          npm run build
+          npx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: frontend
 
-      - name: Deploy to Vercel
-        run: |
-          npm install -g vercel
-          vercel deploy dist/ --prod --yes --force --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: frontend
+      # vercel build ya hace deploy, no necesita paso extra
