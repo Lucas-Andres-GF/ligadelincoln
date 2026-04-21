@@ -33,5 +33,5 @@ jobs:
       - name: Deploy to Vercel
         run: |
           npm install -g vercel
-          vercel deploy dist/ --prod --token=${{ secrets.VERCEL_TOKEN }} --project=ligadelincoln --yes
+          vercel deploy dist/ --prod --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: frontend
