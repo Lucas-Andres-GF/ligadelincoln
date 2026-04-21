@@ -140,6 +140,7 @@ export default function FixtureCategoria({ categoria }) {
           .from('partidos')
           .select(
             `
+            id,
             fecha_id,
             dia,
             hora,
@@ -157,9 +158,41 @@ export default function FixtureCategoria({ categoria }) {
           .eq('categoria_id', categoria)
       )
 
+      // Fetch alineaciones with goleo for all matches
+      let goleadoresMap = {}
+      if (data && data.length > 0) {
+        const partidoIds = data.map(p => p.id)
+        const { data: aliData } = await supabase
+          .from('alineaciones')
+          .select('partido_id, equipo_id, nombre, goleo')
+          .in('partido_id', partidoIds)
+          .gt('goleo', 0)
+        
+        // Group by partido and equipo (each ⚽ as separate entry)
+        for (const a of aliData || []) {
+          if (!goleadoresMap[a.partido_id]) goleadoresMap[a.partido_id] = {}
+          const key = String(a.equipo_id)
+          if (!goleadoresMap[a.partido_id][key]) goleadoresMap[a.partido_id][key] = []
+          // Truncate: "PEREYRA SEGUROLA JOAQUIN" -> "PEREYRA S.J"
+          const truncated = a.nombre.split(' ').map((part, i) => 
+            i === 0 ? part : part.charAt(0) + '.'
+          ).join(' ')
+          // Each goal = one line
+          for (let i = 0; i < a.goleo; i++) {
+            goleadoresMap[a.partido_id][key].push(truncated + ' ⚽')
+          }
+        }
+      }
+
       if (error) {
         console.error('Error fetching partidos:', error)
       } else {
+        // Attach goleadores to matches (normalize keys to string)
+        for (const m of data) {
+          m.goleadoresLocal = goleadoresMap[m.id]?.[String(m.local_id)] || []
+          m.goleadoresVisita = goleadoresMap[m.id]?.[String(m.visitante_id)] || []
+        }
+        
         const grouped = {}
         for (const m of data) {
           if (!grouped[m.fecha_id]) grouped[m.fecha_id] = []
@@ -276,113 +309,81 @@ export default function FixtureCategoria({ categoria }) {
       </div>
       <div className='space-y-2'>
         {matches.map((match, i) => {
-          const isLibre = match.visitante_id === null
-          const seJugo =
-            match.estado === 'jugado' ||
-            (match.goles_local !== null && match.goles_visitante !== null)
+const isLibre = match.visitante_id === null
+            const seJugo = match.estado === 'jugado' || (match.goles_local !== null && match.goles_visitante !== null)
+            
+            // Solo Primera División + jugado => clickeable
+            const esPrimera = categoria === 1
+            const linkPartido = seJugo && esPrimera
+            const matchUrl = linkPartido ? `/partido/${slugify(match.local?.nombre || '')}-vs-${slugify(match.visitante?.nombre || '')}` : null
 
-          if (isLibre) {
+if (isLibre) {
             return (
               <div
                 key={i}
-                className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/20 border border-dashed border-green-900/30 text-xs'
+                className='flex items-center justify-center gap-2 py-1 px-2 rounded-lg bg-green-900/30 border border-green-800/50 text-xs'
               >
-                <span className='text-[10px] text-green-500 font-bold w-12 shrink-0 text-left'></span>
-                <a
-                  href={`/club/${slugify(match.local?.nombre || '')}?categoria=${categoria}`}
-                  className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
-                >
-                {match.local?.nombre && (
-                    <img
-                      src={getEscudoPath(match.local.nombre)}
-                      alt={match.local.nombre}
-                      className="w-4 h-4 object-contain"
-                    />
-                  )}
-                  <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
-                    {match.local?.nombre}
-                  </span>
-                </a>
-                <span className='text-green-700 font-bold text-[10px] '></span>
-                <span className='flex-1 text-left text-green-400 font-bold uppercase text-[10px]'>
-                  LIBRE
-                </span>
+                <span className='text-green-100 font-medium text-xs sm:text-sm'>{match.local?.nombre}</span>
+                <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className='w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0' />
+                <span className='text-green-700 font-semibold text-xs sm:text-sm'>LIBRE</span>
               </div>
             )
           }
 
-          return (
+          // Clickable row for Primera + played matches
+            const onRowClick = linkPartido ? () => { window.location.href = matchUrl } : null
+
+            return (
             <div
               key={i}
-              className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors text-xs'
+              onClick={onRowClick}
+              className={'flex flex-col gap-0 py-1 px-2 rounded-lg bg-green-900/30 hover:bg-green-900/50 transition-colors text-xs border border-green-800/50' + (linkPartido ? ' cursor-pointer' : '')}
             >
-              <span className='text-[10px] text-green-500 font-bold w-12 shrink-0 text-left'>
+              {/* Row 1: Fecha / Estado */}
+<div className='text-[10px] sm:text-xs text-green-600 font-medium mb-1'>
                 {seJugo ? (
-                  <span>
-                    {formatearFechaMostrar(match.dia) ? (
-                      <span>
-                        {formatearFechaMostrar(match.dia)}{' '}
-                        <span className='font-bold text-green-400'>JUGADO</span>
-                      </span>
-                    ) : (
-                      <span className='font-bold text-green-400'>JUGADO</span>
-                    )}
-                  </span>
+                  formatearFechaMostrar(match.dia)
+                    ? <span>{formatearFechaMostrar(match.dia)} <span className='text-green-400 font-semibold'>JUGADO</span></span>
+                    : <span className='text-green-400 font-semibold'>JUGADO</span>
                 ) : match.hora ? (
-                  `${formatearFechaMostrar(match.dia) || 'A DEFINIR'} - ${match.hora.slice(0, 5)}hs`
+                  <span>{formatearFechaMostrar(match.dia) || 'A DEFINIR'} - {match.hora.slice(0, 5)}hs</span>
                 ) : (
-                  formatearFechaMostrar(match.dia) || (
-                    <span className='font-bold text-green-400'>A DEFINIR</span>
-                  )
-                )}
-              </span>
-              <a
-                href={`/club/${slugify(match.local?.nombre || '')}`}
-                className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
-              >
-                <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
-                  {match.local?.nombre}
-                </span>
-                {match.local?.nombre && (
-                  <img
-                    src={getEscudoPath(match.local.nombre)}
-                    alt={match.local.nombre}
-                    className='w-4 h-4 object-contain shrink-0'
-                  />
-                )}
-              </a>
-              <div className='flex items-center gap-1 shrink-0 px-1 min-w-[40px] justify-center'>
-                {seJugo ? (
-                  <>
-                    <span className='font-black text-green-400 text-xs w-3 text-center'>
-                      {match.goles_local}
-                    </span>
-                    <span className='text-green-700'>–</span>
-                    <span className='font-black text-green-400 text-xs w-3 text-center'>
-                      {match.goles_visitante}
-                    </span>
-                  </>
-                ) : (
-                  <span className='text-green-700 font-bold text-[10px]'>
-                    vs
-                  </span>
+                  formatearFechaMostrar(match.dia) || <span className='font-semibold'>A DEFINIR</span>
                 )}
               </div>
-              <a
-                href={`/club/${slugify(match.visitante?.nombre || '')}?categoria=${categoria}`}
-                className='flex items-center gap-1 flex-1 min-w-0 hover:opacity-80'
-              >
-                {match.visitante?.nombre && (
-                  <img
-                    src={getEscudoPath(match.visitante.nombre)}
-                    alt={match.visitante.nombre}
-                    className='w-4 h-4 object-contain shrink-0'
-                  />
-                )}
-                <span className='truncate text-green-100 font-semibold text-[10px]'>
-                  {match.visitante?.nombre}
-                </span>
-              </a>
+
+              {/* Row 2: Club Local | Score | Club Visitante */}
+              <div className='flex items-center gap-1'>
+                <div className='flex-1 flex items-center gap-1 justify-end min-w-0'>
+                  <span className='text-green-100 font-medium text-xs sm:text-sm text-right'>{match.local?.nombre}</span>
+                  {match.local?.nombre && <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className='w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0' />}
+                </div>
+
+                <div className='flex items-center shrink-0 min-w-[36px] justify-center'>
+                  {seJugo ? (
+                    <><span className='font-bold text-green-300 text-sm sm:text-base tabular-nums'>{match.goles_local}</span><span className='text-green-700 mx-0.5'>–</span><span className='font-bold text-green-300 text-sm sm:text-base tabular-nums'>{match.goles_visitante}</span></>
+                  ) : (
+                    <span className='text-green-700 font-semibold text-xs sm:text-sm'>vs</span>
+                  )}
+                </div>
+
+                <div className='flex-1 flex items-center gap-1 min-w-0'>
+                  {match.visitante?.nombre && <img src={getEscudoPath(match.visitante.nombre)} alt={match.visitante.nombre} className='w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0' />}
+                  <span className='text-green-100 font-medium text-xs sm:text-sm'>{match.visitante?.nombre}</span>
+                </div>
+              </div>
+
+              {/* Row 3: Goleadores */}
+              {seJugo && (match.goleadoresLocal?.length > 0 || match.goleadoresVisita?.length > 0) && (
+                <div className='flex mt-1 gap-2'>
+                  <div className='flex-1 text-right text-[9px] sm:text-[10px] text-green-500/80 space-y-0.5 pr-3'>
+                    {match.goleadoresLocal?.map((g, i) => <div key={`l${i}`} className='truncate'>{g}</div>)}
+                  </div>
+                  <div className='flex-1 text-left text-[9px] sm:text-[10px] text-green-500/80 space-y-0.5 pl-3'>
+                    {match.goleadoresVisita?.map((g, i) => <div key={`v${i}`} className='truncate'>{g}</div>)}
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}

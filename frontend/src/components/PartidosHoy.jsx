@@ -66,8 +66,9 @@ function parseDate(dia) {
     return new Date(anio, dd - 1, parseInt(mm))
   }
   if (dia.includes('-')) {
-    const [aa, mm, dd] = dia.split('-')
-    return new Date(aa.includes('20') ? anio : `20${aa}`, parseInt(mm) - 1, parseInt(dd))
+    const parts = dia.split('-')
+    const anioFecha = parts[0].includes('20') ? parts[0] : `20${parts[0]}`
+    return new Date(parseInt(anioFecha), parseInt(parts[1]) - 1, parseInt(parts[2]))
   }
   return null
 }
@@ -111,17 +112,20 @@ export default function PartidosHoy() {
         .not('dia', 'is', null)
       
       if (allPartidos && allPartidos.length > 0) {
-        const dates = [...new Set(allPartidos.map(p => p.dia))].filter(Boolean)
+        // Filter valid dates (not null, not "None" string)
+        const validPartidos = allPartidos.filter(p => p.dia && p.dia !== 'None')
+        const dates = [...new Set(validPartidos.map(p => p.dia))]
         setDatesWithMatches(dates)
         
         const hoy = new Date()
         hoy.setHours(0, 0, 0, 0)
         
-        // Buscar la proxima fecha (futura)
+        // PRIORIZAR: 1) próximo (futuro), 2) último (pasado), 3) hoy
         let nextDate = null
+        let lastDate = null
         let minFutureDiff = Infinity
+        let maxPastDiff = -Infinity
         
-        // Buscar la fecha mas cercana futura
         for (const dia of dates) {
           const matchDate = parseDate(dia)
           if (matchDate) {
@@ -130,11 +134,17 @@ export default function PartidosHoy() {
               minFutureDiff = diff
               nextDate = matchDate
             }
+            if (diff < 0 && diff > maxPastDiff) {
+              maxPastDiff = diff
+              lastDate = matchDate
+            }
           }
         }
         
         if (nextDate) {
           setSelectedDate(nextDate)
+        } else if (lastDate) {
+          setSelectedDate(lastDate)
         } else {
           setSelectedDate(hoy)
         }
@@ -332,28 +342,11 @@ export default function PartidosHoy() {
                       return (
                         <div
                           key={i}
-                          className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/20 border border-dashed border-green-900/30 text-xs'
+                          className='flex items-center justify-center gap-2 py-1 px-2 rounded-lg bg-green-900/30 border border-green-800/50 text-xs'
                         >
-                          <span className='text-[10px] text-green-500 font-bold w-12 shrink-0 text-left'></span>
-                          <a
-                            href={`/club/${slugify(match.local?.nombre || '')}?categoria=${match.categoria_id}`}
-                            className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
-                          >
-                            {match.local?.nombre && (
-                                <img
-                                  src={getEscudoPath(match.local.nombre)}
-                                  alt={match.local.nombre}
-                                  className="w-8 h-8 object-contain"
-                                />
-                            )}
-                            <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
-                              {match.local?.nombre}
-                            </span>
-                          </a>
-                          <span className='text-green-700 font-bold text-[10px] '></span>
-                          <span className='flex-1 text-left text-green-400 font-bold uppercase text-[10px]'>
-                            LIBRE
-                          </span>
+                          <span className='text-green-100 font-medium text-xs'>{match.local?.nombre}</span>
+                          <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className='w-5 h-5 object-contain shrink-0' />
+                          <span className='text-green-700 font-semibold text-xs'>LIBRE</span>
                         </div>
                       )
                     }
@@ -361,58 +354,28 @@ export default function PartidosHoy() {
                     return (
                       <div
                         key={i}
-                        className='flex items-center gap-1 py-1 px-2 rounded-lg bg-green-950/30 hover:bg-green-400/5 transition-colors text-xs'
+                        className='flex flex-col gap-0 py-1 px-2 rounded-lg bg-green-900/30 hover:bg-green-900/50 transition-colors text-xs border border-green-800/50'
                       >
-                        <span className='text-[10px] text-green-500 font-bold w-12 shrink-0 text-left'>
+                        <div className='text-[10px] text-green-600 font-medium mb-1'>
                           {seJugo ? 'JUGADO' : (match.hora ? match.hora.slice(0, 5) + 'hs' : '')}
-                        </span>
-                        <a
-                          href={`/club/${slugify(match.local?.nombre || '')}?categoria=${match.categoria_id}`}
-                          className='flex items-center gap-1 flex-1 justify-end min-w-0 hover:opacity-80'
-                        >
-                          <span className='truncate text-green-100 font-semibold text-right text-[10px]'>
-                            {match.local?.nombre}
-                          </span>
-                          {match.local?.nombre && (
-                                <img
-                                  src={getEscudoPath(match.local.nombre)}
-                                  alt={match.local.nombre}
-                                  className="w-6 h-6 object-contain"
-                                />
-                            )}
-                        </a>
-                        <div className='flex items-center gap-1 shrink-0 px-1 min-w-[40px] justify-center'>
-                          {seJugo ? (
-                            <>
-                              <span className='font-black text-green-400 text-xs w-3 text-center'>
-                                {match.goles_local}
-                              </span>
-                              <span className='text-green-700'>–</span>
-                              <span className='font-black text-green-400 text-xs w-3 text-center'>
-                                {match.goles_visitante}
-                              </span>
-                            </>
-                          ) : (
-                            <span className='text-green-700 font-bold text-[10px]'>
-                              vs
-                            </span>
-                          )}
                         </div>
-                        <a
-                          href={`/club/${slugify(match.visitante?.nombre || '')}?categoria=${match.categoria_id}`}
-                          className='flex items-center gap-1 flex-1 min-w-0 hover:opacity-80'
-                        >
-                          {match.visitante?.nombre && (
-                                <img
-                                  src={getEscudoPath(match.visitante.nombre)}
-                                  alt={match.visitante.nombre}
-                                  className="w-6 h-6 object-contain"
-                                />
+                        <div className='flex items-center gap-1'>
+                          <div className='flex-1 flex items-center gap-1 justify-end min-w-0'>
+                            <span className='text-green-100 font-medium text-xs text-right'>{match.local?.nombre}</span>
+                            {match.local?.nombre && <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className="w-5 h-5 object-contain shrink-0" />}
+                          </div>
+                          <div className='flex items-center shrink-0 min-w-[36px] justify-center'>
+                            {seJugo ? (
+                              <><span className='font-bold text-green-300 text-sm'>{match.goles_local}</span><span className='text-green-700 mx-0.5'>–</span><span className='font-bold text-green-300 text-sm'>{match.goles_visitante}</span></>
+                            ) : (
+                              <span className='text-green-700 font-semibold text-xs'>vs</span>
                             )}
-                          <span className='truncate text-green-100 font-semibold text-[10px]'>
-                            {match.visitante?.nombre}
-                          </span>
-                        </a>
+                          </div>
+                          <div className='flex-1 flex items-center gap-1 min-w-0'>
+                            {match.visitante?.nombre && <img src={getEscudoPath(match.visitante.nombre)} alt={match.visitante.nombre} className="w-5 h-5 object-contain shrink-0" />}
+                            <span className='text-green-100 font-medium text-xs'>{match.visitante?.nombre}</span>
+                          </div>
+                        </div>
                       </div>
                     )
                   })}
