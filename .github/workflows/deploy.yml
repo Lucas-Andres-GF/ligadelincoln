@@ -33,5 +33,5 @@ jobs:
         working-directory: frontend
 
       - name: Deploy to Vercel
-        run: npx vercel deploy dist/ --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx vercel deploy dist/ --prod --yes --force --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: frontend
