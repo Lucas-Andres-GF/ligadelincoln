@@ -23,10 +23,10 @@ jobs:
 
       - name: Build Project
         run: |
-          rm -rf frontend/.vercel
-          rm -rf frontend/node_modules/.astro
-          echo "PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }}" > frontend/.env
-          echo "PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}" >> frontend/.env
+          rm -rf .vercel
+          rm -rf node_modules/.astro
+          echo "PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }}" > .env
+          echo "PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}" >> .env
           npm run build
         working-directory: frontend
 
