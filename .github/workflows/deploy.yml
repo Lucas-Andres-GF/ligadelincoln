@@ -27,8 +27,8 @@ jobs:
           rm -rf node_modules/.astro
           echo "PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }}" > .env
           echo "PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}" >> .env
-          npm run build
+          npm run build -- --env-file .env
         working-directory: frontend
 
       - name: Deploy to Vercel
-        run: npx vercel deploy frontend/dist/ --prod --yes --force --token=${{ secrets.VERCEL_TOKEN }} --project=ligadelincoln
+        run: npx vercel deploy frontend/dist/ --prod --yes --force --token=${{ secrets.VERCEL_TOKEN }}
