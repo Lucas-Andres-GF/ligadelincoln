@@ -25,6 +25,8 @@ jobs:
         run: |
           rm -rf frontend/.vercel
           rm -rf frontend/node_modules/.astro
+          echo "PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }}" > frontend/.env
+          echo "PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}" >> frontend/.env
           npm run build
         working-directory: frontend
 
