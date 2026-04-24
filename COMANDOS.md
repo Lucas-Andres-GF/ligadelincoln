@@ -89,6 +89,13 @@ cd /home/gallardo/Documentos/ligadelincoln/frontend
 npm run deploy
 ```
 
+### Capturar fixture (lunes)
+Genera imágenes PNG del fixture por categoría y fecha.
+
+```bash
+python3 /home/gallardo/Documentos/ligadelincoln/scripts/capturar_fixture.py
+```
+
 ### Capturar tablas (opcional)
 Genera imágenes PNG de las tablas de posiciones.
 
@@ -110,6 +117,7 @@ Genera las placas de resultado final.
 | Día | Acción | Comando |
 |-----|--------|---------|
 | Lunes | Actualizar horarios de la semana | `python3 scraper_horarios.py` |
+| Lunes | Capturar fixture | `python3 capturar_fixture.py` |
 | Lunes/Martes | Scrapear alineaciones + deploy | `python3 scraper_alineaciones.py` + `npm run deploy` |
 | Sábados | Resultados (automático) | Timer systemd cada 15min (14-21hs) |
 | Domingos 22:15 | Generar placas (automático) | Timer systemd |
