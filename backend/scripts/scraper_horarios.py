@@ -6,7 +6,6 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
-# Cargar variables de entorno desde .env
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -35,7 +34,9 @@ MAPEO_EQUIPOS = {
     "CASET": 5,
     "JUVENTUD UNIDA": 9,
     "DEP GRAL PINTO": 7,
+    "DEP. GRAL PINTO": 7,
     "C A PINTENSE": 4,
+    "CA. PINTENSE": 4,
     "EL LINQUEÑO": 8,
     "ARGENTINO": 1,
     "ATL PASTEUR": 2,
@@ -80,25 +81,37 @@ def scrape():
     ultima_hora = None
     ultima_cancha = None
     
-    tabla = soup.find_all('table')[2]
-    filas = tabla.find_all('tr')
+    tablas = soup.find_all('table')
+    tabla = None
+    for t in tablas:
+        if 'CRONOGRAMA' in t.get_text():
+            tabla = t
+            break
     
+    if not tabla:
+        print("ERROR: No se encontró tabla de cronograma")
+        return []
+    
+    filas = tabla.find_all('tr')
     postergados_encontrado = False
     
     for fila in filas:
         celdas = [c.get_text(strip=True) for c in fila.find_all('td')]
+        if not celdas:
+            celdas = [c.get_text(strip=True) for c in fila.find_all('th')]
         
         if not celdas:
             continue
         
-        if any('Postergados' in c for c in celdas):
+        texto = ' '.join(celdas)
+        
+        if 'Postergados' in celdas[0] and len(celdas) < 3:
             postergados_encontrado = True
             continue
         
         if postergados_encontrado:
             continue
         
-        texto = ' '.join(celdas)
         match = re.search(r'((?:Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo)\s+\d{1,2}\s+de\s+\w+\s+de\s+\d{4})', texto, re.IGNORECASE)
         if match:
             fecha_str = match.group(1)
@@ -115,7 +128,7 @@ def scrape():
                 ultima_cancha = None
             continue
         
-        if 'Division' in celdas[0]:
+        if 'Division' in celdas[0] or 'ligaamateurdedeportes' in celdas[0].lower():
             continue
         
         cat = normalizar_categoria(celdas[0])
@@ -126,8 +139,8 @@ def scrape():
             continue
         
         local = normalizar_equipo(celdas[1]) if celdas[1] else ""
-        vs = celdas[2] if celdas[2] else ""
-        visitante = normalizar_equipo(celdas[3]) if celdas[3] else ""
+        vs = celdas[2] if len(celdas) > 2 else ""
+        visitante = normalizar_equipo(celdas[3]) if len(celdas) > 3 else ""
         
         if vs not in ["vs", "vs."]:
             continue
@@ -137,17 +150,26 @@ def scrape():
         
         hora = None
         cancha = None
+        hora_heredada = False
         
         if len(celdas) >= 6:
             hora_str = celdas[4].replace('.', ':').strip()
             if re.match(r'\d{1,2}:\d{2}', hora_str):
                 hora = hora_str
-                ultima_hora = hora
-            
-            if celdas[5]:
+                if not ultima_hora:
+                    ultima_hora = hora
+                if celdas[5]:
+                    campo = celdas[5].strip()
+                    if campo:
+                        ultima_cancha = campo
+            elif celdas[5]:
                 campo = celdas[5].strip()
                 if campo:
                     ultima_cancha = campo
+        
+        if not hora and ultima_hora:
+            hora = ultima_hora
+            hora_heredada = True
         
         resultados.append({
             "fecha": fecha_actual,
@@ -158,6 +180,7 @@ def scrape():
             "visitante": visitante,
             "visitante_id": buscar_equipo_id(visitante),
             "hora": hora,
+            "hora_heredada": hora_heredada,
             "cancha": ultima_cancha if ultima_cancha else "",
         })
     
@@ -186,29 +209,27 @@ def calcular_horarios(partidos):
         cat_anterior = None
         
         for p in lista:
-            if p['hora']:
-                hora_actual = p['hora']
-                cat_anterior = p['categoria']
-                resultado_final.append({**p, "hora_calc": hora_actual})
-            else:
+            if p.get('hora_heredada'):
                 if hora_actual and cat_anterior:
                     h, m = map(int, hora_actual.split(':'))
                     minutos = h * 60 + m
-                    minutos += DURACION_MINUTOS[cat_anterior]
+                    minutos += DURACION_MINUTOS.get(cat_anterior, 80)
                     nueva_hora = f"{minutos // 60:02d}:{minutos % 60:02d}"
-                    resultado_final.append({**p, "hora_calc": nueva_hora})
+                    resultado_final.append({**p, "hora_calc": nueva_hora, "hora_original": p['hora']})
                     hora_actual = nueva_hora
                     cat_anterior = p['categoria']
                 else:
-                    hora_actual = "13:00"
+                    hora_actual = p['hora']
                     cat_anterior = p['categoria']
-                    resultado_final.append({**p, "hora_calc": hora_actual})
+                    resultado_final.append({**p, "hora_calc": hora_actual, "hora_original": p['hora']})
+            else:
+                hora_actual = p['hora']
+                cat_anterior = p['categoria']
+                resultado_final.append({**p, "hora_calc": p['hora'], "hora_original": p['hora']})
     
     return resultado_final
 
 def actualizar_db(partidos_con_hora):
-    """Actualiza la tabla partidos con fecha y hora"""
-    
     print(f"\n=== Actualizando {len(partidos_con_hora)} partidos en la DB ===\n")
     
     actualizados = 0
@@ -220,11 +241,9 @@ def actualizar_db(partidos_con_hora):
             continue
         
         try:
-            # Buscar el partido en la DB
             result = supabase.table("partidos").select("id").eq("categoria_id", p['categoria_id']).eq("local_id", p['local_id']).eq("visitante_id", p['visitante_id']).execute()
             
             if result.data:
-                # Update
                 supabase.table("partidos").update({
                     "dia": p['fecha'],
                     "hora": p['hora_calc']
