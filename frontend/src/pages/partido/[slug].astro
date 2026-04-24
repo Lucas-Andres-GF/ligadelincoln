@@ -1,0 +1,232 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { createClient } from '@supabase/supabase-js'
+
+export async function getStaticPaths() {
+  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
+  const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+  // Get all played matches
+  const { data: partidos } = await supabase
+    .from('partidos')
+    .select('id, categoria_id, fecha_id, local_id, visitante_id, goles_local, goles_visitante, estado, dt_local, dt_visitante, arbitro')
+    .eq('categoria_id', 1)
+    .eq('estado', 'jugado')
+
+  // Get clubs for names
+  const { data: clubes } = await supabase.from('clubes').select('id, nombre')
+
+  const slugToId = {
+    'argentino': 1, 'atl-pasteur': 2, 'atl-roberts': 3, 'ca-pintense': 4,
+    'caset': 5, 'dep-arenaza': 6, 'dep-gral-pinto': 7, 'el-linqueno': 8,
+    'juventud-unida': 9, 'san-martin': 10, 'villa-francia': 11,
+  }
+  
+  const idToSlug = {}
+  for (const [slug, id] of Object.entries(slugToId)) {
+    idToSlug[id] = slug
+  }
+
+  const clubNames = {}
+  for (const c of clubes) {
+    clubNames[c.id] = c.nombre
+  }
+
+  const paths = []
+  for (const p of partidos || []) {
+    if (!p.local_id || !p.visitante_id) continue
+    
+    const localSlug = idToSlug[p.local_id]
+    const visitaSlug = idToSlug[p.visitante_id]
+    
+    if (!localSlug || !visitaSlug) continue
+
+    paths.push({
+      params: { slug: `${localSlug}-vs-${visitaSlug}` },
+      props: { 
+        partido: p,
+        nombreLocal: clubNames[p.local_id],
+        nombreVisita: clubNames[p.visitante_id],
+      },
+    })
+  }
+
+  return paths
+}
+
+const { slug } = Astro.params
+const { partido, nombreLocal, nombreVisita } = Astro.props
+
+// Get alineaciones
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+const { data: aliData } = await supabase
+  .from('alineaciones')
+  .select('partido_id, equipo_id, numero, nombre, es_titular, goleo, roja')
+  .eq('partido_id', partido.id)
+  .order('equipo_id')
+  .order('numero')
+
+const alineaciones = aliData || []
+
+const aliLocal = alineaciones.filter(a => a.equipo_id === partido.local_id)
+const aliVisita = alineaciones.filter(a => a.equipo_id === partido.visitante_id)
+
+const escudos = {
+  1: '/escudos/argentino.png', 2: '/escudos/atl.pasteur.png', 3: '/escudos/atl.roberts.png',
+  4: '/escudos/ca.pintense.png', 5: '/escudos/caset.png', 6: '/escudos/dep.arenaza.png',
+  7: '/escudos/dep.pinto.png', 8: '/escudos/el.linqueño.png', 9: '/escudos/juventud.unida.png',
+  10: '/escudos/san.martin.png', 11: '/escudos/villa.francia.png',
+}
+---
+
+<Layout title={`${nombreLocal} vs ${nombreVisita} - Liga De Lincoln`}>
+  <div class="max-w-4xl mx-auto px-4 py-6">
+    <div class="text-center mb-8">
+      <span class="inline-block mt-2 px-3 py-0.5 text-[14px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
+        Fecha {partido.fecha_id}
+      </span>
+    </div>
+
+    <div class="flex items-center justify-center gap-4 mb-8">
+      <div class="flex flex-col items-center gap-2">
+        <img src={escudos[partido.local_id]} alt={nombreLocal} class="w-16 h-16 object-contain" />
+        <span class="text-green-100 font-bold text-sm text-center">{nombreLocal}</span>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <span class="text-4xl font-black text-green-400">
+          {partido.goles_local ?? 0}-{partido.goles_visitante ?? 0}
+        </span>
+      </div>
+      
+      <div class="flex flex-col items-center gap-2">
+        <img src={escudos[partido.visitante_id]} alt={nombreVisita} class="w-16 h-16 object-contain" />
+        <span class="text-green-100 font-bold text-sm text-center">{nombreVisita}</span>
+      </div>
+    </div>
+
+    {/* Staff: DT y Árbitro */}
+    {(partido.dt_local || partido.dt_visitante || partido.arbitro) && (
+      <div class="flex justify-center gap-8 mb-6 text-sm">
+        {partido.dt_local && (
+          <div class="text-center">
+            <span class="text-green-500 text-xs uppercase">D.T. Local</span>
+            <div class="text-green-300">{partido.dt_local}</div>
+          </div>
+        )}
+        {partido.arbitro && (
+          <div class="text-center">
+            <span class="text-green-500 text-xs uppercase">Árbitro</span>
+            <div class="text-green-300">{partido.arbitro}</div>
+          </div>
+        )}
+        {partido.dt_visitante && (
+          <div class="text-center">
+            <span class="text-green-500 text-xs uppercase">D.T. Visita</span>
+            <div class="text-green-300">{partido.dt_visitante}</div>
+          </div>
+        )}
+      </div>
+    )}
+
+    {alineaciones.length === 0 ? (
+      <div class="text-center py-8 text-green-600">
+        No hay alineaciones disponibles
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-[#143814] rounded-xl border border-green-900/40 p-4">
+          <div class="flex items-center gap-2 mb-4">
+            <img src={escudos[partido.local_id]} alt="" class="w-8 h-8 object-contain" />
+            <span class="text-green-400 font-bold">{nombreLocal}</span>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <span class="text-xs text-green-500 uppercase block mb-2">Titulares</span>
+              <div class="space-y-1">
+                {aliLocal.filter(a => a.es_titular && a.nombre && a.nombre !== '0').map(j => (
+                  <div key={j.numero} class="flex items-center gap-2 text-xs">
+                    <span class="w-6 h-6 bg-green-500/20 text-green-400 rounded flex items-center justify-center font-bold text-center">
+                      {j.numero}
+                    </span>
+                    <span class="text-green-300">
+                      {j.nombre}
+                      {j.goleo > 0 ? ' ⚽'.repeat(j.goleo) : ''}
+                      {j.roja ? ' 🟥' : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span class="text-xs text-green-500 uppercase block mb-2">Suplentes</span>
+              <div class="space-y-1">
+                {aliLocal.filter(a => !a.es_titular && a.nombre && a.nombre !== '0').map(j => (
+                  <div key={j.numero} class="flex items-center gap-2 text-xs">
+                    <span class="w-6 h-6 bg-green-900/40 rounded flex items-center justify-center">
+                      {j.numero}
+                    </span>
+                    <span class="text-green-300">
+                      {j.nombre}
+                      {j.goleo > 0 ? ' ⚽'.repeat(j.goleo) : ''}
+                      {j.roja ? ' 🟥' : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-[#143814] rounded-xl border border-green-900/40 p-4">
+          <div class="flex items-center gap-2 mb-4">
+            <img src={escudos[partido.visitante_id]} alt="" class="w-8 h-8 object-contain" />
+            <span class="text-green-400 font-bold">{nombreVisita}</span>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <span class="text-xs text-green-500 uppercase block mb-2">Titulares</span>
+              <div class="space-y-1">
+                {aliVisita.filter(a => a.es_titular && a.nombre && a.nombre !== '0').map(j => (
+                  <div key={j.numero} class="flex items-center gap-2 text-xs">
+                    <span class="w-6 h-6 bg-green-500/20 text-green-400 rounded flex items-center justify-center font-bold text-center">
+                      {j.numero}
+                    </span>
+                    <span class="text-green-300">
+                      {j.nombre}
+                      {j.goleo > 0 ? ' ⚽'.repeat(j.goleo) : ''}
+                      {j.roja ? ' 🟥' : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span class="text-xs text-green-500 uppercase block mb-2">Suplentes</span>
+              <div class="space-y-1">
+                {aliVisita.filter(a => !a.es_titular && a.nombre && a.nombre !== '0').map(j => (
+                  <div key={j.numero} class="flex items-center gap-2 text-xs">
+                    <span class="w-6 h-6 bg-green-900/40 rounded flex items-center justify-center">
+                      {j.numero}
+                    </span>
+                    <span class="text-green-300">
+                      {j.nombre}
+                      {j.goleo > 0 ? ' ⚽'.repeat(j.goleo) : ''}
+                      {j.roja ? ' 🟥' : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+</Layout>

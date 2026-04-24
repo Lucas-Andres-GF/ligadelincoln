@@ -1,0 +1,150 @@
+---
+import Layout from '../layouts/Layout.astro'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Obtener equipos primero
+const { data: clubes } = await supabase.from('clubes').select('id, nombre')
+
+const clubMap = {}
+for (const c of clubes) {
+  clubMap[c.id] = c.nombre
+}
+
+// Obtener alineaciones con su partido
+const { data: aliData } = await supabase
+  .from('alineaciones')
+  .select('partido_id, equipo_id, numero, nombre, es_titular')
+  .order('partido_id')
+  .order('equipo_id')
+  .order('numero')
+
+// Obtener partidos que tienen alineaciones
+const partidoIds = [...new Set(aliData?.map(a => a.partido_id) || [])]
+let ultimosPartidos = []
+
+if (partidoIds.length > 0) {
+  const { data: partidosData } = await supabase
+    .from('partidos')
+    .select('id, categoria_id, fecha_id, local_id, visitante_id, goles_local, goles_visitante, estado')
+    .in('id', partidoIds)
+    .order('fecha_id', { ascending: false })
+  
+  ultimosPartidos = partidosData || []
+}
+
+// Obtener el último partido que tiene alineaciones
+const ultimoPartido = ultimosPartidos[0] || null
+
+// Filtrar alineaciones de ese partido
+const alineaciones = aliData?.filter(a => a.partido_id === ultimoPartido?.id) || []
+
+// Agrupar por equipo
+const aliLocal = alineaciones.filter(a => a.equipo_id === ultimoPartido?.local_id)
+const aliVisita = alineaciones.filter(a => a.equipo_id === ultimoPartido?.visitante_id)
+
+const escudos = {
+  1: '/escudos/argentino.png',
+  2: '/escudos/atl.pasteur.png',
+  3: '/escudos/atl.roberts.png',
+  4: '/escudos/ca.pintense.png',
+  5: '/escudos/caset.png',
+  6: '/escudos/dep.arenaza.png',
+  7: '/escudos/dep.pinto.png',
+  8: '/escudos/el.linqueño.png',
+  9: '/escudos/juventud.unida.png',
+  10: '/escudos/san.martin.png',
+  11: '/escudos/villa.francia.png',
+}
+---
+
+<Layout title="Alineaciones - Liga De Lincoln">
+  <div class="text-center py-6">
+    <span class="inline-block mt-2 px-3 py-0.5 text-[16px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
+      Alineaciones - Fecha {ultimoPartido?.fecha_id || '-'}
+    </span>
+  </div>
+
+  {alineaciones.length === 0 ? (
+    <div class="text-center py-8 text-green-600">
+      No hay alineaciones disponibles
+    </div>
+  ) : (
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Equipo Local -->
+      <div class="bg-[#143814] rounded-xl border border-green-900/40 p-4">
+        <div class="flex items-center gap-2 mb-4">
+          <img src={escudos[ultimoPartido?.local_id]} alt="" class="w-8 h-8 object-contain" />
+          <span class="text-green-400 font-bold">{clubMap[ultimoPartido?.local_id]}</span>
+          <span class="text-green-500 font-black text-xl ml-auto">
+            {ultimoPartido?.goles_local}-{ultimoPartido?.goles_visitante}
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <span class="text-xs text-green-600 uppercase block mb-2">Titulares</span>
+            {aliLocal.filter(a => a.es_titular).map(j => (
+              <div key={j.numero} class="flex items-center gap-2 text-[10px]">
+                <span class="w-5 h-5 bg-green-500/20 text-green-400 rounded flex items-center justify-center font-bold">
+                  {j.numero}
+                </span>
+                <span class="text-green-300 truncate">{j.nombre}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <span class="text-xs text-green-600 uppercase block mb-2">Suplentes</span>
+            {aliLocal.filter(a => !a.es_titular).map(j => (
+              <div key={j.numero} class="flex items-center gap-2 text-[10px] text-green-400/50">
+                <span class="w-5 h-5 bg-green-900/40 rounded flex items-center justify-center">
+                  {j.numero}
+                </span>
+                <span class="truncate">{j.nombre}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <!-- Equipo Visitante -->
+      <div class="bg-[#143814] rounded-xl border border-green-900/40 p-4">
+        <div class="flex items-center gap-2 mb-4">
+          <img src={escudos[ultimoPartido?.visitante_id]} alt="" class="w-8 h-8 object-contain" />
+          <span class="text-green-400 font-bold">{clubMap[ultimoPartido?.visitante_id]}</span>
+          <span class="text-green-500 font-black text-xl ml-auto">
+            {ultimoPartido?.goles_local}-{ultimoPartido?.goles_visitante}
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <span class="text-xs text-green-600 uppercase block mb-2">Titulares</span>
+            {aliVisita.filter(a => a.es_titular).map(j => (
+              <div key={j.numero} class="flex items-center gap-2 text-[10px]">
+                <span class="w-5 h-5 bg-green-500/20 text-green-400 rounded flex items-center justify-center font-bold">
+                  {j.numero}
+                </span>
+                <span class="text-green-300 truncate">{j.nombre}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <span class="text-xs text-green-600 uppercase block mb-2">Suplentes</span>
+            {aliVisita.filter(a => !a.es_titular).map(j => (
+              <div key={j.numero} class="flex items-center gap-2 text-[10px] text-green-400/50">
+                <span class="w-5 h-5 bg-green-900/40 rounded flex items-center justify-center">
+                  {j.numero}
+                </span>
+                <span class="truncate">{j.nombre}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
+</Layout>
