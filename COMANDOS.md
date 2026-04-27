@@ -64,9 +64,9 @@ systemctl --user restart scraper-resultados.timer
 
 ---
 
-## Scripts manuales (corrida semanal)
+## Scripts manuales (corrida operativa)
 
-### Scraper de horarios (lunes)
+### Scraper de horarios (inicio de semana)
 Actualiza fecha, hora y cancha de los partidos desde la web de la Liga.
 
 ```bash
@@ -74,13 +74,25 @@ cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
 python3 scraper_horarios.py
 ```
 
-### Scraper de alineaciones (lunes/martes)
-Extrae alineaciones, goleadores, DTs y árbitros desde la web de la Liga.
+### Scraper de alineaciones (cuando la web ya esté actualizada)
+Extrae alineaciones, goleadores, DTs, árbitro y también actualiza el resultado/estado del partido en `partidos`.
 
 ```bash
 cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
 python3 scraper_alineaciones.py
 ```
+
+**Cuándo correrlo**
+
+- Cuando termine un partido y la web `alineaciones.html` ya muestre ese partido con sus jugadores.
+- También sirve para la fecha completa, cuando la Liga sube todas las alineaciones.
+
+**Importante**
+
+- `alineaciones.html` muestra la **fecha actual**; no es una fuente histórica estable.
+- Antes de correrlo, verificar visualmente que la página tenga la fecha y los partidos correctos.
+- El script trabaja sobre la fecha detectada en la web y vuelve a guardar las alineaciones de esos partidos.
+- Si la web cambia de fecha, ya no se pueden reconstruir alineaciones viejas desde esa misma URL.
 
 **Importante:** Después de ejecutar, hacer deploy manual a Vercel para regenerar las páginas de partido:
 
@@ -89,7 +101,7 @@ cd /home/gallardo/Documentos/ligadelincoln/frontend
 npm run deploy
 ```
 
-### Capturar fixture (lunes)
+### Capturar fixture (inicio de semana)
 Genera imágenes PNG del fixture por categoría y fecha.
 
 ```bash
@@ -116,11 +128,67 @@ Genera las placas de resultado final.
 
 | Día | Acción | Comando |
 |-----|--------|---------|
-| Lunes | Actualizar horarios de la semana | `python3 scraper_horarios.py` |
-| Lunes | Capturar fixture | `python3 capturar_fixture.py` |
-| Lunes/Martes | Scrapear alineaciones + deploy | `python3 scraper_alineaciones.py` + `npm run deploy` |
+| Inicio de semana | Actualizar horarios de la semana | `python3 scraper_horarios.py` |
+| Inicio de semana | Capturar fixture | `python3 capturar_fixture.py` |
+| Cuando termina un partido y la web ya fue actualizada | Scrapear alineaciones / goleadores / DT / árbitro / resultado | `python3 scraper_alineaciones.py` |
+| Después de actualizar datos manualmente | Deploy del frontend | `npm run deploy` |
 | Sábados | Resultados (automático) | Timer systemd cada 15min (14-21hs) |
 | Domingos 22:15 | Generar placas (automático) | Timer systemd |
+
+---
+
+## Flujo recomendado de trabajo
+
+### 1) Inicio de semana
+
+```bash
+cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
+python3 scraper_horarios.py
+python3 /home/gallardo/Documentos/ligadelincoln/scripts/capturar_fixture.py
+```
+
+### 2) Durante el fin de semana
+
+- Los resultados se actualizan automáticamente con el timer `scraper-resultados`.
+- Si querés revisar que esté corriendo:
+
+```bash
+systemctl --user status scraper-resultados.timer
+systemctl --user status scraper-resultados.service
+```
+
+### 3) Cuando la Liga sube alineaciones de un partido o de la fecha
+
+```bash
+cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
+python3 scraper_alineaciones.py
+```
+
+Eso actualiza:
+
+- `alineaciones`
+- goleadores
+- `dt_local`
+- `dt_visitante`
+- `arbitro`
+- `goles_local`
+- `goles_visitante`
+- `estado = jugado`
+
+### 4) Después de una corrida manual importante
+
+Regenerar el frontend en Vercel:
+
+```bash
+cd /home/gallardo/Documentos/ligadelincoln/frontend
+npm run deploy
+```
+
+### 5) Precaución con alineaciones
+
+- No asumir que `alineaciones.html` conserva semanas anteriores.
+- Si la página todavía no muestra el partido correcto, **no correr** `scraper_alineaciones.py`.
+- Si querés conservar histórico confiable, conviene exportar o respaldar antes de corridas importantes.
 
 ---
 
