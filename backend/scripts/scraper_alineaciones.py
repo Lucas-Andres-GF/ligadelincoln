@@ -11,6 +11,15 @@ from supabase import create_client
 supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 print("Imports done")
 
+MAPEO_FECHA = {
+    "PRIMERA": 1, "SEGUNDA": 2, "TERCERA": 3, "CUARTA": 4,
+    "QUINTA": 5, "SEXTA": 6, "SEPTIMA": 7, "OCTAVA": 8,
+    "NOVENA": 9, "DECIMA": 10, "UNDECIMA": 11, "DUODECIMA": 12,
+    "DECIMOTERCERA": 13, "DECIMOCUARTA": 14, "DECIMOQUINTA": 15,
+    "DECIMOSEXTA": 16, "DECIMOSEPTIMA": 17, "DECIMOCTAVA": 18,
+    "DECIMONOVENA": 19, "VIGESIMA": 20
+}
+
 MAPEO_CLUBES = {
     "ARGENTINO": 1, "ATL. PASTEUR": 2, "ATL PASTEUR": 2,
     "ATL. ROBERTS": 3, "ATL ROBERTS": 3,
@@ -33,6 +42,32 @@ def normalizar(t):
 def limpiar(t):
     return t.replace('\xa0', ' ').replace('\n', ' ').strip() if t else ""
 
+def detectar_equipos_fila(cells):
+    if len(cells) < 4:
+        return None, None
+
+    c0 = normalizar(limpiar(cells[0].get_text()))
+    c3 = normalizar(limpiar(cells[3].get_text()))
+
+    equipo_local = None
+    equipo_visita = None
+    for eq_n, eq_id in MAPEO_CLUBES.items():
+        eq_norm = normalizar(eq_n)
+        if eq_norm in c0 and len(c0) < 30:
+            equipo_local = eq_id
+        if eq_norm in c3 and len(c3) < 30:
+            equipo_visita = eq_id
+
+    return equipo_local, equipo_visita
+
+def es_inicio_partido(cells):
+    equipo_local, equipo_visita = detectar_equipos_fila(cells)
+    if not equipo_local or not equipo_visita:
+        return False
+
+    texto_fila = normalizar(' '.join(limpiar(c.get_text()) for c in cells))
+    return 'PRIMER TIEMPO' in texto_fila
+
 # Fetch HTML
 print("Fetching HTML...")
 response = requests.get(URL, timeout=30)
@@ -40,9 +75,22 @@ response.encoding = 'utf-8'
 soup = BeautifulSoup(response.text, 'html.parser')
 print("Parsed HTML")
 
-# Obtener partidos
+# Detectar fecha desde la web
+fecha_id = None
+texto_pagina = normalizar(soup.get_text())
+for palabra, fid in MAPEO_FECHA.items():
+    if palabra in texto_pagina:
+        fecha_id = fid
+        print(f"Fecha detectada en web: {palabra} -> fecha_id={fecha_id}")
+        break
+
+if not fecha_id:
+    print("ERROR: No se pudo detectar la fecha en la web")
+    exit(1)
+
+# Obtener partidos filtrando por fecha detectada
 print("Getting partidos...")
-partidos = supabase.table("partidos").select("id,local_id,visitante_id").eq("categoria_id",1).eq("fecha_id",5).execute().data
+partidos = supabase.table("partidos").select("id,local_id,visitante_id").eq("categoria_id",1).eq("fecha_id",fecha_id).execute().data
 partidos = [p for p in partidos if p['local_id'] and p['visitante_id']]
 print(f"Partidos: {len(partidos)}")
 
@@ -50,7 +98,7 @@ print(f"Partidos: {len(partidos)}")
 partido_ids = [p['id'] for p in partidos]
 if partido_ids:
     supabase.table("alineaciones").delete().in_("partido_id", partido_ids).execute()
-    print("Limpiado")
+    print("Limpiado alineaciones viejas")
 
 # Buscar la tabla con datos (la tabla 2 o 3)
 tablas = soup.find_all('tabla')
@@ -82,23 +130,11 @@ partidos_en_tabla = []
 for idx, fila in enumerate(filas):
     cells = fila.find_all('td')
     if len(cells) >= 4:
-        c0 = normalizar(limpiar(cells[0].get_text()))
         c1 = limpiar(cells[1].get_text())
         c2 = limpiar(cells[2].get_text())
-        c3 = normalizar(limpiar(cells[3].get_text()))
         
         # Detectar fila de inicio de partido: [EquipoLocal] [Numero] [Numero] [EquipoVisitante]
-        equipo_local = None
-        equipo_visita = None
-        
-        for eq_n, eq_id in MAPEO_CLUBES.items():
-            eq_norm = normalizar(eq_n)
-            # El equipo local aparece en columna 0
-            if eq_norm in c0 and len(c0) < 30:  # No muy largo
-                equipo_local = eq_id
-            # El equipo visitante aparece en columna 3
-            if eq_norm in c3 and len(c3) < 30:
-                equipo_visita = eq_id
+        equipo_local, equipo_visita = detectar_equipos_fila(cells)
         
         if equipo_local and equipo_visita:
             # Verificar que c1 y c2 sean números (scores)
@@ -133,15 +169,28 @@ for p in partidos:
     if not datos_partido:
         print(f"Partido {local_id} vs {visita_id}: NO encontrado en tabla")
         continue
+
+    tabla_en_orden_db = (
+        datos_partido['local_id'] == local_id and
+        datos_partido['visita_id'] == visita_id
+    )
+
+    goles_local_db = datos_partido['goles_local'] if tabla_en_orden_db else datos_partido['goles_visita']
+    goles_visita_db = datos_partido['goles_visita'] if tabla_en_orden_db else datos_partido['goles_local']
+
+    equipo_columna_local_id = local_id if tabla_en_orden_db else visita_id
+    equipo_columna_visita_id = visita_id if tabla_en_orden_db else local_id
     
     print(f"Procesando: {local_id} vs {visita_id}")
+    print(f"  Resultado detectado: {goles_local_db}-{goles_visita_db}")
     
     # Determinar filas del partido (desde inicio hasta el siguiente partido o fin)
     fila_inicio = datos_partido['fila_inicio']
     fila_fin = len(filas)
-    for i, pd in enumerate(partidos_en_tabla):
-        if pd['fila_inicio'] > fila_inicio:
-            fila_fin = pd['fila_inicio']
+    for idx_siguiente in range(fila_inicio + 1, len(filas)):
+        cells_siguiente = filas[idx_siguiente].find_all('td')
+        if es_inicio_partido(cells_siguiente):
+            fila_fin = idx_siguiente
             break
     
     print(f"  Filas {fila_inicio} a {fila_fin}")
@@ -175,24 +224,29 @@ for p in partidos:
                     if nombre_arbitro:
                         arbitro = nombre_arbitro
 
-    print(f"  DT Local: {dt_local}, DT Visita: {dt_visitante}, Arbitro: {arbitro}")
+    dt_local_db = dt_local if tabla_en_orden_db else dt_visitante
+    dt_visita_db = dt_visitante if tabla_en_orden_db else dt_local
 
-    # Save dt and arbitro to partidos (if columns exist)
-    if dt_local or dt_visitante or arbitro:
-        updates = {}
-        if dt_local:
-            updates["dt_local"] = dt_local
-        if dt_visitante:
-            updates["dt_visitante"] = dt_visitante
-        if arbitro:
-            updates["arbitro"] = arbitro
+    print(f"  DT Local: {dt_local_db}, DT Visita: {dt_visita_db}, Arbitro: {arbitro}")
 
-        if updates:
-            try:
-                supabase.table("partidos").update(updates).eq("id", partido_id).execute()
-                print(f"  Staff guardado")
-            except Exception as e:
-                print(f"  Staff error (columns may not exist): {e}")
+    # Guardar resultado, estado, DTs y árbitro en partidos
+    updates = {
+        "goles_local": goles_local_db,
+        "goles_visitante": goles_visita_db,
+        "estado": "jugado"
+    }
+    if dt_local_db:
+        updates["dt_local"] = dt_local_db
+    if dt_visita_db:
+        updates["dt_visitante"] = dt_visita_db
+    if arbitro:
+        updates["arbitro"] = arbitro
+
+    try:
+        supabase.table("partidos").update(updates).eq("id", partido_id).execute()
+        print(f"  Partido actualizado")
+    except Exception as e:
+        print(f"  Partido update error: {e}")
 
 # Procesar jugadores
     numeros_local = set()
@@ -237,20 +291,26 @@ for p in partidos:
     prev_score = "0-0"
     
     def matches_player(scorer_name, player_name):
-        """Check if scorer_name matches player_name with stricter matching"""
+        """Check if scorer_name matches player_name"""
         if not scorer_name or not player_name:
             return False
-        scorer_words = scorer_name.split()
-        player_words = player_name.split()
+        scorer_lower = scorer_name.lower()
+        player_lower = player_name.lower()
         
-        # Must match at least first AND last name (2+ words)
-        if len(scorer_words) < 2 or len(player_words) < 2:
+        scorer_words = scorer_lower.split()
+        player_words = player_lower.split()
+        
+        if len(scorer_words) < 2:
             return False
         
-        # Check first word matches AND at least one other word matches
-        first_match = scorer_words[0] == player_words[0]
-        other_matches = sum(1 for w in scorer_words[1:] if w in player_words)
-        return first_match and other_matches > 0
+        matches = 0
+        for sw in scorer_words:
+            for pw in player_words:
+                if len(sw) >= 3 and len(pw) >= 3 and (sw in pw or pw in sw):
+                    matches += 1
+                    break
+        
+        return matches >= 2
     
     for idx in range(fila_inicio, fila_fin):
         fila = filas[idx]
@@ -260,7 +320,6 @@ for p in partidos:
             scorer_name = normalizar(limpiar(cells[7].get_text()))
             score = limpiar(cells[8].get_text()) if len(cells) > 8 else ""
             
-            # Skip invalid
             if not score or '-' not in score:
                 continue
             
@@ -275,14 +334,12 @@ for p in partidos:
                         prev_local = int(prev_parts[0])
                         prev_visita = int(prev_parts[1])
                         
-                        # Local scored
-                        if curr_local > prev_local and scorer_name:
+                        if curr_local > prev_local and scorer_name and len(scorer_name) > 3:
                             for num, nombre in jugadores_local.items():
                                 if matches_player(scorer_name, nombre):
                                     goleadores_local.append(num)
                         
-                        # Visitor scored
-                        if curr_visita > prev_visita and scorer_name:
+                        if curr_visita > prev_visita and scorer_name and len(scorer_name) > 3:
                             for num, nombre in jugadores_visita.items():
                                 if matches_player(scorer_name, nombre):
                                     goleadores_visita.append(num)
@@ -313,19 +370,21 @@ for p in partidos:
                     numeros_local.add(num)
                     # Now goleo should be integer (count of goals)
                     es_goleador = goleadores_local.count(num)
+                    result = None
                     
                     # Skip if name is empty or "0"
                     nombre_limpio = c1.strip() if c1 else ""
                     if nombre_limpio and nombre_limpio != "0":
                         result = supabase.table("alineaciones").insert({
                             "categoria_id": 1, "partido_id": partido_id,
-                            "equipo_id": local_id, "numero": num,
+                            "equipo_id": equipo_columna_local_id, "numero": num,
                             "nombre": nombre_limpio[:100],
                             "es_titular": num <= 11, "tiempo": "PT",
                             "goleo": es_goleador,
-                            "roja": num in rojas_local
+                            "roja": num in rojas_local,
+                            "fecha_id": fecha_id
                         }).execute()
-                    if result.data:
+                    if result and result.data:
                         guardados += 1
             
             if c3.isdigit():
@@ -334,19 +393,21 @@ for p in partidos:
                     numeros_visita.add(num)
                     # Now goleo should be integer (count of goals)
                     es_goleador = goleadores_visita.count(num)
+                    result = None
                     
                     # Skip if name is empty or "0"
                     nombre_limpio = c4.strip() if c4 else ""
                     if nombre_limpio and nombre_limpio != "0":
                         result = supabase.table("alineaciones").insert({
                             "categoria_id": 1, "partido_id": partido_id,
-                            "equipo_id": visita_id, "numero": num,
+                            "equipo_id": equipo_columna_visita_id, "numero": num,
                             "nombre": nombre_limpio[:100],
                             "es_titular": num <= 11, "tiempo": "PT",
                             "goleo": es_goleador,
-                            "roja": num in rojas_visita
+                            "roja": num in rojas_visita,
+                            "fecha_id": fecha_id
                         }).execute()
-                    if result.data:
+                    if result and result.data:
                         guardados += 1
 
 print(f"Listo: {guardados} alineaciones")
