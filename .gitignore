@@ -9,3 +9,6 @@ launch.json
 *.af
 .vercel
 .env*.local
+placares_generados/
+tablas-images/
+frontend/public/escudos_hd/
