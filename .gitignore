@@ -7,3 +7,5 @@ redes.md
 extensions.json
 launch.json
 *.af
+.vercel
+.env*.local
