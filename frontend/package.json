@@ -5,13 +5,13 @@
   "scripts": {
     "dev": "astro dev --host",
     "build": "astro build",
+    "deploy": "npm run build && vercel --prod",
     "preview": "astro preview",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
     "@astrojs/sitemap": "^3.7.1",
-    "@astrojs/vercel": "^10.0.4",
     "@supabase/supabase-js": "^2.98.0",
     "@tailwindcss/vite": "^4.2.1",
     "@types/react": "^19.2.14",
