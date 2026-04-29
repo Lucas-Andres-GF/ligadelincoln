@@ -61,11 +61,14 @@ const escudos = {
 }
 ---
 
-<Layout title="Alineaciones - Liga De Lincoln">
+<Layout
+  title="Alineaciones - Liga De Lincoln | Formaciones y Titulares"
+  description="Últimas alineaciones, titulares y suplentes de los partidos de la Liga Amateur de Deportes de Lincoln."
+>
   <div class="text-center py-6">
-    <span class="inline-block mt-2 px-3 py-0.5 text-[16px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
+    <h1 class="inline-block mt-2 px-3 py-0.5 text-[16px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
       Alineaciones - Fecha {ultimoPartido?.fecha_id || '-'}
-    </span>
+    </h1>
   </div>
 
   {alineaciones.length === 0 ? (

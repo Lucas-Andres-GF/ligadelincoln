@@ -9,7 +9,12 @@ import tailwindcss from "@tailwindcss/vite";
 // https://astro.build/config
 export default defineConfig({
   site: "https://ligadelincoln.com",
-  integrations: [react(), sitemap()],
+  integrations: [
+    react(),
+    sitemap({
+      filter: (page) => !page.includes("/admin") && !page.includes("/login"),
+    }),
+  ],
 
   vite: {
     plugins: [tailwindcss()],

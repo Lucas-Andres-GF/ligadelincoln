@@ -8,23 +8,61 @@ interface Props {
   title?: string
   description?: string
   ogImage?: string
+  robots?: string
+  structuredData?: Record<string, unknown> | Record<string, unknown>[]
 }
 
 const {
   title = 'Liga De Lincoln - Fixture, Posiciones y Resultados del Fútbol de Lincoln',
   description = 'Seguí el fútbol de Lincoln: fixture, tabla de posiciones, resultados y equipos de la Liga Amateur de Deportes de Lincoln, Buenos Aires. Primera División actualizada.',
   ogImage: customOgImage,
+  robots = 'index, follow, max-image-preview:large',
+  structuredData: customStructuredData,
 } = Astro.props
+
+const siteUrl = Astro.site || 'https://ligadelincoln.com'
 
 const canonicalURL = new URL(
   Astro.url.pathname,
-  Astro.site || 'https://ligadelincoln.com',
+  siteUrl,
 )
 const ogImage = customOgImage 
-  ? new URL(customOgImage, Astro.site || 'https://ligadelincoln.com').href
-  : new URL('/og.png', Astro.site || 'https://ligadelincoln.com').href
+  ? new URL(customOgImage, siteUrl).href
+  : new URL('/og.png', siteUrl).href
 
 const currentPath = Astro.url.pathname
+
+const baseStructuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SportsOrganization',
+    name: 'Liga De Lincoln',
+    alternateName: 'Liga Amateur de Deportes de Lincoln',
+    url: siteUrl,
+    logo: new URL('/favicon-nobg.png', siteUrl).href,
+    sameAs: [
+      'https://www.instagram.com/ligadelincoln/',
+      'https://www.facebook.com/profile.php?id=61572030320828',
+    ],
+    sport: 'Soccer',
+    areaServed: {
+      '@type': 'AdministrativeArea',
+      name: 'Lincoln, Buenos Aires, Argentina',
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Liga De Lincoln',
+    url: siteUrl,
+    inLanguage: 'es-AR',
+    description,
+  },
+]
+
+const structuredData = customStructuredData
+  ? [...baseStructuredData, ...(Array.isArray(customStructuredData) ? customStructuredData : [customStructuredData])]
+  : baseStructuredData
 ---
 
 <!doctype html>
@@ -35,13 +73,13 @@ const currentPath = Astro.url.pathname
       content='gQSoo5MIgi3Z44CX0ttWfnohnRfmhMvuzksAuhw6znc'
     />
     <meta charset='utf-8' />
-    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
 
     <!-- SEO -->
     <title>{title}</title>
     <meta name='description' content={description} />
     <link rel='canonical' href={canonicalURL.href} />
-    <meta name='robots' content='index, follow' />
+    <meta name='robots' content={robots} />
     <meta name='author' content='Lucas Andrés Gallardo Florido' />
     <meta
       name='keywords'
@@ -57,6 +95,7 @@ const currentPath = Astro.url.pathname
     <meta property='og:site_name' content='Liga De Lincoln' />
     <meta property='og:locale' content='es_AR' />
     <meta property='og:image' content={ogImage} />
+    <meta property='og:image:alt' content='Fixture, posiciones y resultados de la Liga De Lincoln' />
     <meta property='og:image:width' content='1200' />
     <meta property='og:image:height' content='630' />
 
@@ -65,6 +104,7 @@ const currentPath = Astro.url.pathname
     <meta name='twitter:title' content={title} />
     <meta name='twitter:description' content={description} />
     <meta name='twitter:image' content={ogImage} />
+    <meta name='twitter:image:alt' content='Fixture, posiciones y resultados de la Liga De Lincoln' />
 
     <!-- Favicon -->
     <link rel='icon' type='image/png' href='/favicon.png' />
@@ -79,6 +119,7 @@ const currentPath = Astro.url.pathname
     />
 
     <ViewTransitions />
+    <script type='application/ld+json' set:html={JSON.stringify(structuredData)} />
   </head>
 
   <body class='bg-[#0f2d0f] min-h-screen font-[Inter,sans-serif] text-white'>

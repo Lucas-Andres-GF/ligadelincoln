@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /login
 
 Sitemap: https://ligadelincoln.com/sitemap-index.xml

@@ -81,14 +81,31 @@ const escudos = {
   7: '/escudos/dep.pinto.png', 8: '/escudos/el.linqueño.png', 9: '/escudos/juventud.unida.png',
   10: '/escudos/san.martin.png', 11: '/escudos/villa.francia.png',
 }
+
+const pageTitle = `${nombreLocal} ${partido.goles_local ?? 0}-${partido.goles_visitante ?? 0} ${nombreVisita} - Liga De Lincoln`
+const pageDescription = `Resultado, alineaciones, titulares, suplentes y datos del partido ${nombreLocal} vs ${nombreVisita} de la Liga Amateur de Deportes de Lincoln.`
+const matchStructuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'SportsEvent',
+  name: `${nombreLocal} vs ${nombreVisita}`,
+  description: pageDescription,
+  url: new URL(`/partido/${slug}`, Astro.site || 'https://ligadelincoln.com').href,
+  sport: 'Soccer',
+  competitor: [
+    { '@type': 'SportsTeam', name: nombreLocal },
+    { '@type': 'SportsTeam', name: nombreVisita },
+  ],
+  eventStatus: 'https://schema.org/EventCompleted',
+}
 ---
 
-<Layout title={`${nombreLocal} vs ${nombreVisita} - Liga De Lincoln`}>
+<Layout title={pageTitle} description={pageDescription} structuredData={matchStructuredData}>
   <div class="max-w-4xl mx-auto px-4 py-6">
     <div class="text-center mb-8">
-      <span class="inline-block mt-2 px-3 py-0.5 text-[14px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
+      <p class="inline-block mt-2 px-3 py-0.5 text-[14px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
         Fecha {partido.fecha_id}
-      </span>
+      </p>
+      <h1 class="sr-only">{nombreLocal} vs {nombreVisita}: resultado y alineaciones</h1>
     </div>
 
     <div class="flex items-center justify-center gap-4 mb-8">
