@@ -15,9 +15,11 @@ from supabase import create_client
 
 supabase = create_client(os.environ.get('SUPABASE_URL'), os.environ.get('SUPABASE_KEY'))
 
-OUTPUT_DIR = "/home/gallardo/Documentos/ligadelincoln/tablas-images"
-FRONTEND_DIR = "/home/gallardo/Documentos/ligadelincoln/frontend"
-ESCUDOS_FOLDER = "/home/gallardo/Documentos/ligadelincoln/frontend/public/escudos_hd"
+SCRIPT_DIR = os.path.dirname(__file__)
+PROJECT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+OUTPUT_DIR = os.environ.get('OUTPUT_DIR', os.path.join(PROJECT_DIR, 'tablas-images'))
+FRONTEND_DIR = os.environ.get('FRONTEND_DIR', os.path.join(PROJECT_DIR, 'frontend'))
+ESCUDOS_FOLDER = os.environ.get('ESCUDOS_FOLDER', os.path.join(PROJECT_DIR, 'frontend', 'public', 'escudos_hd'))
 
 from datetime import datetime
 
@@ -30,6 +32,30 @@ CATEGORIAS = [
 ]
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+def start_frontend():
+    if os.environ.get('CAPTURE_START_FRONTEND', '0') != '1':
+        return None
+
+    kwargs = {
+        'cwd': FRONTEND_DIR,
+        'stdout': subprocess.DEVNULL,
+        'stderr': subprocess.DEVNULL,
+    }
+    if os.name == 'nt':
+        kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        kwargs['preexec_fn'] = os.setsid
+
+    return subprocess.Popen(["npm", "run", "dev", "--", "--host"], **kwargs)
+
+def stop_frontend(proc):
+    if not proc:
+        return
+    if os.name == 'nt':
+        proc.terminate()
+    else:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
 
 def get_escudo_base64(filename):
     path = os.path.join(ESCUDOS_FOLDER, filename)
@@ -181,7 +207,14 @@ def generar_fixture_html(partidos, categoria_nombre, fecha_num, dia=None):
         if p.get('mostrar_fecha') and p.get('dia'):
             fecha_obj = datetime.strptime(p['dia'], "%Y-%m-%d")
             dias = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
-            fecha_html = f"{dias[fecha_obj.weekday()]} {fecha_obj.day}"
+            fecha_html = f'<span class="dia">{dias[fecha_obj.weekday()]} {fecha_obj.day}</span>'
+        hora_html = f'<span class="hora">{p["hora"]}</span>' if p.get('hora') and p['hora'] != '-' else ''
+        datetime_html = f"""
+            <div class="datetime">
+                {fecha_html if fecha_html else ''}
+                {hora_html}
+            </div>
+        """ if fecha_html or hora_html else ""
         
         rows += f"""
         <div class="partido">
@@ -194,10 +227,7 @@ def generar_fixture_html(partidos, categoria_nombre, fecha_num, dia=None):
                 <span class="nombre">{p['visitante']}</span>
                 <img class="escudo" src="data:image/png;base64,{escudo_visita_b64}">
             </div>
-            <div class="datetime">
-                {fecha_html if fecha_html else ''}
-                <span class="hora">{p['hora']}</span>
-            </div>
+            {datetime_html}
         </div>
         """
     
@@ -209,7 +239,14 @@ def generar_fixture_html(partidos, categoria_nombre, fecha_num, dia=None):
         if p.get('mostrar_fecha') and p.get('dia'):
             fecha_obj = datetime.strptime(p['dia'], "%Y-%m-%d")
             dias = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
-            fecha_html = f"{dias[fecha_obj.weekday()]} {fecha_obj.day}"
+            fecha_html = f'<span class="dia">{dias[fecha_obj.weekday()]} {fecha_obj.day}</span>'
+        hora_html = f'<span class="hora">{p["hora"]}</span>' if p.get('hora') and p['hora'] != '-' else ''
+        datetime_html = f"""
+            <div class="datetime">
+                {fecha_html if fecha_html else ''}
+                {hora_html}
+            </div>
+        """ if fecha_html or hora_html else ""
         
         rows += f"""
         <div class="partido libre">
@@ -218,10 +255,7 @@ def generar_fixture_html(partidos, categoria_nombre, fecha_num, dia=None):
                 <span class="nombre">{p['local']}</span>
                 <span class="libre-text">LIBRE</span>
             </div>
-            <div class="datetime">
-                {fecha_html if fecha_html else ''}
-                <span class="hora">{p['hora']}</span>
-            </div>
+            {datetime_html}
         </div>
         """
     
@@ -237,14 +271,18 @@ PORTADA_FIXTURE_HTML = """
 <head>
     <meta charset="UTF-8">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Bebas+Neue&display=swap');
         
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
         body {{
             width: 1080px; height: 1080px;
-            background: linear-gradient(180deg, #0f2d0f 0%, #143814 50%, #0f2d0f 100%);
-            font-family: 'Inter', sans-serif;
+            background:
+                radial-gradient(circle at 50% 52%, rgba(255,255,255,.09) 0 18%, transparent 18.4%),
+                linear-gradient(90deg, transparent 0 11%, rgba(255,255,255,.10) 11.2% 11.55%, transparent 11.8% 88%, rgba(255,255,255,.10) 88.2% 88.55%, transparent 88.8%),
+                repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 2px, transparent 2px 84px),
+                linear-gradient(135deg, #052e16 0%, #14532d 48%, #03170c 100%);
+            font-family: 'Barlow Condensed', sans-serif;
             color: white;
             display: flex;
             flex-direction: column;
@@ -253,9 +291,9 @@ PORTADA_FIXTURE_HTML = """
         }}
         
         .header {{
-            background: linear-gradient(135deg, #143814 0%, #1a4a1a 100%);
-            padding: 30px 40px;
-            border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+            background: rgba(3, 23, 12, .74);
+            padding: 28px 44px;
+            border-bottom: 4px solid #facc15;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -265,14 +303,12 @@ PORTADA_FIXTURE_HTML = """
         }}
         
         .liga-text {{
-            font-size: 24px;
-            font-weight: 800;
-            letter-spacing: 2px;
+            font-size: 34px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
-            background: linear-gradient(90deg, #22c55e, #4ade80);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #f8fafc;
+            text-shadow: 3px 3px 0 #052e16;
         }}
         
         .main-content {{
@@ -284,45 +320,44 @@ PORTADA_FIXTURE_HTML = """
         }}
         
         .titulo-principal {{
-            font-size: 90px;
-            font-weight: 900;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 138px;
+            font-weight: 400;
             text-transform: uppercase;
-            letter-spacing: 8px;
+            letter-spacing: 5px;
             margin-bottom: 30px;
             text-align: center;
-            background: linear-gradient(90deg, #22c55e, #4ade80);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #f8fafc;
+            text-shadow: 7px 7px 0 #052e16;
         }}
         
         .fecha-badge {{
-            background: rgba(34, 197, 94, 0.15);
-            border: 2px solid rgba(34, 197, 94, 0.5);
+            background: #facc15;
+            border: 4px solid #052e16;
             padding: 20px 60px;
-            border-radius: 16px;
+            border-radius: 999px;
             font-size: 48px;
             font-weight: 800;
-            color: #22c55e;
+            color: #052e16;
             letter-spacing: 6px;
             margin-bottom: 30px;
         }}
         
         .torneo-badge {{
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.3);
+            background: #f8fafc;
+            border: 3px solid #052e16;
             padding: 12px 36px;
-            border-radius: 8px;
+            border-radius: 999px;
             font-size: 24px;
             font-weight: 600;
-            color: #22c55e;
+            color: #14532d;
             letter-spacing: 2px;
         }}
         
         .footer {{
             padding: 30px 40px;
             text-align: center;
-            border-top: 1px solid rgba(34, 197, 94, 0.15);
+            border-top: 1px solid rgba(250, 204, 21, .28);
             width: 100%;
             position: absolute;
             bottom: 0;
@@ -330,13 +365,13 @@ PORTADA_FIXTURE_HTML = """
         
         .footer-text {{
             font-size: 18px;
-            color: rgba(255, 255, 255, 0.5);
-            font-weight: 400;
+            color: rgba(255, 255, 255, 0.72);
+            font-weight: 600;
         }}
         
         .footer-link {{
-            color: #22c55e;
-            font-weight: 600;
+            color: #facc15;
+            font-weight: 900;
             text-decoration: none;
         }}
         
@@ -345,8 +380,8 @@ PORTADA_FIXTURE_HTML = """
             bottom: 0;
             left: 0;
             right: 0;
-            height: 6px;
-            background: linear-gradient(90deg, #22c55e, #4ade80, #22c55e);
+            height: 10px;
+            background: repeating-linear-gradient(90deg, #facc15 0 42px, #f8fafc 42px 84px, #16a34a 84px 126px);
         }}
     </style>
 </head>
@@ -378,50 +413,72 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Bebas+Neue&display=swap');
         
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
         body {{
             width: 1080px;
             height: 1080px;
-            background: linear-gradient(180deg, #0f2d0f 0%, #143814 50%, #0f2d0f 100%);
-            font-family: 'Inter', sans-serif;
+            background:
+                radial-gradient(circle at 50% 52%, rgba(255,255,255,.09) 0 18%, transparent 18.4%),
+                linear-gradient(90deg, transparent 0 11%, rgba(255,255,255,.10) 11.2% 11.55%, transparent 11.8% 88%, rgba(255,255,255,.10) 88.2% 88.55%, transparent 88.8%),
+                repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 2px, transparent 2px 84px),
+                linear-gradient(135deg, #052e16 0%, #14532d 48%, #03170c 100%);
+            font-family: 'Barlow Condensed', sans-serif;
             color: white;
             display: flex;
             flex-direction: column;
         }}
         
         .header {{
-            background: linear-gradient(135deg, #143814 0%, #1a4a1a 100%);
-            padding: 30px 40px;
-            border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+            background: rgba(3, 23, 12, .74);
+            padding: 28px 44px;
+            border-bottom: 4px solid #facc15;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }}
         
         .liga-text {{
-            font-size: 24px;
-            font-weight: 800;
-            letter-spacing: 2px;
+            font-size: 34px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
-            background: linear-gradient(90deg, #22c55e, #4ade80);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #f8fafc;
+            text-shadow: 3px 3px 0 #052e16;
         }}
         
         .categoria-badge {{
-            background: rgba(34, 197, 94, 0.15);
-            border: 1px solid rgba(34, 197, 94, 0.4);
+            background: #facc15;
+            border: 3px solid #052e16;
             padding: 10px 24px;
-            border-radius: 8px;
-            font-size: 20px;
-            font-weight: 700;
-            color: #22c55e;
+            border-radius: 999px;
+            font-size: 24px;
+            font-weight: 900;
+            color: #052e16;
             text-transform: uppercase;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
+            box-shadow: 6px 6px 0 rgba(0,0,0,.28);
+        }}
+
+        .header-meta {{
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }}
+
+        .fecha-chip {{
+            background: #f8fafc;
+            border: 3px solid #052e16;
+            border-radius: 999px;
+            color: #14532d;
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            padding: 10px 22px;
+            text-transform: uppercase;
+            box-shadow: 6px 6px 0 rgba(0,0,0,.20);
         }}
         
         .main-content {{
@@ -437,19 +494,19 @@ HTML_TEMPLATE = """
             max-width: 900px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
         }}
         
         .fecha-info {{
-            background: linear-gradient(135deg, #1a4a1a 0%, #143814 100%);
+            background: #facc15;
             padding: 16px 24px;
-            border-radius: 12px;
-            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 999px;
+            border: 3px solid #052e16;
             text-align: center;
             margin-bottom: 20px;
             font-size: 20px;
             font-weight: 700;
-            color: #22c55e;
+            color: #052e16;
             letter-spacing: 2px;
         }}
         
@@ -457,14 +514,15 @@ HTML_TEMPLATE = """
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(20, 56, 20, 0.6);
-            border: 1px solid rgba(34, 197, 94, 0.2);
-            border-radius: 12px;
-            padding: 16px 24px;
+            background: rgba(248, 250, 252, .94);
+            border: 3px solid #052e16;
+            border-radius: 20px;
+            padding: 14px 22px;
+            box-shadow: 8px 8px 0 rgba(0,0,0,.24);
         }}
         
         .partido.libre {{
-            background: rgba(34, 197, 94, 0.05);
+            background: rgba(250, 204, 21, .92);
         }}
         
         .equipo-center {{
@@ -476,13 +534,13 @@ HTML_TEMPLATE = """
         }}
         
         .libre-text {{
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid #22c55e;
+            background: #052e16;
+            border: 1px solid #052e16;
             padding: 4px 12px;
             border-radius: 6px;
             font-size: 12px;
             font-weight: 700;
-            color: #22c55e;
+            color: #facc15;
             text-transform: uppercase;
             letter-spacing: 1px;
         }}
@@ -503,30 +561,32 @@ HTML_TEMPLATE = """
         }}
         
         .escudo {{
-            width: 48px;
-            height: 48px;
+            width: 56px;
+            height: 56px;
             object-fit: contain;
+            filter: drop-shadow(3px 4px 0 rgba(20,83,45,.18));
         }}
         
         .nombre {{
-            font-size: 18px;
-            font-weight: 700;
-            color: white;
+            font-size: 24px;
+            font-weight: 900;
+            color: #052e16;
             white-space: nowrap;
         }}
         
         .vs {{
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 900;
-            color: #22c55e;
+            color: #16a34a;
             margin: 0 20px;
         }}
         
         .hora {{
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.5);
+            font-size: 20px;
+            color: #14532d;
             width: 60px;
             text-align: center;
+            font-weight: 900;
         }}
         
         .datetime {{
@@ -534,30 +594,31 @@ HTML_TEMPLATE = """
             flex-direction: column;
             align-items: flex-end;
             gap: 2px;
-            min-width: 80px;
+            min-width: 94px;
         }}
         
         .datetime .dia {{
-            font-size: 10px;
-            color: #22c55e;
-            font-weight: 700;
+            font-size: 16px;
+            color: #14532d;
+            font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 1px;
         }}
         
         .datetime .hora {{
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.7);
+            font-size: 22px;
+            color: #052e16;
+            font-weight: 800;
         }}
         
         .libre-badge {{
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid #22c55e;
+            background: #052e16;
+            border: 1px solid #052e16;
             padding: 8px 24px;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 700;
-            color: #22c55e;
+            color: #facc15;
             text-transform: uppercase;
             letter-spacing: 2px;
         }}
@@ -565,18 +626,18 @@ HTML_TEMPLATE = """
         .footer {{
             padding: 30px 40px;
             text-align: center;
-            border-top: 1px solid rgba(34, 197, 94, 0.15);
+            border-top: 1px solid rgba(250, 204, 21, .28);
         }}
         
         .footer-text {{
             font-size: 18px;
-            color: rgba(255, 255, 255, 0.5);
-            font-weight: 400;
+            color: rgba(255, 255, 255, 0.72);
+            font-weight: 600;
         }}
         
         .footer-link {{
-            color: #22c55e;
-            font-weight: 600;
+            color: #facc15;
+            font-weight: 900;
             text-decoration: none;
         }}
         
@@ -585,8 +646,8 @@ HTML_TEMPLATE = """
             bottom: 0;
             left: 0;
             right: 0;
-            height: 6px;
-            background: linear-gradient(90deg, #22c55e, #4ade80, #22c55e);
+            height: 10px;
+            background: repeating-linear-gradient(90deg, #facc15 0 42px, #f8fafc 42px 84px, #16a34a 84px 126px);
         }}
         
         body {{ position: relative; }}
@@ -595,7 +656,10 @@ HTML_TEMPLATE = """
 <body>
     <div class="header">
         <div class="liga-text">Liga De Lincoln</div>
-        <div class="categoria-badge">{categoria_nombre}</div>
+        <div class="header-meta">
+            <div class="fecha-chip">FECHA {fecha_num}</div>
+            <div class="categoria-badge">{categoria_nombre}</div>
+        </div>
     </div>
     
     <div class="main-content">
@@ -619,18 +683,10 @@ def capturar_fixture(fecha_num, categorias=None):
     if categorias is None:
         categorias = CATEGORIAS
     
-    print("🚀 Iniciando frontend...")
-    
-    proc = subprocess.Popen(
-        ["npm", "run", "dev", "--", "--host"],
-        cwd=FRONTEND_DIR,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        preexec_fn=os.setsid
-    )
-    
-    print("⏳ Esperando que el frontend esté listo...")
-    time.sleep(15)
+    proc = start_frontend()
+    if proc:
+        print("⏳ Esperando que el frontend esté listo...")
+        time.sleep(15)
     
     print(f"📅 Generando fixture Fecha {fecha_num}...")
     
@@ -680,6 +736,7 @@ def capturar_fixture(fecha_num, categorias=None):
                 
                 html_content = HTML_TEMPLATE.format(
                     categoria_nombre=cat_nombre,
+                    fecha_num=fecha_num,
                     fixture_html=fixture_html,
                     fecha_info=""
                 )
@@ -704,7 +761,7 @@ def capturar_fixture(fecha_num, categorias=None):
         
         browser.close()
     
-    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    stop_frontend(proc)
     
     print(f"\n🎉 Listo! {total_generados} imágenes generadas en {OUTPUT_DIR}")
     return total_generados

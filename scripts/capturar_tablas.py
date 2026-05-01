@@ -16,9 +16,11 @@ from supabase import create_client
 
 supabase = create_client(os.environ.get('SUPABASE_URL'), os.environ.get('SUPABASE_KEY'))
 
-OUTPUT_DIR = "/home/gallardo/Documentos/ligadelincoln/tablas-images"
-FRONTEND_DIR = "/home/gallardo/Documentos/ligadelincoln/frontend"
-ESCUDOS_FOLDER = "/home/gallardo/Documentos/ligadelincoln/frontend/public/escudos_hd"
+SCRIPT_DIR = os.path.dirname(__file__)
+PROJECT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+OUTPUT_DIR = os.environ.get('OUTPUT_DIR', os.path.join(PROJECT_DIR, 'tablas-images'))
+FRONTEND_DIR = os.environ.get('FRONTEND_DIR', os.path.join(PROJECT_DIR, 'frontend'))
+ESCUDOS_FOLDER = os.environ.get('ESCUDOS_FOLDER', os.path.join(PROJECT_DIR, 'frontend', 'public', 'escudos_hd'))
 
 CATEGORIAS = [
     (1, "primera", "PRIMERA DIVISIÓN"),
@@ -29,6 +31,30 @@ CATEGORIAS = [
 ]
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+def start_frontend():
+    if os.environ.get('CAPTURE_START_FRONTEND', '0') != '1':
+        return None
+
+    kwargs = {
+        'cwd': FRONTEND_DIR,
+        'stdout': subprocess.DEVNULL,
+        'stderr': subprocess.DEVNULL,
+    }
+    if os.name == 'nt':
+        kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        kwargs['preexec_fn'] = os.setsid
+
+    return subprocess.Popen(["npm", "run", "dev", "--", "--host"], **kwargs)
+
+def stop_frontend(proc):
+    if not proc:
+        return
+    if os.name == 'nt':
+        proc.terminate()
+    else:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
 
 def get_escudo_base64(filename):
     path = os.path.join(ESCUDOS_FOLDER, filename)
@@ -108,7 +134,8 @@ def generar_tabla_html(posiciones):
                 ultimos = []
         
         ultimos_html = ""
-        for r in ultimos:
+        # La DB guarda los resultados cronológicamente; en la placa mostramos el más reciente primero.
+        for r in reversed(ultimos):
             ultimos_html += f'<span class="{r}">{r}</span>'
         
         rows += f"""
@@ -159,14 +186,18 @@ PORTADA_GENERAL_HTML = """
 <head>
     <meta charset="UTF-8">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Bebas+Neue&display=swap');
         
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
         body {{
             width: 1080px; height: 1080px;
-            background: linear-gradient(180deg, #0f2d0f 0%, #143814 50%, #0f2d0f 100%);
-            font-family: 'Inter', sans-serif;
+            background:
+                radial-gradient(circle at 50% 52%, rgba(255,255,255,.09) 0 18%, transparent 18.4%),
+                linear-gradient(90deg, transparent 0 11%, rgba(255,255,255,.10) 11.2% 11.55%, transparent 11.8% 88%, rgba(255,255,255,.10) 88.2% 88.55%, transparent 88.8%),
+                repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 2px, transparent 2px 84px),
+                linear-gradient(135deg, #052e16 0%, #14532d 48%, #03170c 100%);
+            font-family: 'Barlow Condensed', sans-serif;
             color: white;
             display: flex;
             flex-direction: column;
@@ -175,9 +206,9 @@ PORTADA_GENERAL_HTML = """
         }}
         
         .header {{
-            background: linear-gradient(135deg, #143814 0%, #1a4a1a 100%);
-            padding: 30px 40px;
-            border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+            background: rgba(3, 23, 12, .74);
+            padding: 28px 44px;
+            border-bottom: 4px solid #facc15;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -187,14 +218,12 @@ PORTADA_GENERAL_HTML = """
         }}
         
         .liga-text {{
-            font-size: 24px;
-            font-weight: 800;
-            letter-spacing: 2px;
+            font-size: 34px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
-            background: linear-gradient(90deg, #22c55e, #4ade80);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #f8fafc;
+            text-shadow: 3px 3px 0 #052e16;
         }}
         
         .main-content {{
@@ -206,45 +235,44 @@ PORTADA_GENERAL_HTML = """
         }}
         
         .titulo-principal {{
-            font-size: 90px;
-            font-weight: 900;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 118px;
+            font-weight: 400;
             text-transform: uppercase;
             letter-spacing: 8px;
             margin-bottom: 30px;
             text-align: center;
-            background: linear-gradient(90deg, #22c55e, #4ade80);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #f8fafc;
+            text-shadow: 7px 7px 0 #052e16;
         }}
         
         .fecha-badge {{
-            background: rgba(34, 197, 94, 0.15);
-            border: 2px solid rgba(34, 197, 94, 0.5);
+            background: #facc15;
+            border: 4px solid #052e16;
             padding: 20px 60px;
-            border-radius: 16px;
+            border-radius: 999px;
             font-size: 48px;
             font-weight: 800;
-            color: #22c55e;
+            color: #052e16;
             letter-spacing: 6px;
             margin-bottom: 30px;
         }}
         
         .torneo-badge {{
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.3);
+            background: #f8fafc;
+            border: 3px solid #052e16;
             padding: 12px 36px;
-            border-radius: 8px;
+            border-radius: 999px;
             font-size: 24px;
             font-weight: 600;
-            color: #22c55e;
+            color: #14532d;
             letter-spacing: 2px;
         }}
         
         .footer {{
             padding: 30px 40px;
             text-align: center;
-            border-top: 1px solid rgba(34, 197, 94, 0.15);
+            border-top: 1px solid rgba(250, 204, 21, .28);
             width: 100%;
             position: absolute;
             bottom: 0;
@@ -252,13 +280,13 @@ PORTADA_GENERAL_HTML = """
         
         .footer-text {{
             font-size: 18px;
-            color: rgba(255, 255, 255, 0.5);
-            font-weight: 400;
+            color: rgba(255, 255, 255, 0.72);
+            font-weight: 600;
         }}
         
         .footer-link {{
-            color: #22c55e;
-            font-weight: 600;
+            color: #facc15;
+            font-weight: 900;
             text-decoration: none;
         }}
         
@@ -267,8 +295,8 @@ PORTADA_GENERAL_HTML = """
             bottom: 0;
             left: 0;
             right: 0;
-            height: 6px;
-            background: linear-gradient(90deg, #22c55e, #4ade80, #22c55e);
+            height: 10px;
+            background: repeating-linear-gradient(90deg, #facc15 0 42px, #f8fafc 42px 84px, #16a34a 84px 126px);
         }}
     </style>
 </head>
@@ -300,50 +328,53 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Bebas+Neue&display=swap');
         
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
         body {{
             width: 1080px;
             height: 1080px;
-            background: linear-gradient(180deg, #0f2d0f 0%, #143814 50%, #0f2d0f 100%);
-            font-family: 'Inter', sans-serif;
+            background:
+                radial-gradient(circle at 50% 52%, rgba(255,255,255,.09) 0 18%, transparent 18.4%),
+                linear-gradient(90deg, transparent 0 11%, rgba(255,255,255,.10) 11.2% 11.55%, transparent 11.8% 88%, rgba(255,255,255,.10) 88.2% 88.55%, transparent 88.8%),
+                repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 2px, transparent 2px 84px),
+                linear-gradient(135deg, #052e16 0%, #14532d 48%, #03170c 100%);
+            font-family: 'Barlow Condensed', sans-serif;
             color: white;
             display: flex;
             flex-direction: column;
         }}
         
         .header {{
-            background: linear-gradient(135deg, #143814 0%, #1a4a1a 100%);
-            padding: 30px 40px;
-            border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+            background: rgba(3, 23, 12, .74);
+            padding: 28px 44px;
+            border-bottom: 4px solid #facc15;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }}
         
         .liga-text {{
-            font-size: 24px;
-            font-weight: 800;
-            letter-spacing: 2px;
+            font-size: 34px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
-            background: linear-gradient(90deg, #22c55e, #4ade80);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #f8fafc;
+            text-shadow: 3px 3px 0 #052e16;
         }}
         
         .categoria-badge {{
-            background: rgba(34, 197, 94, 0.15);
-            border: 1px solid rgba(34, 197, 94, 0.4);
+            background: #facc15;
+            border: 3px solid #052e16;
             padding: 10px 24px;
-            border-radius: 8px;
-            font-size: 20px;
-            font-weight: 700;
-            color: #22c55e;
+            border-radius: 999px;
+            font-size: 24px;
+            font-weight: 900;
+            color: #052e16;
             text-transform: uppercase;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
+            box-shadow: 6px 6px 0 rgba(0,0,0,.28);
         }}
         
         .main-content {{
@@ -355,30 +386,31 @@ HTML_TEMPLATE = """
         }}
         
         .table-container {{
-            background: #143814;
-            border-radius: 16px;
-            border: 1px solid rgba(34, 197, 94, 0.3);
+            background: rgba(248, 250, 252, .96);
+            border-radius: 26px;
+            border: 5px solid #052e16;
             overflow: hidden;
             width: 100%;
-            max-width: 800px;
+            max-width: 860px;
             margin: 0 auto;
+            box-shadow: 16px 16px 0 rgba(0,0,0,.30), inset 0 0 0 3px rgba(250,204,21,.85);
         }}
         
         .footer {{
             padding: 30px 40px;
             text-align: center;
-            border-top: 1px solid rgba(34, 197, 94, 0.15);
+            border-top: 1px solid rgba(250, 204, 21, .28);
         }}
         
         .footer-text {{
             font-size: 18px;
-            color: rgba(255, 255, 255, 0.5);
-            font-weight: 400;
+            color: rgba(255, 255, 255, 0.72);
+            font-weight: 600;
         }}
         
         .footer-link {{
-            color: #22c55e;
-            font-weight: 600;
+            color: #facc15;
+            font-weight: 900;
             text-decoration: none;
         }}
         
@@ -387,8 +419,8 @@ HTML_TEMPLATE = """
             bottom: 0;
             left: 0;
             right: 0;
-            height: 6px;
-            background: linear-gradient(90deg, #22c55e, #4ade80, #22c55e);
+            height: 10px;
+            background: repeating-linear-gradient(90deg, #facc15 0 42px, #f8fafc 42px 84px, #16a34a 84px 126px);
         }}
         
         body {{ position: relative; }}
@@ -396,35 +428,35 @@ HTML_TEMPLATE = """
         .standings-table {{
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
+            font-size: 16px;
         }}
         
         .standings-table th {{
-            background: linear-gradient(135deg, #1a4a1a 0%, #143814 100%);
+            background: #052e16;
             padding: 18px 12px;
             text-align: left;
-            color: rgba(34, 197, 94, 0.7);
-            font-weight: 600;
+            color: #facc15;
+            font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 1px;
-            font-size: 12px;
-            border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+            font-size: 14px;
+            border-bottom: 4px solid #facc15;
             vertical-align: middle;
         }}
         
         .standings-table td {{
             padding: 12px;
-            border-bottom: 1px solid rgba(34, 197, 94, 0.1);
-            color: white;
+            border-bottom: 1px solid rgba(5, 46, 22, 0.12);
+            color: #052e16;
             vertical-align: middle;
         }}
         
         .standings-table tr:nth-child(even) {{
-            background: rgba(34, 197, 94, 0.05);
+            background: rgba(20, 83, 45, 0.06);
         }}
         
         .standings-table tr:hover {{
-            background: rgba(34, 197, 94, 0.1);
+            background: rgba(250, 204, 21, 0.14);
         }}
         
         .club-cell {{
@@ -432,34 +464,35 @@ HTML_TEMPLATE = """
             align-items: center;
             gap: 10px;
             font-weight: 600;
-            color: white;
+            color: #052e16;
             height: 100%;
         }}
         
         .club-escudo {{
-            width: 28px;
-            height: 28px;
+            width: 34px;
+            height: 34px;
             object-fit: contain;
             flex-shrink: 0;
         }}
         
         .pos {{
-            color: rgba(34, 197, 94, 0.6);
-            font-weight: 600;
-            font-size: 14px;
+            color: #14532d;
+            font-weight: 900;
+            font-size: 16px;
             width: 30px;
         }}
         
         .pts {{
             font-weight: 900;
-            color: #22c55e;
-            font-size: 18px;
+            color: #052e16;
+            font-size: 22px;
             text-align: center;
         }}
         
         .stat {{
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 13px;
+            color: #14532d;
+            font-size: 15px;
+            font-weight: 700;
             text-align: center;
         }}
         
@@ -475,26 +508,26 @@ HTML_TEMPLATE = """
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 6px;
+            border-radius: 999px;
             font-size: 12px;
             font-weight: bold;
         }}
         
         .ultimos5 .G {{
             background: rgba(34, 197, 94, 0.25);
-            color: #22c55e;
-            border: 1px solid #22c55e;
+            color: #052e16;
+            border: 1px solid #16a34a;
         }}
         
         .ultimos5 .P {{
             background: rgba(239, 68, 68, 0.25);
-            color: #ef4444;
+            color: #7f1d1d;
             border: 1px solid #ef4444;
         }}
         
         .ultimos5 .E {{
             background: rgba(234, 179, 8, 0.25);
-            color: #eab308;
+            color: #713f12;
             border: 1px solid #eab308;
         }}
     </style>
@@ -523,18 +556,10 @@ HTML_TEMPLATE = """
 """
 
 def capturar_tablas(fecha_num=None):
-    print("🚀 Iniciando frontend...")
-    
-    proc = subprocess.Popen(
-        ["npm", "run", "dev", "--", "--host"],
-        cwd=FRONTEND_DIR,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        preexec_fn=os.setsid
-    )
-    
-    print("⏳ Esperando que el frontend esté listo...")
-    time.sleep(15)
+    proc = start_frontend()
+    if proc:
+        print("⏳ Esperando que el frontend esté listo...")
+        time.sleep(15)
     
     if fecha_num is None:
         fecha_num = get_fecha_actual()
@@ -590,7 +615,7 @@ def capturar_tablas(fecha_num=None):
         
         browser.close()
     
-    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    stop_frontend(proc)
     
     total = 1 + len(CATEGORIAS)
     print(f"\n🎉 Listo! {total} imágenes generadas en {OUTPUT_DIR}")

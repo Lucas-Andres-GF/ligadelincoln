@@ -3,7 +3,13 @@ from playwright.sync_api import sync_playwright
 import base64
 import sys
 
-ESCUDOS_FOLDER = "/app/escudos"
+SCRIPT_DIR = os.path.dirname(__file__)
+PROJECT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+ESCUDOS_FOLDER = os.environ.get(
+    "ESCUDOS_FOLDER",
+    os.environ.get("ESCUDOS_HOST", os.path.join(PROJECT_DIR, "frontend", "public", "escudos_hd")),
+)
 OUTPUT_BASE = os.environ.get("OUTPUT_FOLDER", "/app/salida")
 OUTPUT_FOLDER = OUTPUT_BASE  # Compatibilidad
 
@@ -69,25 +75,49 @@ def generar_placa_portada(categoria_id, fecha_num):
     <head>
         <meta charset="UTF-8">
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Bebas+Neue&display=swap');
             
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             
             body {{
                 width: 1080px; height: 1080px;
-                background: linear-gradient(180deg, #0f2d0f 0%, #143814 50%, #0f2d0f 100%);
-                font-family: 'Inter', sans-serif;
+                background:
+                    radial-gradient(circle at 50% 52%, rgba(255,255,255,.09) 0 18%, transparent 18.4%),
+                    linear-gradient(90deg, transparent 0 11%, rgba(255,255,255,.10) 11.2% 11.55%, transparent 11.8% 88%, rgba(255,255,255,.10) 88.2% 88.55%, transparent 88.8%),
+                    repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 2px, transparent 2px 84px),
+                    linear-gradient(135deg, #052e16 0%, #14532d 48%, #03170c 100%);
+                font-family: 'Barlow Condensed', sans-serif;
                 color: white;
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
+                position: relative;
+                overflow: hidden;
+            }}
+
+            body::before {{
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: radial-gradient(circle at 20% 15%, rgba(250, 204, 21, .18), transparent 22%), radial-gradient(circle at 85% 82%, rgba(34, 197, 94, .22), transparent 24%);
+                mix-blend-mode: screen;
+                pointer-events: none;
+            }}
+
+            body::after {{
+                content: '';
+                position: absolute;
+                inset: 0;
+                opacity: .13;
+                background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.32) 0 1px, transparent 1px 7px);
+                pointer-events: none;
             }}
             
             .header {{
-                background: linear-gradient(135deg, #143814 0%, #1a4a1a 100%);
-                padding: 30px 40px;
-                border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+                background: rgba(3, 23, 12, .74);
+                padding: 28px 44px;
+                border-bottom: 4px solid #facc15;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -101,26 +131,25 @@ def generar_placa_portada(categoria_id, fecha_num):
             }}
             
             .liga-text {{
-                font-size: 24px;
-                font-weight: 800;
-                letter-spacing: 2px;
+                font-size: 34px;
+                font-weight: 900;
+                letter-spacing: 1.5px;
                 text-transform: uppercase;
-                background: linear-gradient(90deg, #22c55e, #4ade80);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
+                color: #f8fafc;
+                text-shadow: 3px 3px 0 #052e16;
             }}
             
             .categoria-badge {{
-                background: rgba(34, 197, 94, 0.15);
-                border: 1px solid rgba(34, 197, 94, 0.4);
-                padding: 10px 24px;
-                border-radius: 8px;
-                font-size: 20px;
-                font-weight: 700;
-                color: #22c55e;
+                background: #facc15;
+                border: 3px solid #052e16;
+                padding: 10px 26px;
+                border-radius: 999px;
+                font-size: 24px;
+                font-weight: 900;
+                color: #052e16;
                 text-transform: uppercase;
-                letter-spacing: 3px;
+                letter-spacing: 2px;
+                box-shadow: 6px 6px 0 rgba(0,0,0,.28);
             }}
             
             .main-content {{
@@ -132,53 +161,53 @@ def generar_placa_portada(categoria_id, fecha_num):
             }}
             
             .titulo {{
-                font-size: 60px;
-                font-weight: 900;
+                font-family: 'Bebas Neue', sans-serif;
+                font-size: 108px;
+                font-weight: 400;
                 text-transform: uppercase;
-                letter-spacing: 6px;
+                letter-spacing: 4px;
                 margin-bottom: 10px;
-                color: white;
+                color: #f8fafc;
+                text-shadow: 6px 6px 0 #052e16;
             }}
             
             .categoria-titulo {{
-                font-size: 90px;
+                font-size: 76px;
                 font-weight: 900;
                 text-transform: uppercase;
-                letter-spacing: 10px;
-                margin-bottom: 30px;
-                background: linear-gradient(90deg, #22c55e, #4ade80);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
+                letter-spacing: 6px;
+                margin-bottom: 18px;
+                color: #bbf7d0;
             }}
             
             .fecha-badge {{
-                background: rgba(34, 197, 94, 0.15);
-                border: 2px solid rgba(34, 197, 94, 0.5);
-                padding: 20px 60px;
-                border-radius: 16px;
+                background: #f8fafc;
+                border: 4px solid #052e16;
+                padding: 18px 64px;
+                border-radius: 999px;
                 font-size: 48px;
-                font-weight: 800;
-                color: #22c55e;
+                font-weight: 900;
+                color: #14532d;
                 letter-spacing: 4px;
+                box-shadow: 8px 8px 0 rgba(0,0,0,.28);
             }}
             
             .footer {{
                 padding: 30px 40px;
                 text-align: center;
-                border-top: 1px solid rgba(34, 197, 94, 0.15);
+                border-top: 1px solid rgba(250, 204, 21, .28);
                 width: 100%;
             }}
             
             .footer-text {{
                 font-size: 18px;
-                color: rgba(255, 255, 255, 0.5);
-                font-weight: 400;
+                color: rgba(255, 255, 255, 0.72);
+                font-weight: 600;
             }}
             
             .footer-link {{
-                color: #22c55e;
-                font-weight: 600;
+                color: #facc15;
+                font-weight: 900;
                 text-decoration: none;
             }}
             
@@ -187,8 +216,8 @@ def generar_placa_portada(categoria_id, fecha_num):
                 bottom: 0;
                 left: 0;
                 right: 0;
-                height: 6px;
-                background: linear-gradient(90deg, #22c55e, #4ade80, #22c55e);
+                height: 10px;
+                background: repeating-linear-gradient(90deg, #facc15 0 42px, #f8fafc 42px 84px, #16a34a 84px 126px);
             }}
         </style>
     </head>
@@ -247,23 +276,27 @@ def generar_placa_libre(categoria_id, club_nombre, fecha_num=None):
     <head>
         <meta charset="UTF-8">
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Bebas+Neue&display=swap');
             
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             
             body {{
                 width: 1080px; height: 1080px;
-                background: linear-gradient(180deg, #0f2d0f 0%, #143814 50%, #0f2d0f 100%);
-                font-family: 'Inter', sans-serif;
+                background:
+                    radial-gradient(circle at 50% 52%, rgba(255,255,255,.09) 0 18%, transparent 18.4%),
+                    linear-gradient(90deg, transparent 0 11%, rgba(255,255,255,.10) 11.2% 11.55%, transparent 11.8% 88%, rgba(255,255,255,.10) 88.2% 88.55%, transparent 88.8%),
+                    repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 2px, transparent 2px 84px),
+                    linear-gradient(135deg, #052e16 0%, #14532d 48%, #03170c 100%);
+                font-family: 'Barlow Condensed', sans-serif;
                 color: white;
                 display: flex;
                 flex-direction: column;
             }}
             
             .header {{
-                background: linear-gradient(135deg, #143814 0%, #1a4a1a 100%);
-                padding: 30px 40px;
-                border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+                background: rgba(3, 23, 12, .74);
+                padding: 28px 44px;
+                border-bottom: 4px solid #facc15;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -276,26 +309,25 @@ def generar_placa_libre(categoria_id, club_nombre, fecha_num=None):
             }}
             
             .liga-text {{
-                font-size: 24px;
+                font-size: 34px;
                 font-weight: 800;
-                letter-spacing: 2px;
+                letter-spacing: 1.5px;
                 text-transform: uppercase;
-                background: linear-gradient(90deg, #22c55e, #4ade80);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
+                color: #f8fafc;
+                text-shadow: 3px 3px 0 #052e16;
             }}
             
             .categoria-badge {{
-                background: rgba(34, 197, 94, 0.15);
-                border: 1px solid rgba(34, 197, 94, 0.4);
+                background: #facc15;
+                border: 3px solid #052e16;
                 padding: 10px 24px;
-                border-radius: 8px;
-                font-size: 20px;
-                font-weight: 700;
-                color: #22c55e;
+                border-radius: 999px;
+                font-size: 24px;
+                font-weight: 900;
+                color: #052e16;
                 text-transform: uppercase;
-                letter-spacing: 3px;
+                letter-spacing: 2px;
+                box-shadow: 6px 6px 0 rgba(0,0,0,.28);
             }}
             
             .main-content {{
@@ -308,13 +340,13 @@ def generar_placa_libre(categoria_id, club_nombre, fecha_num=None):
             }}
             
             .libre-badge {{
-                background: rgba(34, 197, 94, 0.15);
-                border: 2px solid rgba(34, 197, 94, 0.5);
+                background: #facc15;
+                border: 4px solid #052e16;
                 padding: 20px 60px;
-                border-radius: 16px;
+                border-radius: 999px;
                 font-size: 80px;
                 font-weight: 900;
-                color: #22c55e;
+                color: #052e16;
                 text-transform: uppercase;
                 letter-spacing: 8px;
                 margin-bottom: 40px;
@@ -324,33 +356,33 @@ def generar_placa_libre(categoria_id, club_nombre, fecha_num=None):
                 width: 250px;
                 height: 250px;
                 object-fit: contain;
-                filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5));
+                filter: drop-shadow(10px 12px 0 rgba(0,0,0,.28)) drop-shadow(0 8px 24px rgba(0,0,0,.48));
             }}
             
             .club-name {{
-                font-size: 48px;
-                font-weight: 700;
+                font-size: 58px;
+                font-weight: 900;
                 text-transform: uppercase;
-                color: #f0fdf4;
-                text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                color: #f8fafc;
+                text-shadow: 5px 5px 0 #052e16;
                 margin-top: 30px;
             }}
             
             .footer {{
                 padding: 30px 40px;
                 text-align: center;
-                border-top: 1px solid rgba(34, 197, 94, 0.15);
+                border-top: 1px solid rgba(250, 204, 21, .28);
             }}
             
             .footer-text {{
                 font-size: 18px;
-                color: rgba(255, 255, 255, 0.5);
-                font-weight: 400;
+                color: rgba(255, 255, 255, 0.72);
+                font-weight: 600;
             }}
             
             .footer-link {{
-                color: #22c55e;
-                font-weight: 600;
+                color: #facc15;
+                font-weight: 900;
                 text-decoration: none;
             }}
             
@@ -358,13 +390,13 @@ def generar_placa_libre(categoria_id, club_nombre, fecha_num=None):
                 position: absolute;
                 top: 130px;
                 right: 40px;
-                background: rgba(34, 197, 94, 0.1);
-                border: 1px solid rgba(34, 197, 94, 0.3);
+                background: #f8fafc;
+                border: 2px solid #052e16;
                 padding: 8px 16px;
                 border-radius: 6px;
                 font-size: 14px;
                 font-weight: 600;
-                color: #22c55e;
+                color: #14532d;
                 letter-spacing: 1px;
             }}
             
@@ -373,8 +405,8 @@ def generar_placa_libre(categoria_id, club_nombre, fecha_num=None):
                 bottom: 0;
                 left: 0;
                 right: 0;
-                height: 6px;
-                background: linear-gradient(90deg, #22c55e, #4ade80, #22c55e);
+                height: 10px;
+                background: repeating-linear-gradient(90deg, #facc15 0 42px, #f8fafc 42px 84px, #16a34a 84px 126px);
             }}
             
             body {{
@@ -444,23 +476,27 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
     <head>
         <meta charset="UTF-8">
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Bebas+Neue&display=swap');
             
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             
             body {{
                 width: 1080px; height: 1080px;
-                background: linear-gradient(180deg, #0f2d0f 0%, #143814 50%, #0f2d0f 100%);
-                font-family: 'Inter', sans-serif;
+                background:
+                    radial-gradient(circle at 50% 50%, rgba(255,255,255,.10) 0 18%, transparent 18.4%),
+                    linear-gradient(90deg, transparent 0 11%, rgba(255,255,255,.10) 11.2% 11.55%, transparent 11.8% 88%, rgba(255,255,255,.10) 88.2% 88.55%, transparent 88.8%),
+                    repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 2px, transparent 2px 84px),
+                    linear-gradient(135deg, #052e16 0%, #14532d 48%, #03170c 100%);
+                font-family: 'Barlow Condensed', sans-serif;
                 color: white;
                 display: flex;
                 flex-direction: column;
             }}
             
             .header {{
-                background: linear-gradient(135deg, #143814 0%, #1a4a1a 100%);
-                padding: 30px 40px;
-                border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+                background: rgba(3, 23, 12, .74);
+                padding: 28px 44px;
+                border-bottom: 4px solid #facc15;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -478,26 +514,25 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
             }}
             
             .liga-text {{
-                font-size: 24px;
-                font-weight: 800;
-                letter-spacing: 2px;
+                font-size: 34px;
+                font-weight: 900;
+                letter-spacing: 1.5px;
                 text-transform: uppercase;
-                background: linear-gradient(90deg, #22c55e, #4ade80);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
+                color: #f8fafc;
+                text-shadow: 3px 3px 0 #052e16;
             }}
             
             .categoria-badge {{
-                background: rgba(34, 197, 94, 0.15);
-                border: 1px solid rgba(34, 197, 94, 0.4);
+                background: #facc15;
+                border: 3px solid #052e16;
                 padding: 10px 24px;
-                border-radius: 8px;
-                font-size: 20px;
-                font-weight: 700;
-                color: #22c55e;
+                border-radius: 999px;
+                font-size: 24px;
+                font-weight: 900;
+                color: #052e16;
                 text-transform: uppercase;
-                letter-spacing: 3px;
+                letter-spacing: 2px;
+                box-shadow: 6px 6px 0 rgba(0,0,0,.28);
             }}
             
             .main-content {{
@@ -516,11 +551,12 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
                 gap: 30px;
                 width: 100%;
                 max-width: 900px;
-                background: rgba(20, 56, 20, 0.5);
-                padding: 50px 40px;
-                border-radius: 24px;
-                border: 1px solid rgba(34, 197, 94, 0.2);
-                backdrop-filter: blur(10px);
+                background: rgba(248, 250, 252, .94);
+                padding: 54px 42px;
+                border-radius: 34px;
+                border: 5px solid #052e16;
+                box-shadow: 18px 18px 0 rgba(0,0,0,.30), inset 0 0 0 3px rgba(250,204,21,.85);
+                transform: rotate(-1.1deg);
             }}
             
             .club-block {{
@@ -531,69 +567,71 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
             }}
             
             .escudo {{
-                width: 180px;
-                height: 180px;
+                width: 205px;
+                height: 205px;
                 object-fit: contain;
                 margin-bottom: 20px;
-                filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5));
+                filter: drop-shadow(9px 10px 0 rgba(20,83,45,.22)) drop-shadow(0 8px 22px rgba(0,0,0,.32));
             }}
             
             .club-name {{
-                font-size: 28px;
-                font-weight: 700;
+                font-size: 34px;
+                font-weight: 900;
                 text-align: center;
                 text-transform: uppercase;
-                color: #f0fdf4;
-                text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                color: #052e16;
+                text-shadow: none;
                 max-width: 220px;
                 line-height: 1.2;
             }}
             
             .score-container {{
                 display: flex;
-                flex-direction: column;
+                flex-direction: row;
                 align-items: center;
-                gap: 8px;
+                gap: 18px;
             }}
             
             .goles {{
-                font-size: 120px;
-                font-weight: 900;
-                color: #22c55e;
+                font-family: 'Bebas Neue', sans-serif;
+                font-size: 158px;
+                font-weight: 400;
+                color: #052e16;
                 line-height: 1;
-                text-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+                text-shadow: 5px 5px 0 #facc15;
             }}
             
             .vs {{
-                font-size: 24px;
-                font-weight: 500;
-                color: rgba(34, 197, 94, 0.5);
+                font-family: 'Bebas Neue', sans-serif;
+                font-size: 112px;
+                font-weight: 400;
+                color: #16a34a;
                 text-transform: uppercase;
-                letter-spacing: 4px;
+                letter-spacing: 0;
             }}
             
             .divider {{
                 width: 80px;
                 height: 3px;
-                background: linear-gradient(90deg, transparent, #22c55e, transparent);
+                background: repeating-linear-gradient(90deg, #facc15 0 22px, #f8fafc 22px 44px, #16a34a 44px 66px);
                 margin: 30px 0;
             }}
             
             .footer {{
                 padding: 30px 40px;
                 text-align: center;
-                border-top: 1px solid rgba(34, 197, 94, 0.15);
+                border-top: 1px solid rgba(250, 204, 21, .28);
             }}
             
             .footer-text {{
                 font-size: 18px;
-                color: rgba(255, 255, 255, 0.5);
-                font-weight: 400;
+                color: rgba(255, 255, 255, 0.72);
+                font-weight: 600;
             }}
             
             .footer-link {{
-                color: #22c55e;
-                font-weight: 600;
+                color: #facc15;
+                font-weight: 900;
                 text-decoration: none;
             }}
             
@@ -601,13 +639,13 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
                 position: absolute;
                 top: 130px;
                 right: 40px;
-                background: rgba(34, 197, 94, 0.1);
-                border: 1px solid rgba(34, 197, 94, 0.3);
+                background: #f8fafc;
+                border: 2px solid #052e16;
                 padding: 8px 16px;
                 border-radius: 6px;
                 font-size: 14px;
                 font-weight: 600;
-                color: #22c55e;
+                color: #14532d;
                 letter-spacing: 1px;
             }}
             
@@ -616,8 +654,8 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
                 bottom: 0;
                 left: 0;
                 right: 0;
-                height: 6px;
-                background: linear-gradient(90deg, #22c55e, #4ade80, #22c55e);
+                height: 10px;
+                background: repeating-linear-gradient(90deg, #facc15 0 42px, #f8fafc 42px 84px, #16a34a 84px 126px);
             }}
             
             body {{
@@ -644,7 +682,7 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
                 
                 <div class="score-container">
                     <div class="goles">{goles_local}</div>
-                    <div class="vs">VS</div>
+                    <div class="vs">-</div>
                     <div class="goles">{goles_visita}</div>
                 </div>
                 
