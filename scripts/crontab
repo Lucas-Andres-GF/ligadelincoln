@@ -5,5 +5,5 @@
 */15 17-23 * * 6,0 /home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_resultados.sh >> /home/gallardo/logs/scraper_resultados.log 2>&1
 */15 0 * * 6,0 /home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_resultados.sh >> /home/gallardo/logs/scraper_resultados.log 2>&1
 
-# Generador de placas - Domingos 22:15 Argentina (UTC 01:15)
-15 1 * * 0 /home/gallardo/Documentos/ligadelincoln/scripts/run_generador_placas.sh >> /home/gallardo/logs/generador_placas.log 2>&1
+# Placas de resultados - Domingos 22:15 Argentina (UTC 01:15)
+15 1 * * 0 /home/gallardo/Documentos/ligadelincoln/scripts/generar_placas_resultados.sh >> /home/gallardo/logs/generador_placas.log 2>&1

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Runner para ejecutar generador de placas
-# Uso: ./run_generador_placas.sh
+# Runner para generar placas de resultados
+# Uso: ./generar_placas_resultados.sh [--fecha 11] [--categoria primera] [--force]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -15,5 +15,6 @@ export ESCUDOS_HOST="$PROJECT_DIR/frontend/public/escudos_hd"
 cd "$SCRIPT_DIR/generador-placas"
 
 pip install --break-system-packages -q -r requirements.txt
+python3 -m playwright install chromium >/dev/null
 
-python3 generar_placas_batch.py
+python3 generar_placas_resultados.py "$@"

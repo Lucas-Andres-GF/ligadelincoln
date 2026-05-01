@@ -31,7 +31,7 @@ tail -f /home/gallardo/logs/scraper_resultados.log
 # Ver solo timestamps
 grep "^===" /home/gallardo/logs/scraper_resultados.log
 
-# Ver log del generador de placas
+# Ver log del generador de placas de resultados
 tail -f /home/gallardo/logs/generador_placas.log
 ```
 
@@ -60,7 +60,7 @@ systemctl --user restart scraper-resultados.timer
 | Servicio | Frecuencia | Horario Argentina |
 |----------|------------|-------------------|
 | scraper-resultados | cada 15 min | Sáb/Dom 14-21hs |
-| generador-placas | semanal | Domingos 22:15hs |
+| placas-resultados | semanal | Domingos 22:15hs |
 
 ---
 
@@ -115,11 +115,23 @@ Genera imágenes PNG de las tablas de posiciones.
 python3 /home/gallardo/Documentos/ligadelincoln/scripts/capturar_tablas.py
 ```
 
-### Generar placas (manual, si no funciona el timer)
-Genera las placas de resultado final.
+### Generar placas de resultados (manual, si no funciona el timer)
+Genera las placas de resultado final. Si no indicás fecha, usa la última fecha jugada.
 
 ```bash
-/home/gallardo/Documentos/ligadelincoln/scripts/run_generador_placas.sh
+/home/gallardo/Documentos/ligadelincoln/scripts/generar_placas_resultados.sh
+```
+
+Para una fecha concreta:
+
+```bash
+/home/gallardo/Documentos/ligadelincoln/scripts/generar_placas_resultados.sh --fecha 11
+```
+
+Para una categoría concreta:
+
+```bash
+/home/gallardo/Documentos/ligadelincoln/scripts/generar_placas_resultados.sh --fecha 11 --categoria primera
 ```
 
 ---
@@ -133,7 +145,7 @@ Genera las placas de resultado final.
 | Cuando termina un partido y la web ya fue actualizada | Scrapear alineaciones / goleadores / DT / árbitro / resultado | `python3 scraper_alineaciones.py` |
 | Después de actualizar datos manualmente | Deploy del frontend | `npm run deploy` |
 | Sábados | Resultados (automático) | Timer systemd cada 15min (14-21hs) |
-| Domingos 22:15 | Generar placas (automático) | Timer systemd |
+| Domingos 22:15 | Generar placas de resultados (automático) | Timer systemd |
 
 ---
 
@@ -215,7 +227,7 @@ ligadelincoln/
 │   └── scraper_alineaciones.py
 ├── scripts/                   # Scripts runners y timers systemd
 │   ├── run_scraper_resultados.sh
-│   ├── run_generador_placas.sh
+│   ├── generar_placas_resultados.sh
 │   ├── scraper-resultados.timer
 │   └── scraper-resultados.service
 ├── frontend/                  # App Astro desplegada en Vercel

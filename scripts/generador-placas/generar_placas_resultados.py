@@ -1,7 +1,21 @@
 #!/usr/bin/env python3
+import argparse
 import os
+import subprocess
 import sys
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
 from supabase import create_client
+
+SCRIPT_DIR = os.path.dirname(__file__)
+PROJECT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+if load_dotenv:
+    load_dotenv(os.path.join(PROJECT_DIR, "backend", ".env"))
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -12,7 +26,9 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-OUTPUT_HOST = os.environ.get("OUTPUT_HOST", "/home/gallardo/Documentos/ligadelincoln/placares_generados")
+OUTPUT_HOST = os.environ.get("OUTPUT_HOST", os.path.join(PROJECT_DIR, "placares_generados"))
+ESCUDOS_HOST = os.environ.get("ESCUDOS_HOST", os.path.join(PROJECT_DIR, "frontend", "public", "escudos_hd"))
+PLACA_SCRIPT = os.path.join(SCRIPT_DIR, "generar_placa.py")
 
 MAPEO_CATEGORIAS = {
     1: "primera",
@@ -47,8 +63,23 @@ MAPEO_CLUBES_INVERSO = {
     12: "CAEL",
 }
 
-def obtener_partidos_jugados():
-    response = supabase.table("partidos").select("""
+def obtener_ultima_fecha_jugada():
+    response = (
+        supabase.table("partidos")
+        .select("fecha_id")
+        .eq("estado", "jugado")
+        .not_.is_("goles_local", "null")
+        .not_.is_("visitante_id", "null")
+        .order("fecha_id", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if response.data:
+        return response.data[0].get("fecha_id")
+    return None
+
+def obtener_partidos_jugados(fecha_id=None, categoria_id=None):
+    query = supabase.table("partidos").select("""
         id,
         categoria_id,
         fecha_id,
@@ -57,19 +88,29 @@ def obtener_partidos_jugados():
         goles_local,
         goles_visitante,
         estado
-    """).eq("estado", "jugado").not_.is_("goles_local", "null").not_.is_("visitante_id", "null").execute()
+    """).eq("estado", "jugado").not_.is_("goles_local", "null").not_.is_("visitante_id", "null")
+    if fecha_id is not None:
+        query = query.eq("fecha_id", fecha_id)
+    if categoria_id is not None:
+        query = query.eq("categoria_id", categoria_id)
+    response = query.order("categoria_id").order("id").execute()
     
     return response.data or []
 
-def obtener_equipos_libres():
-    response = supabase.table("partidos").select("""
+def obtener_equipos_libres(fecha_id=None, categoria_id=None):
+    query = supabase.table("partidos").select("""
         id,
         categoria_id,
         fecha_id,
         local_id,
         visitante_id,
         estado
-    """).eq("estado", "jugado").is_("visitante_id", "null").execute()
+    """).eq("estado", "jugado").is_("visitante_id", "null")
+    if fecha_id is not None:
+        query = query.eq("fecha_id", fecha_id)
+    if categoria_id is not None:
+        query = query.eq("categoria_id", categoria_id)
+    response = query.order("categoria_id").order("id").execute()
     
     return response.data or []
 
@@ -127,13 +168,39 @@ def verificar_portada_existe(categoria_id, fecha_id):
     
     return os.path.exists(os.path.join(target_dir, portada_nombre))
 
+def ejecutar_generador(args, output_folder):
+    env = os.environ.copy()
+    env["OUTPUT_FOLDER"] = output_folder
+    env["ESCUDOS_FOLDER"] = ESCUDOS_HOST
+    env["PYTHONIOENCODING"] = "utf-8"
+
+    cmd = [sys.executable, PLACA_SCRIPT, *[str(arg) for arg in args]]
+    return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generar placas de resultados por fecha")
+    parser.add_argument("--fecha", type=int, default=None, help="Número de fecha. Si se omite, usa la última fecha jugada.")
+    parser.add_argument("--categoria", choices=MAPEO_CATEGORIAS.values(), default=None, help="Categoría específica opcional")
+    parser.add_argument("--force", action="store_true", help="Regenerar aunque el archivo ya exista")
+    return parser.parse_args()
+
 def main():
-    print("🔍 Buscando partidos jugados...")
+    args = parse_args()
+    fecha_filtro = args.fecha if args.fecha is not None else obtener_ultima_fecha_jugada()
+    categoria_filtro = None
+    if args.categoria:
+        categoria_filtro = next(cat_id for cat_id, slug in MAPEO_CATEGORIAS.items() if slug == args.categoria)
+
+    if fecha_filtro is None:
+        print("No hay fechas jugadas para generar")
+        return
+
+    print(f"🔍 Buscando partidos jugados de fecha {fecha_filtro}...")
     
-    partidos = obtener_partidos_jugados()
+    partidos = obtener_partidos_jugados(fecha_filtro, categoria_filtro)
     
     if not partidos:
-        print("No hay partidos jugados pendientes")
+        print("No hay partidos jugados para esa fecha")
         return
     
     print(f"📊 Encontrados {len(partidos)} partidos jugados")
@@ -147,27 +214,14 @@ def main():
         fecha_id = partido.get('fecha_id')
         key = (cat_id, fecha_id)
         
-        if key not in portadas_creadas and not verificar_portada_existe(cat_id, fecha_id):
+        if key not in portadas_creadas and (args.force or not verificar_portada_existe(cat_id, fecha_id)):
             # Crear carpetas
             cat_folder = obtener_categoria_folder(cat_id)
             fecha_folder = f"fecha_{fecha_id}" if fecha_id else "sin_fecha"
             target_dir = os.path.join(OUTPUT_HOST, cat_folder, fecha_folder)
             os.makedirs(target_dir, exist_ok=True)
             
-            # Generar portada
-            container_output = f"/app/salida/{cat_folder}/{fecha_folder}"
-            cmd = [
-                "docker", "run", "--rm",
-                "-v", f"{os.environ.get('ESCUDOS_HOST', '/home/gallardo/Documentos/ligadelincoln/frontend/public/escudos_hd')}:/app/escudos:ro",
-                "-v", f"{OUTPUT_HOST}:/app/salida:rw",
-                "-e", f"OUTPUT_FOLDER={container_output}",
-                "generador-ligalincoln",
-                "python", "generar_placa.py",
-                "--portada", str(cat_id), str(fecha_id)
-            ]
-            
-            import subprocess
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = ejecutar_generador(["--portada", cat_id, fecha_id], target_dir)
             if result.returncode == 0:
                 print(f"   ✅ Portada {get_categoria_nombre(cat_id)} - Fecha {fecha_id}")
                 portadas_creadas.add(key)
@@ -178,7 +232,7 @@ def main():
     
     # Generar placas de equipos libres
     print("\n🎨 Generando equipos libres...")
-    libres = obtener_equipos_libres()
+    libres = obtener_equipos_libres(fecha_filtro, categoria_filtro)
     libres_generados = 0
     
     for libre in libres:
@@ -188,7 +242,7 @@ def main():
         
         club_nombre = MAPEO_CLUBES_INVERSO.get(club_id, f"Club {club_id}")
         
-        if verificar_libre_existe(categoria_id, fecha_id, club_nombre):
+        if not args.force and verificar_libre_existe(categoria_id, fecha_id, club_nombre):
             print(f"⏭️  Libre omitido: {club_nombre}")
             continue
         
@@ -198,19 +252,7 @@ def main():
         target_dir = os.path.join(OUTPUT_HOST, cat_folder, fecha_folder)
         os.makedirs(target_dir, exist_ok=True)
         
-        container_output = f"/app/salida/{cat_folder}/{fecha_folder}"
-        cmd = [
-            "docker", "run", "--rm",
-            "-v", f"{os.environ.get('ESCUDOS_HOST', '/home/gallardo/Documentos/ligadelincoln/frontend/public/escudos_hd')}:/app/escudos:ro",
-            "-v", f"{OUTPUT_HOST}:/app/salida:rw",
-            "-e", f"OUTPUT_FOLDER={container_output}",
-            "generador-ligalincoln",
-            "python", "generar_placa.py",
-            "--libre", str(categoria_id), club_nombre, str(fecha_id or '')
-        ]
-        
-        import subprocess
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = ejecutar_generador(["--libre", categoria_id, club_nombre, fecha_id or ""], target_dir)
         
         if result.returncode == 0:
             print(f"   ✅ Libre: {club_nombre}")
@@ -229,7 +271,7 @@ def main():
         categoria_id = partido.get('categoria_id')
         fecha_id = partido.get('fecha_id')
         
-        if verificar_placa_existe(categoria_id, fecha_id, local_nombre, visita_nombre, partido['goles_local'], partido['goles_visitante']):
+        if not args.force and verificar_placa_existe(categoria_id, fecha_id, local_nombre, visita_nombre, partido['goles_local'], partido['goles_visitante']):
             print(f"⏭️  Omitido: {local_nombre} vs {visita_nombre} ya existe")
             omitidos += 1
             continue
@@ -242,26 +284,14 @@ def main():
         target_dir = os.path.join(OUTPUT_HOST, categoria_folder, fecha_folder)
         os.makedirs(target_dir, exist_ok=True)
         
-        # Ruta interna del contenedor (corresponde al volumen mapeado)
-        container_output = f"/app/salida/{categoria_folder}/{fecha_folder}"
-        
-        cmd = [
-            "docker", "run", "--rm",
-            "-v", f"{os.environ.get('ESCUDOS_HOST', '/home/gallardo/Documentos/ligadelincoln/frontend/public/escudos_hd')}:/app/escudos:ro",
-            "-v", f"{OUTPUT_HOST}:/app/salida:rw",
-            "-e", f"OUTPUT_FOLDER={container_output}",
-            "generador-ligalincoln",
-            "python", "generar_placa.py",
-            str(partido['categoria_id']),
+        result = ejecutar_generador([
+            partido['categoria_id'],
             local_nombre,
-            str(partido['goles_local']),
+            partido['goles_local'],
             visita_nombre,
-            str(partido['goles_visitante']),
-            str(partido.get('fecha_id') or '')
-        ]
-        
-        import subprocess
-        result = subprocess.run(cmd, capture_output=True, text=True)
+            partido['goles_visitante'],
+            partido.get('fecha_id') or "",
+        ], target_dir)
         
         print(f"   stdout: {result.stdout}")
         if result.stderr:
