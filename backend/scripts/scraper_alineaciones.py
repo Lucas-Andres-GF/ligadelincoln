@@ -1,5 +1,6 @@
 # scraper_alineaciones.py - Fixed to parse single table with all matches
 
+import argparse
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -33,6 +34,11 @@ MAPEO_CLUBES = {
 
 URL = "https://www.ligaamateurdedeportes.com.ar/alineaciones.html"
 
+parser = argparse.ArgumentParser(description="Scrapea alineaciones de Primera desde la web de la Liga")
+parser.add_argument("--fecha", type=int, help="Fecha a procesar. Si no se indica, se detecta desde la web")
+parser.add_argument("--dry-run", action="store_true", help="Muestra qué haría sin escribir en Supabase")
+args = parser.parse_args()
+
 def normalizar(t):
     if not t: return ""
     t = unicodedata.normalize('NFD', t)
@@ -40,7 +46,16 @@ def normalizar(t):
     return re.sub(r'\s+', ' ', t.replace(".", "").replace(",", "").strip().upper())
 
 def limpiar(t):
-    return t.replace('\xa0', ' ').replace('\n', ' ').strip() if t else ""
+    if not t:
+        return ""
+    # Algunas celdas llegan con mojibake tipo "EL LINQUEÃO" aunque el resto
+    # del documento esté usable. Repararlo acá evita perder partidos por acentos.
+    if "Ã" in t or "Â" in t:
+        try:
+            t = t.encode('latin1').decode('utf-8')
+        except UnicodeError:
+            pass
+    return t.replace('\xa0', ' ').replace('\n', ' ').strip()
 
 def detectar_equipos_fila(cells):
     if len(cells) < 4:
@@ -71,18 +86,24 @@ def es_inicio_partido(cells):
 # Fetch HTML
 print("Fetching HTML...")
 response = requests.get(URL, timeout=30)
-response.encoding = 'utf-8'
+# La web actualmente viene declarada como ISO-8859-1. Forzar UTF-8 rompe nombres
+# como "EL LINQUEÑO" y hace que no matchee contra MAPEO_CLUBES.
+if not response.encoding:
+    response.encoding = 'ISO-8859-1'
 soup = BeautifulSoup(response.text, 'html.parser')
 print("Parsed HTML")
 
 # Detectar fecha desde la web
-fecha_id = None
-texto_pagina = normalizar(soup.get_text())
-for palabra, fid in MAPEO_FECHA.items():
-    if palabra in texto_pagina:
-        fecha_id = fid
-        print(f"Fecha detectada en web: {palabra} -> fecha_id={fecha_id}")
-        break
+fecha_id = args.fecha
+if fecha_id:
+    print(f"Fecha indicada por argumento: fecha_id={fecha_id}")
+else:
+    texto_pagina = normalizar(soup.get_text())
+    for palabra, fid in MAPEO_FECHA.items():
+        if palabra in texto_pagina:
+            fecha_id = fid
+            print(f"Fecha detectada en web: {palabra} -> fecha_id={fecha_id}")
+            break
 
 if not fecha_id:
     print("ERROR: No se pudo detectar la fecha en la web")
@@ -94,11 +115,8 @@ partidos = supabase.table("partidos").select("id,local_id,visitante_id").eq("cat
 partidos = [p for p in partidos if p['local_id'] and p['visitante_id']]
 print(f"Partidos: {len(partidos)}")
 
-# Limpiar
-partido_ids = [p['id'] for p in partidos]
-if partido_ids:
-    supabase.table("alineaciones").delete().in_("partido_id", partido_ids).execute()
-    print("Limpiado alineaciones viejas")
+if args.dry_run:
+    print("DRY RUN activo: no se borrará ni guardará nada en Supabase")
 
 # Buscar la tabla con datos (la tabla 2 o 3)
 tablas = soup.find_all('tabla')
@@ -242,11 +260,19 @@ for p in partidos:
     if arbitro:
         updates["arbitro"] = arbitro
 
-    try:
-        supabase.table("partidos").update(updates).eq("id", partido_id).execute()
-        print(f"  Partido actualizado")
-    except Exception as e:
-        print(f"  Partido update error: {e}")
+    if args.dry_run:
+        existentes = supabase.table("alineaciones").select("id", count="exact").eq("partido_id", partido_id).execute()
+        print(f"  DRY RUN: actualizaría partido con {updates}")
+        print(f"  DRY RUN: reemplazaría {existentes.count or 0} alineaciones existentes solo para partido_id={partido_id}")
+    else:
+        try:
+            supabase.table("alineaciones").delete().eq("partido_id", partido_id).execute()
+            print(f"  Alineaciones viejas limpiadas para partido_id={partido_id}")
+            supabase.table("partidos").update(updates).eq("id", partido_id).execute()
+            print(f"  Partido actualizado")
+        except Exception as e:
+            print(f"  Partido update/error de limpieza: {e}")
+            continue
 
 # Procesar jugadores
     numeros_local = set()
@@ -375,7 +401,7 @@ for p in partidos:
                     # Skip if name is empty or "0"
                     nombre_limpio = c1.strip() if c1 else ""
                     if nombre_limpio and nombre_limpio != "0":
-                        result = supabase.table("alineaciones").insert({
+                        row = {
                             "categoria_id": 1, "partido_id": partido_id,
                             "equipo_id": equipo_columna_local_id, "numero": num,
                             "nombre": nombre_limpio[:100],
@@ -383,9 +409,13 @@ for p in partidos:
                             "goleo": es_goleador,
                             "roja": num in rojas_local,
                             "fecha_id": fecha_id
-                        }).execute()
-                    if result and result.data:
-                        guardados += 1
+                        }
+                        if args.dry_run:
+                            guardados += 1
+                        else:
+                            result = supabase.table("alineaciones").insert(row).execute()
+                            if result and result.data:
+                                guardados += 1
             
             if c3.isdigit():
                 num = int(c3)
@@ -398,7 +428,7 @@ for p in partidos:
                     # Skip if name is empty or "0"
                     nombre_limpio = c4.strip() if c4 else ""
                     if nombre_limpio and nombre_limpio != "0":
-                        result = supabase.table("alineaciones").insert({
+                        row = {
                             "categoria_id": 1, "partido_id": partido_id,
                             "equipo_id": equipo_columna_visita_id, "numero": num,
                             "nombre": nombre_limpio[:100],
@@ -406,8 +436,13 @@ for p in partidos:
                             "goleo": es_goleador,
                             "roja": num in rojas_visita,
                             "fecha_id": fecha_id
-                        }).execute()
-                    if result and result.data:
-                        guardados += 1
+                        }
+                        if args.dry_run:
+                            guardados += 1
+                        else:
+                            result = supabase.table("alineaciones").insert(row).execute()
+                            if result and result.data:
+                                guardados += 1
 
-print(f"Listo: {guardados} alineaciones")
+accion = "detectadas" if args.dry_run else "guardadas"
+print(f"Listo: {guardados} alineaciones {accion}")

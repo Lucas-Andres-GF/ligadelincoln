@@ -10,7 +10,7 @@ export async function getStaticPaths() {
   // Get all played matches
   const { data: partidos } = await supabase
     .from('partidos')
-    .select('id, categoria_id, fecha_id, local_id, visitante_id, goles_local, goles_visitante, estado, dt_local, dt_visitante, arbitro')
+    .select('id, categoria_id, fecha_id, dia, hora, local_id, visitante_id, goles_local, goles_visitante, estado, dt_local, dt_visitante, arbitro')
     .eq('categoria_id', 1)
     .eq('estado', 'jugado')
 
@@ -82,6 +82,27 @@ const escudos = {
   10: '/escudos/san.martin.png', 11: '/escudos/villa.francia.png',
 }
 
+function formatearDia(dia) {
+  if (!dia) return null
+  if (dia.includes('/')) return dia
+  if (dia.includes('-')) {
+    const [aa, mm, dd] = dia.split('-')
+    if (aa && mm && dd) return `${dd}/${mm}`
+  }
+  return dia
+}
+
+function formatearHora(hora) {
+  if (!hora) return null
+  return `${hora.slice(0, 5)}hs`
+}
+
+const diaPartido = formatearDia(partido.dia)
+const horaPartido = formatearHora(partido.hora)
+const seJugo = partido.estado === 'jugado' || (partido.goles_local !== null && partido.goles_visitante !== null)
+const estadoHorarioLabel = seJugo ? 'JUGADO' : horaPartido
+const fechaHoraLabel = [diaPartido, estadoHorarioLabel].filter(Boolean).join(' - ')
+
 const pageTitle = `${nombreLocal} ${partido.goles_local ?? 0}-${partido.goles_visitante ?? 0} ${nombreVisita} - Liga De Lincoln`
 const pageDescription = `Resultado, alineaciones, titulares, suplentes y datos del partido ${nombreLocal} vs ${nombreVisita} de la Liga Amateur de Deportes de Lincoln.`
 const matchStructuredData = {
@@ -97,6 +118,10 @@ const matchStructuredData = {
   ],
   eventStatus: 'https://schema.org/EventCompleted',
 }
+
+if (partido.dia) {
+  matchStructuredData.startDate = partido.dia
+}
 ---
 
 <Layout title={pageTitle} description={pageDescription} structuredData={matchStructuredData}>
@@ -105,6 +130,13 @@ const matchStructuredData = {
       <p class="inline-block mt-2 px-3 py-0.5 text-[14px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
         Fecha {partido.fecha_id}
       </p>
+      {fechaHoraLabel && (
+        <div class="mt-3 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest text-green-300/80">
+          <span class="rounded-full border border-green-800/50 bg-green-950/30 px-3 py-1">
+            {fechaHoraLabel}
+          </span>
+        </div>
+      )}
       <h1 class="sr-only">{nombreLocal} vs {nombreVisita}: resultado y alineaciones</h1>
     </div>
 

@@ -82,6 +82,20 @@ cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
 python3 scraper_alineaciones.py
 ```
 
+Para revisar sin escribir en la base:
+
+```bash
+cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
+python3 scraper_alineaciones.py --fecha 7 --dry-run
+```
+
+Para correr una fecha explícita:
+
+```bash
+cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
+python3 scraper_alineaciones.py --fecha 7
+```
+
 **Cuándo correrlo**
 
 - Cuando termine un partido y la web `alineaciones.html` ya muestre ese partido con sus jugadores.
@@ -91,7 +105,8 @@ python3 scraper_alineaciones.py
 
 - `alineaciones.html` muestra la **fecha actual**; no es una fuente histórica estable.
 - Antes de correrlo, verificar visualmente que la página tenga la fecha y los partidos correctos.
-- El script trabaja sobre la fecha detectada en la web y vuelve a guardar las alineaciones de esos partidos.
+- El script trabaja sobre la fecha detectada en la web, o la indicada con `--fecha`, y vuelve a guardar las alineaciones de los partidos efectivamente encontrados.
+- Usar `--dry-run` primero: muestra qué partidos actualizaría y cuántas alineaciones reemplazaría sin borrar ni insertar datos.
 - Si la web cambia de fecha, ya no se pueden reconstruir alineaciones viejas desde esa misma URL.
 
 **Importante:** Después de ejecutar, hacer deploy manual a Vercel para regenerar las páginas de partido:

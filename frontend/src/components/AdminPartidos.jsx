@@ -196,18 +196,128 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
     return editando?.[id];
   }
 
+  async function recalcularPosiciones(categoriaId) {
+    const [{ data: posiciones, error: posicionesError }, { data: partidos, error: partidosError }] = await Promise.all([
+      supabase
+        .from("posiciones")
+        .select("id, torneo_id, categoria_id, club_id")
+        .eq("categoria_id", categoriaId),
+      supabase
+        .from("partidos")
+        .select("torneo_id, categoria_id, local_id, visitante_id, goles_local, goles_visitante, estado, fecha_id, id")
+        .eq("categoria_id", categoriaId)
+        .order("fecha_id")
+        .order("id"),
+    ]);
+
+    if (posicionesError) throw posicionesError;
+    if (partidosError) throw partidosError;
+
+    const tabla = new Map();
+    const posicionPorClub = new Map((posiciones || []).map((posicion) => [posicion.club_id, posicion]));
+
+    function asegurarClub(clubId) {
+      if (!clubId || tabla.has(clubId)) return;
+      tabla.set(clubId, {
+        id: posicionPorClub.get(clubId)?.id,
+        torneo_id: posicionPorClub.get(clubId)?.torneo_id,
+        categoria_id: categoriaId,
+        club_id: clubId,
+        pts: 0,
+        pj: 0,
+        pg: 0,
+        pe: 0,
+        pp: 0,
+        gf: 0,
+        gc: 0,
+        dif: 0,
+        ultimos_5: [],
+      });
+    }
+
+    for (const posicion of posiciones || []) {
+      asegurarClub(posicion.club_id);
+    }
+
+    for (const partido of partidos || []) {
+      asegurarClub(partido.local_id);
+      asegurarClub(partido.visitante_id);
+
+      const seJugo = (partido.estado === "jugado" || (partido.goles_local !== null && partido.goles_visitante !== null))
+        && partido.goles_local !== null
+        && partido.goles_visitante !== null;
+      if (!seJugo || !partido.local_id || !partido.visitante_id) continue;
+
+      const local = tabla.get(partido.local_id);
+      const visitante = tabla.get(partido.visitante_id);
+      const golesLocal = Number(partido.goles_local);
+      const golesVisitante = Number(partido.goles_visitante);
+
+      local.pj += 1;
+      visitante.pj += 1;
+      local.gf += golesLocal;
+      local.gc += golesVisitante;
+      visitante.gf += golesVisitante;
+      visitante.gc += golesLocal;
+
+      if (golesLocal > golesVisitante) {
+        local.pg += 1;
+        local.pts += 3;
+        local.ultimos_5.push("G");
+        visitante.pp += 1;
+        visitante.ultimos_5.push("P");
+      } else if (golesLocal < golesVisitante) {
+        visitante.pg += 1;
+        visitante.pts += 3;
+        visitante.ultimos_5.push("G");
+        local.pp += 1;
+        local.ultimos_5.push("P");
+      } else {
+        local.pe += 1;
+        visitante.pe += 1;
+        local.pts += 1;
+        visitante.pts += 1;
+        local.ultimos_5.push("E");
+        visitante.ultimos_5.push("E");
+      }
+    }
+
+    const torneoId = posiciones?.[0]?.torneo_id || partidos?.find((partido) => partido.torneo_id)?.torneo_id || 1;
+    const rows = Array.from(tabla.values()).map((row) => ({
+      ...row,
+      torneo_id: row.torneo_id || torneoId,
+      dif: row.gf - row.gc,
+      ultimos_5: row.ultimos_5.slice(-5),
+    }));
+    const rowsExistentes = rows.filter((row) => row.id);
+    const rowsNuevas = rows.filter((row) => !row.id);
+
+    if (rowsExistentes.length > 0) {
+      const { error } = await supabase.from("posiciones").upsert(rowsExistentes);
+      if (error) throw error;
+    }
+
+    if (rowsNuevas.length > 0) {
+      const { error } = await supabase.from("posiciones").insert(rowsNuevas);
+      if (error) throw error;
+    }
+  }
+
   async function guardarPartido(id) {
     setGuardando(true);
     const partido = getEditing(id);
     
+    const golesLocal = partido.goles_local === "" || partido.goles_local === null ? null : Number(partido.goles_local);
+    const golesVisitante = partido.goles_visitante === "" || partido.goles_visitante === null ? null : Number(partido.goles_visitante);
+
     const updates = {
       dia: partido.dia,
       hora: partido.hora === "" || partido.hora === null ? null : partido.hora,
       arbitro: partido.arbitro,
       cancha: partido.cancha,
-      estado: partido.estado,
-      goles_local: partido.goles_local === "" || partido.goles_local === null ? null : Number(partido.goles_local),
-      goles_visitante: partido.goles_visitante === "" || partido.goles_visitante === null ? null : Number(partido.goles_visitante),
+      estado: partido.estado === "programado" && golesLocal !== null && golesVisitante !== null ? "jugado" : partido.estado,
+      goles_local: golesLocal,
+      goles_visitante: golesVisitante,
     };
 
     const { error } = await supabase
@@ -218,14 +328,19 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
     if (error) {
       alert("Error al guardar: " + error.message);
     } else {
-      setEditando((prev) => {
-        const newState = { ...(prev || {}) };
-        delete newState[id];
-        return newState;
-      });
-      setModalOpen(false);
-      setPartidoEditando(null);
-      fetchPartidos();
+      try {
+        await recalcularPosiciones(categoria);
+        setEditando((prev) => {
+          const newState = { ...(prev || {}) };
+          delete newState[id];
+          return newState;
+        });
+        setModalOpen(false);
+        setPartidoEditando(null);
+        fetchPartidos();
+      } catch (e) {
+        alert("El partido se guardó, pero falló el recálculo de posiciones: " + e.message);
+      }
     }
     setGuardando(false);
   }
@@ -253,14 +368,19 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
     if (error) {
       alert("Error al resetear: " + error.message);
     } else {
-      setEditando((prev) => {
-        const newState = { ...(prev || {}) };
-        delete newState[id];
-        return newState;
-      });
-      setModalOpen(false);
-      setPartidoEditando(null);
-      fetchPartidos();
+      try {
+        await recalcularPosiciones(categoria);
+        setEditando((prev) => {
+          const newState = { ...(prev || {}) };
+          delete newState[id];
+          return newState;
+        });
+        setModalOpen(false);
+        setPartidoEditando(null);
+        fetchPartidos();
+      } catch (e) {
+        alert("El partido se reseteó, pero falló el recálculo de posiciones: " + e.message);
+      }
     }
     setGuardando(false);
   }
