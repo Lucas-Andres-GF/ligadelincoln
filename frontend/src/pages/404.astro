@@ -1,0 +1,63 @@
+---
+import Layout from '../layouts/Layout.astro'
+
+const quickLinks = [
+  { href: '/', label: 'Inicio', helper: 'Fixture, tablas y partidos próximos' },
+  { href: '/primera', label: 'Primera', helper: 'Resultados y posiciones de la máxima división' },
+  { href: '/clubes', label: 'Clubes', helper: 'Planteles, escudos y perfiles' },
+]
+---
+
+<Layout
+  title='Página no encontrada - Liga De Lincoln'
+  description='La página que buscás no existe o todavía no fue publicada. Volvé al fixture, resultados y tablas de la Liga De Lincoln.'
+  robots='noindex, follow'
+>
+  <section class='relative overflow-hidden rounded-3xl border border-green-800/60 bg-[#102f14] shadow-2xl'>
+    <div class='absolute inset-0 opacity-25' aria-hidden='true'>
+      <div class='absolute -left-20 top-8 h-64 w-64 rounded-full bg-green-500 blur-3xl'></div>
+      <div class='absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-yellow-400 blur-3xl'></div>
+      <div class='absolute inset-0 bg-[linear-gradient(90deg,transparent_0_12%,rgba(255,255,255,.08)_12.2%_12.45%,transparent_12.8%_87%,rgba(255,255,255,.08)_87.2%_87.45%,transparent_87.8%),repeating-linear-gradient(0deg,rgba(255,255,255,.05)_0_1px,transparent_1px_72px)]'></div>
+    </div>
+
+    <div class='relative grid min-h-[68vh] place-items-center px-5 py-16 sm:px-8'>
+      <div class='mx-auto max-w-3xl text-center'>
+        <p class='mb-4 inline-flex rounded-full border border-yellow-300/50 bg-yellow-300/10 px-4 py-1 text-xs font-black uppercase tracking-[0.28em] text-yellow-300'>
+          Pelota fuera de la cancha
+        </p>
+
+        <div class='relative mx-auto mb-6 flex h-36 w-36 items-center justify-center sm:h-44 sm:w-44'>
+          <div class='absolute inset-0 rounded-full border-[10px] border-white/90 bg-white shadow-[0_22px_70px_rgba(0,0,0,.45)]'></div>
+          <div class='absolute inset-5 rounded-full border-[5px] border-[#102f14]'></div>
+          <div class='absolute h-16 w-16 rotate-45 rounded-2xl bg-[#102f14] sm:h-20 sm:w-20'></div>
+          <span class='relative text-5xl font-black italic tracking-tighter text-yellow-300 drop-shadow-[3px_3px_0_#052e16] sm:text-6xl'>404</span>
+        </div>
+
+        <h1 class='text-balance text-4xl font-black uppercase italic leading-none tracking-tight text-white sm:text-6xl'>
+          No encontramos esta jugada
+        </h1>
+        <p class='mx-auto mt-5 max-w-2xl text-base leading-7 text-green-100/80 sm:text-lg'>
+          El enlace puede estar mal escrito, haber cambiado, o todavía no se generó la página del partido. Volvé a la portada y seguí la fecha desde ahí.
+        </p>
+
+        <div class='mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row'>
+          <a href='/' class='inline-flex w-full items-center justify-center rounded-full bg-green-400 px-6 py-3 text-sm font-black uppercase tracking-wider text-green-950 shadow-[0_10px_0_#052e16] transition hover:-translate-y-0.5 hover:bg-yellow-300 sm:w-auto'>
+            Volver al inicio
+          </a>
+          <a href='/primera' class='inline-flex w-full items-center justify-center rounded-full border border-green-300/40 px-6 py-3 text-sm font-black uppercase tracking-wider text-green-100 transition hover:border-yellow-300 hover:text-yellow-300 sm:w-auto'>
+            Ver Primera
+          </a>
+        </div>
+
+        <div class='mt-10 grid gap-3 text-left sm:grid-cols-3'>
+          {quickLinks.map((link) => (
+            <a href={link.href} class='group rounded-2xl border border-green-700/50 bg-green-950/35 p-4 transition hover:-translate-y-1 hover:border-yellow-300/70 hover:bg-green-900/50'>
+              <span class='block text-sm font-black uppercase tracking-widest text-green-300 group-hover:text-yellow-300'>{link.label}</span>
+              <span class='mt-2 block text-sm leading-5 text-green-100/65'>{link.helper}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
