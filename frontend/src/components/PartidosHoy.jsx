@@ -98,6 +98,26 @@ function formatDateForQueryES(date) {
   return `${dd}/${mm}`
 }
 
+function normalizarCancha(nombre) {
+  if (!nombre) return ''
+  const limpio = nombre.toLowerCase().trim()
+  if (limpio === 'cael') return 'ellinqueno'
+
+  return nombre
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(cancha|estadio|club|ca|c\.a\.|atl|atletico|dep|deportivo)\b/g, '')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function debeMostrarCancha(cancha, localNombre) {
+  const canchaNorm = normalizarCancha(cancha)
+  const localNorm = normalizarCancha(localNombre)
+  if (!canchaNorm || !localNorm) return false
+  return !canchaNorm.includes(localNorm) && !localNorm.includes(canchaNorm)
+}
+
 export default function PartidosHoy() {
   const [selectedDate, setSelectedDate] = useState(null)
   const [datesWithMatches, setDatesWithMatches] = useState([])
@@ -169,6 +189,7 @@ export default function PartidosHoy() {
           fecha_id,
           dia,
           hora,
+          cancha,
           goles_local,
           goles_visitante,
           estado,
@@ -337,6 +358,7 @@ export default function PartidosHoy() {
                   {groupedByCategory[categoriaId].map((match, i) => {
                     const isLibre = match.visitante_id === null
                     const seJugo = match.estado === 'jugado' || (match.goles_local !== null && match.goles_visitante !== null)
+                    const mostrarCancha = debeMostrarCancha(match.cancha, match.local?.nombre)
 
                     if (isLibre) {
                       return (
@@ -376,6 +398,12 @@ export default function PartidosHoy() {
                             <span className='text-green-100 font-medium text-xs'>{match.visitante?.nombre}</span>
                           </div>
                         </div>
+                        {mostrarCancha && (
+                          <div className='mt-1 inline-flex w-fit max-w-full items-center gap-1 rounded-full border border-yellow-300/30 bg-yellow-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-yellow-200'>
+                            <span className='text-yellow-400'>Cancha</span>
+                            <span className='truncate'>{match.cancha}</span>
+                          </div>
+                        )}
                       </div>
                     )
                   })}
