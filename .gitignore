@@ -12,3 +12,9 @@ launch.json
 placares_generados/
 tablas-images/
 frontend/public/escudos_hd/
+.agents
+.claude
+skills-lock.json
+scripts/social/drafts/
+scripts/social/prepared-images/
+scripts/social/publicaciones.json

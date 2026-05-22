@@ -6,6 +6,9 @@ from bs4 import BeautifulSoup
 import re
 import unicodedata
 import os
+from pathlib import Path
+import subprocess
+import sys
 from dotenv import load_dotenv
 load_dotenv()
 from supabase import create_client
@@ -33,10 +36,13 @@ MAPEO_CLUBES = {
 }
 
 URL = "https://www.ligaamateurdedeportes.com.ar/alineaciones.html"
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+FRONTEND_DIR = PROJECT_DIR / "frontend"
 
 parser = argparse.ArgumentParser(description="Scrapea alineaciones de Primera desde la web de la Liga")
 parser.add_argument("--fecha", type=int, help="Fecha a procesar. Si no se indica, se detecta desde la web")
 parser.add_argument("--dry-run", action="store_true", help="Muestra qué haría sin escribir en Supabase")
+parser.add_argument("--no-deploy", action="store_true", help="No ejecuta pnpm run deploy al terminar una corrida real con cambios")
 args = parser.parse_args()
 
 def normalizar(t):
@@ -56,6 +62,88 @@ def limpiar(t):
         except UnicodeError:
             pass
     return t.replace('\xa0', ' ').replace('\n', ' ').strip()
+
+def extraer_estilos_clases(soup):
+    """Devuelve estilos CSS por clase para las tablas exportadas desde Excel."""
+    estilos = {}
+    for style_tag in soup.find_all('style'):
+        css = style_tag.get_text() or ""
+        for match in re.finditer(r'\.([A-Za-z0-9_-]+)\s*\{([^}]*)\}', css, re.S):
+            clase = match.group(1)
+            cuerpo = match.group(2).strip()
+            if cuerpo:
+                estilos[clase] = f"{estilos.get(clase, '')};{cuerpo}"
+    return estilos
+
+def valores_background(css):
+    """Extrae background/background-color sin confundirlo con color:red."""
+    if not css:
+        return []
+    return [
+        match.group(2).strip().lower().replace('!important', '').strip()
+        for match in re.finditer(r'(?<![-\w])(background(?:-color)?)\s*:\s*([^;]+)', css, re.I)
+    ]
+
+def valor_es_rojo(valor):
+    if not valor:
+        return False
+
+    valor = valor.lower().replace(' ', '')
+    if re.search(r'(^|[^a-z])red([^a-z]|$)', valor):
+        return True
+    if '#ff0000' in valor or '#f00' in valor:
+        return True
+
+    rgb = re.search(r'rgba?\((\d+),(\d+),(\d+)(?:,[^)]+)?\)', valor)
+    if rgb:
+        r, g, b = (int(rgb.group(i)) for i in range(1, 4))
+        return r >= 240 and g <= 20 and b <= 20
+
+    return False
+
+def celda_tiene_fondo_rojo(cell, estilos_clases):
+    """Detecta el cuadro rojo de expulsado mirando fondo, no color de texto."""
+    inline_style = str(cell.get('style', ''))
+    fondos_inline = valores_background(inline_style)
+    if fondos_inline:
+        return any(valor_es_rojo(fondo) for fondo in fondos_inline)
+
+    bgcolor = str(cell.get('bgcolor', '')).strip().lower()
+    if bgcolor:
+        return valor_es_rojo(bgcolor)
+
+    for clase in cell.get('class', []):
+        fondos_clase = valores_background(estilos_clases.get(clase, ''))
+        if fondos_clase and any(valor_es_rojo(fondo) for fondo in fondos_clase):
+            return True
+
+    return False
+
+def ejecutar_deploy_si_corresponde(guardados):
+    if args.dry_run:
+        print("DRY RUN: no se ejecuta deploy")
+        return
+
+    if args.no_deploy:
+        print("Deploy omitido por --no-deploy")
+        return
+
+    if guardados <= 0:
+        print("Deploy omitido: no se guardaron alineaciones")
+        return
+
+    if not FRONTEND_DIR.exists():
+        print(f"ERROR: no existe el directorio frontend: {FRONTEND_DIR}")
+        sys.exit(1)
+
+    package_manager = "pnpm.cmd" if os.name == "nt" else "pnpm"
+    print("Ejecutando deploy del frontend para regenerar páginas de partido...")
+    result = subprocess.run([package_manager, "run", "deploy"], cwd=FRONTEND_DIR)
+    if result.returncode != 0:
+        print(f"ERROR: pnpm run deploy falló con código {result.returncode}")
+        sys.exit(result.returncode)
+
+    print("Deploy finalizado correctamente")
 
 def detectar_equipos_fila(cells):
     if len(cells) < 4:
@@ -91,6 +179,7 @@ response = requests.get(URL, timeout=30)
 if not response.encoding:
     response.encoding = 'ISO-8859-1'
 soup = BeautifulSoup(response.text, 'html.parser')
+ESTILOS_CLASES = extraer_estilos_clases(soup)
 print("Parsed HTML")
 
 # Detectar fecha desde la web
@@ -296,18 +385,16 @@ for p in partidos:
             
             if c0.isdigit() and c1:
                 jugadores_local[int(c0)] = normalizar(c1)
-                # Check for red card (column 2)
+                # Check for red card (column 2): the site marks it as a red background square.
                 if len(cells) > 2:
-                    style = str(cells[2].get('style', '')).lower()
-                    if 'background:red' in style or 'background: red' in style:
+                    if celda_tiene_fondo_rojo(cells[2], ESTILOS_CLASES):
                         rojas_local.add(int(c0))
-            
+
             if c3.isdigit() and c4:
                 jugadores_visita[int(c3)] = normalizar(c4)
                 # Check for red card (column 5 - same as column 2 for visitor)
                 if len(cells) > 5:
-                    style = str(cells[5].get('style', '')).lower()
-                    if 'background:red' in style or 'background: red' in style:
+                    if celda_tiene_fondo_rojo(cells[5], ESTILOS_CLASES):
                         rojas_visita.add(int(c3))
     
     # SEGUNDA PASADA: Encontrar goleadores buscando nombres
@@ -375,6 +462,7 @@ for p in partidos:
                 pass
     
     print(f"  Goleadores local: {len(goleadores_local)}, visita: {len(goleadores_visita)}")
+    print(f"  Rojas local: {len(rojas_local)}, visita: {len(rojas_visita)}")
     
     # Segunda pasada: guardar alineaciones
     for idx in range(fila_inicio, fila_fin):
@@ -446,3 +534,4 @@ for p in partidos:
 
 accion = "detectadas" if args.dry_run else "guardadas"
 print(f"Listo: {guardados} alineaciones {accion}")
+ejecutar_deploy_si_corresponde(guardados)

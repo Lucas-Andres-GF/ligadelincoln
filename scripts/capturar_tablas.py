@@ -46,7 +46,7 @@ def start_frontend():
     else:
         kwargs['preexec_fn'] = os.setsid
 
-    return subprocess.Popen(["npm", "run", "dev", "--", "--host"], **kwargs)
+    return subprocess.Popen(["pnpm", "run", "dev", "--", "--host"], **kwargs)
 
 def stop_frontend(proc):
     if not proc:
