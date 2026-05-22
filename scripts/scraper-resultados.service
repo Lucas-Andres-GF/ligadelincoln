@@ -5,4 +5,4 @@ Description=Scraper de resultados - Liga de Lincoln
 Type=oneshot
 User=gallardo
 Group=gallardo
-ExecStart=/home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_wrapper.sh
+ExecStart=/bin/bash /home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_wrapper.sh
