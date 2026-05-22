@@ -118,6 +118,9 @@ function formatearFechaMostrar(dia) {
 
 function normalizarCancha(nombre) {
   if (!nombre) return ''
+  const limpio = nombre.toLowerCase().trim()
+  if (limpio === 'cael') return 'ellinqueno'
+
   return nombre
     .toLowerCase()
     .normalize('NFD')
