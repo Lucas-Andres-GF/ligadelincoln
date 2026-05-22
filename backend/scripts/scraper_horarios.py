@@ -272,7 +272,8 @@ def actualizar_db(partidos_con_hora):
             if result.data:
                 supabase.table("partidos").update({
                     "dia": p['fecha'],
-                    "hora": p['hora_calc']
+                    "hora": p['hora_calc'],
+                    "cancha": p['cancha'] or None,
                 }).eq("id", result.data[0]['id']).execute()
                 
                 print(f"  OK: {p['fecha']} {p['hora_calc']} | {p['categoria']:8} | {p['local']} vs {p['visitante']}")

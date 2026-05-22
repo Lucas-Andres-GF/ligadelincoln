@@ -116,6 +116,23 @@ function formatearFechaMostrar(dia) {
   return dia
 }
 
+function normalizarCancha(nombre) {
+  if (!nombre) return ''
+  return nombre
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(cancha|estadio|club|ca|c\.a\.|atl|atletico|dep|deportivo)\b/g, '')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function debeMostrarCancha(cancha, localNombre) {
+  const canchaNorm = normalizarCancha(cancha)
+  const localNorm = normalizarCancha(localNombre)
+  if (!canchaNorm || !localNorm) return false
+  return !canchaNorm.includes(localNorm) && !localNorm.includes(canchaNorm)
+}
+
 export default function FixtureCategoria({ categoria }) {
   const categoriaNombres = {
     1: 'PRIMERA',
@@ -144,6 +161,7 @@ export default function FixtureCategoria({ categoria }) {
             fecha_id,
             dia,
             hora,
+            cancha,
             goles_local,
             goles_visitante,
             estado,
@@ -311,6 +329,7 @@ export default function FixtureCategoria({ categoria }) {
         {matches.map((match, i) => {
 const isLibre = match.visitante_id === null
             const seJugo = match.estado === 'jugado' || (match.goles_local !== null && match.goles_visitante !== null)
+            const mostrarCancha = debeMostrarCancha(match.cancha, match.local?.nombre)
             
             // Solo Primera División + jugado => clickeable
             const esPrimera = categoria === 1
@@ -372,6 +391,13 @@ if (isLibre) {
                   <span className='text-green-100 font-medium text-xs sm:text-sm'>{match.visitante?.nombre}</span>
                 </div>
               </div>
+
+              {mostrarCancha && (
+                <div className='mt-1 inline-flex w-fit max-w-full items-center gap-1 rounded-full border border-yellow-300/30 bg-yellow-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-yellow-200 sm:text-[10px]'>
+                  <span className='text-yellow-400'>Cancha</span>
+                  <span className='truncate'>{match.cancha}</span>
+                </div>
+              )}
 
               {/* Row 3: Goleadores */}
               {seJugo && (match.goleadoresLocal?.length > 0 || match.goleadoresVisita?.length > 0) && (
