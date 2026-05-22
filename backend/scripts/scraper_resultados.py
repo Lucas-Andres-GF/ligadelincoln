@@ -4,9 +4,13 @@ from bs4 import BeautifulSoup
 import re
 import unicodedata
 import sys
+import subprocess
+from pathlib import Path
 sys.stdout.reconfigure(encoding='utf-8')
 
 from config import supabase, MAPEO_CLUBES, CATEGORIAS, EQUIPOS_POR_CATEGORIA
+
+SCRIPT_DIR = Path(__file__).resolve().parent
 
 URLS = {
     "primera": "https://www.ligaamateurdedeportes.com.ar/primera.html",
@@ -260,9 +264,24 @@ def calcular_posiciones(cat_id, todos_partidos):
 
 def actualizar_partidos(partidos):
     total_actualizados = 0
+    primera_con_resultado_nuevo = False
     
     for p in partidos:
         try:
+            query = supabase.table("partidos").select(
+                "id, estado, goles_local, goles_visitante"
+            ).eq("categoria_id", p['categoria_id']).eq("fecha_id", p['fecha_id']).eq("local_id", p['local_id']).eq("visitante_id", p['visitante_id'])
+            existente = query.execute()
+
+            debe_disparar_primera = False
+            for actual in existente.data or []:
+                if p['categoria_id'] == CATEGORIAS["primera"] and (
+                    actual.get("estado") != "jugado"
+                    or actual.get("goles_local") != p['goles_local']
+                    or actual.get("goles_visitante") != p['goles_visitante']
+                ):
+                    debe_disparar_primera = True
+
             result = supabase.table("partidos").update({
                 "goles_local": p['goles_local'],
                 "goles_visitante": p['goles_visitante'],
@@ -271,10 +290,28 @@ def actualizar_partidos(partidos):
             
             if result.data:
                 total_actualizados += 1
+                primera_con_resultado_nuevo = primera_con_resultado_nuevo or debe_disparar_primera
         except Exception as e:
             pass
     
-    return total_actualizados
+    return total_actualizados, primera_con_resultado_nuevo
+
+def ejecutar_alineaciones_y_deploy(fecha):
+    if not fecha:
+        print("  Alineaciones/deploy omitido: no se detectó fecha de Primera")
+        return
+
+    script = SCRIPT_DIR / "scraper_alineaciones.py"
+    print(f"  Resultado nuevo en Primera: ejecutando alineaciones y deploy para fecha {fecha}")
+    result = subprocess.run([
+        sys.executable,
+        str(script),
+        "--fecha",
+        str(fecha),
+        "--deploy-always",
+    ])
+    if result.returncode != 0:
+        print(f"  ERROR: scraper_alineaciones/deploy falló con código {result.returncode}")
 
 def main():
     from datetime import datetime
@@ -294,8 +331,11 @@ def main():
                 resultados.extend(partidos_nuevos)
                 
                 # Actualizar partidos en DB
-                actualizados = actualizar_partidos(partidos_nuevos)
+                actualizados, primera_con_resultado_nuevo = actualizar_partidos(partidos_nuevos)
                 print(f"  {actualizados} partidos actualizados")
+
+                if primera_con_resultado_nuevo:
+                    ejecutar_alineaciones_y_deploy(fecha)
             
             # Obtener TODOS los partidos jugados de esta categoría de la DB (YA ACTUALIZADOS)
             todos_partidos = supabase.table("partidos").select(

@@ -43,6 +43,7 @@ parser = argparse.ArgumentParser(description="Scrapea alineaciones de Primera de
 parser.add_argument("--fecha", type=int, help="Fecha a procesar. Si no se indica, se detecta desde la web")
 parser.add_argument("--dry-run", action="store_true", help="Muestra qué haría sin escribir en Supabase")
 parser.add_argument("--no-deploy", action="store_true", help="No ejecuta pnpm run deploy al terminar una corrida real con cambios")
+parser.add_argument("--deploy-always", action="store_true", help="Ejecuta deploy aunque no se hayan guardado alineaciones")
 args = parser.parse_args()
 
 def normalizar(t):
@@ -128,7 +129,7 @@ def ejecutar_deploy_si_corresponde(guardados):
         print("Deploy omitido por --no-deploy")
         return
 
-    if guardados <= 0:
+    if guardados <= 0 and not args.deploy_always:
         print("Deploy omitido: no se guardaron alineaciones")
         return
 
