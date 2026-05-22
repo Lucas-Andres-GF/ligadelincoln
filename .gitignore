@@ -18,3 +18,4 @@ skills-lock.json
 scripts/social/drafts/
 scripts/social/prepared-images/
 scripts/social/publicaciones.json
+backend/run_scraper.sh
