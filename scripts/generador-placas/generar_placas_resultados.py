@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -113,6 +114,47 @@ def obtener_equipos_libres(fecha_id=None, categoria_id=None):
     response = query.order("categoria_id").order("id").execute()
     
     return response.data or []
+
+def obtener_detalles_primera(partido_id, local_id, visitante_id):
+    response = (
+        supabase.table("alineaciones")
+        .select("equipo_id, numero, nombre, goleo, roja")
+        .eq("partido_id", partido_id)
+        .execute()
+    )
+
+    detalles = {
+        "local": {"goleadores": [], "expulsados": []},
+        "visitante": {"goleadores": [], "expulsados": []},
+    }
+
+    for jugador in response.data or []:
+        lado = None
+        if jugador.get("equipo_id") == local_id:
+            lado = "local"
+        elif jugador.get("equipo_id") == visitante_id:
+            lado = "visitante"
+
+        if not lado:
+            continue
+
+        nombre = (jugador.get("nombre") or "").strip()
+        if not nombre or nombre == "0":
+            continue
+
+        item = {
+            "numero": jugador.get("numero"),
+            "nombre": nombre,
+        }
+
+        goles = int(jugador.get("goleo") or 0)
+        if goles > 0:
+            detalles[lado]["goleadores"].append({**item, "goles": goles})
+
+        if jugador.get("roja"):
+            detalles[lado]["expulsados"].append(item)
+
+    return detalles
 
 def verificar_libre_existe(categoria_id, fecha_id, club_nombre):
     categoria_folder = obtener_categoria_folder(categoria_id)
@@ -284,14 +326,20 @@ def main():
         target_dir = os.path.join(OUTPUT_HOST, categoria_folder, fecha_folder)
         os.makedirs(target_dir, exist_ok=True)
         
-        result = ejecutar_generador([
+        generador_args = [
             partido['categoria_id'],
             local_nombre,
             partido['goles_local'],
             visita_nombre,
             partido['goles_visitante'],
             partido.get('fecha_id') or "",
-        ], target_dir)
+        ]
+
+        if categoria_id == 1:
+            detalles = obtener_detalles_primera(partido['id'], partido['local_id'], partido['visitante_id'])
+            generador_args.append(json.dumps(detalles, ensure_ascii=False))
+
+        result = ejecutar_generador(generador_args, target_dir)
         
         print(f"   stdout: {result.stdout}")
         if result.stderr:

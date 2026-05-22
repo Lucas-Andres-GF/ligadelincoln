@@ -1,6 +1,8 @@
 import os
 from playwright.sync_api import sync_playwright
 import base64
+import html
+import json
 import sys
 
 SCRIPT_DIR = os.path.dirname(__file__)
@@ -456,7 +458,65 @@ def generar_placa_libre(categoria_id, club_nombre, fecha_num=None):
     print(f"✅ Imagen libre guardada en: {output_path}")
     return output_path
 
-def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_visita_nombre, goles_visita, fecha_num=None):
+def reparar_texto(t):
+    if not t:
+        return ""
+    if "Ã" in t or "�" in t:
+        try:
+            return t.encode("latin1", errors="ignore").decode("utf-8")
+        except UnicodeError:
+            return t
+    return t
+
+def formatear_jugador(jugador, mostrar_goles=False):
+    nombre = html.escape(reparar_texto(jugador.get("nombre", "")).title())
+    numero = jugador.get("numero")
+    dorsal = f"{numero}. " if numero else ""
+    goles = int(jugador.get("goles") or 0)
+    goles_txt = f" ({goles})" if mostrar_goles and goles > 1 else ""
+    return f"{dorsal}{nombre}{goles_txt}"
+
+def generar_lista_detalle(titulo, items, mostrar_goles=False):
+    if not items:
+        return ""
+    rows = "".join(
+        f'<div class="detail-row">{formatear_jugador(item, mostrar_goles)}</div>'
+        for item in items[:5]
+    )
+    return f"""
+        <div class="detail-section">
+            <div class="detail-title">{titulo}</div>
+            {rows}
+        </div>
+    """
+
+def generar_detalles_html(detalles):
+    if not detalles:
+        return ""
+
+    local = detalles.get("local", {})
+    visitante = detalles.get("visitante", {})
+    tiene_datos = any([
+        local.get("goleadores"), local.get("expulsados"),
+        visitante.get("goleadores"), visitante.get("expulsados"),
+    ])
+
+    if not tiene_datos:
+        return ""
+
+    local_html = generar_lista_detalle("Goles local", local.get("goleadores", []), True)
+    local_html += generar_lista_detalle("Rojas local", local.get("expulsados", []))
+    visitante_html = generar_lista_detalle("Goles visita", visitante.get("goleadores", []), True)
+    visitante_html += generar_lista_detalle("Rojas visita", visitante.get("expulsados", []))
+
+    return f"""
+        <div class="details-card">
+            <div class="details-column">{local_html}</div>
+            <div class="details-column">{visitante_html}</div>
+        </div>
+    """
+
+def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_visita_nombre, goles_visita, fecha_num=None, detalles=None):
     
     club_local_file = get_escudo_filename(club_local_nombre)
     club_visita_file = get_escudo_filename(club_visita_nombre)
@@ -469,6 +529,7 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
     
     categoria_nombre = get_categoria_nombre(categoria_id)
     fecha_str = f"FECHA {fecha_num}" if fecha_num else ""
+    detalles_html = generar_detalles_html(detalles) if categoria_id == 1 else ""
 
     html_content = f"""
     <!DOCTYPE html>
@@ -552,7 +613,7 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
                 width: 100%;
                 max-width: 900px;
                 background: rgba(248, 250, 252, .94);
-                padding: 54px 42px;
+                padding: 46px 38px;
                 border-radius: 34px;
                 border: 5px solid #052e16;
                 box-shadow: 18px 18px 0 rgba(0,0,0,.30), inset 0 0 0 3px rgba(250,204,21,.85);
@@ -567,10 +628,10 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
             }}
             
             .escudo {{
-                width: 205px;
-                height: 205px;
+                width: 185px;
+                height: 185px;
                 object-fit: contain;
-                margin-bottom: 20px;
+                margin-bottom: 16px;
                 filter: drop-shadow(9px 10px 0 rgba(20,83,45,.22)) drop-shadow(0 8px 22px rgba(0,0,0,.32));
             }}
             
@@ -594,7 +655,7 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
             
             .goles {{
                 font-family: 'Bebas Neue', sans-serif;
-                font-size: 158px;
+                font-size: 146px;
                 font-weight: 400;
                 color: #052e16;
                 line-height: 1;
@@ -614,7 +675,50 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
                 width: 80px;
                 height: 3px;
                 background: repeating-linear-gradient(90deg, #facc15 0 22px, #f8fafc 22px 44px, #16a34a 44px 66px);
-                margin: 30px 0;
+                margin: 22px 0;
+            }}
+
+            .details-card {{
+                width: 100%;
+                max-width: 900px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 18px;
+                background: rgba(3, 23, 12, .72);
+                border: 2px solid rgba(250, 204, 21, .55);
+                border-radius: 22px;
+                padding: 18px 24px;
+                box-shadow: 10px 10px 0 rgba(0,0,0,.22);
+            }}
+
+            .details-column {{
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                min-width: 0;
+            }}
+
+            .detail-section {{
+                min-width: 0;
+            }}
+
+            .detail-title {{
+                color: #facc15;
+                font-size: 18px;
+                font-weight: 900;
+                letter-spacing: 1.4px;
+                text-transform: uppercase;
+                margin-bottom: 4px;
+            }}
+
+            .detail-row {{
+                color: #f8fafc;
+                font-size: 20px;
+                font-weight: 800;
+                line-height: 1.05;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }}
             
             .footer {{
@@ -693,6 +797,7 @@ def generar_placa_resultado(categoria_id, club_local_nombre, goles_local, club_v
             </div>
             
             <div class="divider"></div>
+            {detalles_html}
         </div>
         
         <div class="footer">
@@ -740,6 +845,7 @@ if __name__ == "__main__":
         club_visita = sys.argv[4]
         goles_visita = int(sys.argv[5])
         fecha_num = int(sys.argv[6]) if len(sys.argv) > 6 else None
-        generar_placa_resultado(categoria_id, club_local, goles_local, club_visita, goles_visita, fecha_num)
+        detalles = json.loads(sys.argv[7]) if len(sys.argv) > 7 else None
+        generar_placa_resultado(categoria_id, club_local, goles_local, club_visita, goles_visita, fecha_num, detalles)
     else:
         generar_placa_resultado(1, "San Martin", 3, "Villa Francia", 0, 15)
