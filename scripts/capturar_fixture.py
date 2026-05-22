@@ -47,7 +47,7 @@ def start_frontend():
     else:
         kwargs['preexec_fn'] = os.setsid
 
-    return subprocess.Popen(["npm", "run", "dev", "--", "--host"], **kwargs)
+    return subprocess.Popen(["pnpm", "run", "dev", "--", "--host"], **kwargs)
 
 def stop_frontend(proc):
     if not proc:
@@ -113,10 +113,15 @@ def get_fixture_dia(categoria_id, fecha_num):
         return response.data[0]['dia']
     return None
 
-def get_fixture(categoria_id, fecha_num):
-    response = supabase.from_("partidos").select(
+def get_fixture(categoria_id, fecha_num, dia_filtro=None):
+    query = supabase.from_("partidos").select(
         "local_id, visitante_id, hora, estado, dia"
-    ).eq("categoria_id", categoria_id).eq("fecha_id", fecha_num).not_.is_("local_id", "null").execute()
+    ).eq("categoria_id", categoria_id).eq("fecha_id", fecha_num).not_.is_("local_id", "null")
+
+    if dia_filtro:
+        query = query.eq("dia", dia_filtro)
+
+    response = query.execute()
     
     if not response.data:
         return [], None
@@ -392,7 +397,7 @@ PORTADA_FIXTURE_HTML = """
     
     <div class="main-content">
         <div class="titulo-principal">Fixture</div>
-        <div class="fecha-badge">FECHA {fecha_num}</div>
+        <div class="fecha-badge">{fixture_label}</div>
         <div class="torneo-badge">TORNEO APERTURA 2026</div>
     </div>
     
@@ -657,7 +662,7 @@ HTML_TEMPLATE = """
     <div class="header">
         <div class="liga-text">Liga De Lincoln</div>
         <div class="header-meta">
-            <div class="fecha-chip">FECHA {fecha_num}</div>
+            <div class="fecha-chip">{fixture_label}</div>
             <div class="categoria-badge">{categoria_nombre}</div>
         </div>
     </div>
@@ -679,39 +684,45 @@ HTML_TEMPLATE = """
 </html>
 """
 
-def capturar_fixture(fecha_num, categorias=None):
+def capturar_fixture(fecha_num, categorias=None, fixture_label=None, output_fecha=None, dia_filtro=None, skip_portada=False):
     if categorias is None:
         categorias = CATEGORIAS
+
+    fixture_label = fixture_label or f"FECHA {fecha_num}"
+    output_fecha = output_fecha or f"fecha_{fecha_num}"
     
     proc = start_frontend()
     if proc:
         print("⏳ Esperando que el frontend esté listo...")
         time.sleep(15)
     
-    print(f"📅 Generando fixture Fecha {fecha_num}...")
+    print(f"📅 Generando fixture {fixture_label}...")
     
     total_generados = 0
     
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        
-        # Generar portada general
-        print(f"📸 Generando portada general Fixture Fecha {fecha_num}...")
-        try:
-            html_content = PORTADA_FIXTURE_HTML.format(fecha_num=fecha_num)
+    if not skip_portada:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
             
-            page = browser.new_page(viewport={"width": 1080, "height": 1080})
-            page.set_content(html_content)
-            time.sleep(1)
-            
-            output_path = os.path.join(OUTPUT_DIR, f"portada_fixture.png")
-            page.screenshot(path=output_path)
-            page.close()
-            
-            print(f"   ✅ Portada: {output_path}")
-            total_generados += 1
-        except Exception as e:
-            print(f"   ❌ Error portada: {e}")
+            # Generar portada general
+            print(f"📸 Generando portada general Fixture {fixture_label}...")
+            try:
+                html_content = PORTADA_FIXTURE_HTML.format(fecha_num=fecha_num, fixture_label=fixture_label)
+                
+                page = browser.new_page(viewport={"width": 1080, "height": 1080})
+                page.set_content(html_content)
+                time.sleep(1)
+                
+                output_path = os.path.join(OUTPUT_DIR, "portada_fixture.png")
+                page.screenshot(path=output_path)
+                page.close()
+                
+                print(f"   ✅ Portada: {output_path}")
+                total_generados += 1
+            except Exception as e:
+                print(f"   ❌ Error portada: {e}")
+            finally:
+                browser.close()
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -720,7 +731,7 @@ def capturar_fixture(fecha_num, categorias=None):
             print(f"📸 Generando fixture {cat_nombre}...")
             
             try:
-                partidos, dia = get_fixture(cat_id, fecha_num)
+                partidos, dia = get_fixture(cat_id, fecha_num, dia_filtro=dia_filtro)
                 
                 if not partidos:
                     print(f"   ⚠️ No hay partidos para esta categoría")
@@ -737,11 +748,12 @@ def capturar_fixture(fecha_num, categorias=None):
                 html_content = HTML_TEMPLATE.format(
                     categoria_nombre=cat_nombre,
                     fecha_num=fecha_num,
+                    fixture_label=fixture_label,
                     fixture_html=fixture_html,
                     fecha_info=""
                 )
                 
-                cat_folder = os.path.join(OUTPUT_DIR, cat_slug, f"fecha_{fecha_num}")
+                cat_folder = os.path.join(OUTPUT_DIR, cat_slug, output_fecha)
                 os.makedirs(cat_folder, exist_ok=True)
                 
                 output_path = os.path.join(cat_folder, "fixture.png")
@@ -769,6 +781,9 @@ def capturar_fixture(fecha_num, categorias=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generar imágenes de fixture')
     parser.add_argument('--fecha', type=int, required=True, help='Número de fecha')
+    parser.add_argument('--postergados-fecha', type=int, default=None, help='Muestra el rótulo POSTERGADOS FECHA N y guarda en carpeta postergados_fecha_N')
+    parser.add_argument('--dia', type=str, default=None, help='Filtra partidos por día ISO yyyy-mm-dd')
+    parser.add_argument('--skip-portada', action='store_true', help='No regenera la portada general')
     parser.add_argument('--categoria', type=str, default=None, help='Categoría específica (opcional)')
     args = parser.parse_args()
     
@@ -784,4 +799,17 @@ if __name__ == "__main__":
         if args.categoria in cat_map:
             categorias = [cat_map[args.categoria]]
     
-    capturar_fixture(fecha_num=args.fecha, categorias=categorias)
+    fixture_label = None
+    output_fecha = None
+    if args.postergados_fecha:
+        fixture_label = f"POSTERGADOS FECHA {args.postergados_fecha}"
+        output_fecha = f"postergados_fecha_{args.postergados_fecha}"
+
+    capturar_fixture(
+        fecha_num=args.fecha,
+        categorias=categorias,
+        fixture_label=fixture_label,
+        output_fecha=output_fecha,
+        dia_filtro=args.dia,
+        skip_portada=args.skip_portada,
+    )

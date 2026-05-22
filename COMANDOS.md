@@ -109,11 +109,10 @@ python3 scraper_alineaciones.py --fecha 7
 - Usar `--dry-run` primero: muestra qué partidos actualizaría y cuántas alineaciones reemplazaría sin borrar ni insertar datos.
 - Si la web cambia de fecha, ya no se pueden reconstruir alineaciones viejas desde esa misma URL.
 
-**Importante:** Después de ejecutar, hacer deploy manual a Vercel para regenerar las páginas de partido:
+**Importante:** En una corrida real, el scraper ejecuta automáticamente `pnpm run deploy` desde `frontend/` si guardó alineaciones, para regenerar las páginas de partido en Vercel. Para omitirlo excepcionalmente:
 
 ```bash
-cd /home/gallardo/Documentos/ligadelincoln/frontend
-npm run deploy
+python3 scraper_alineaciones.py --fecha 7 --no-deploy
 ```
 
 ### Capturar fixture (inicio de semana)
@@ -157,8 +156,8 @@ Para una categoría concreta:
 |-----|--------|---------|
 | Inicio de semana | Actualizar horarios de la semana | `python3 scraper_horarios.py` |
 | Inicio de semana | Capturar fixture | `python3 capturar_fixture.py` |
-| Cuando termina un partido y la web ya fue actualizada | Scrapear alineaciones / goleadores / DT / árbitro / resultado | `python3 scraper_alineaciones.py` |
-| Después de actualizar datos manualmente | Deploy del frontend | `npm run deploy` |
+| Cuando termina un partido y la web ya fue actualizada | Scrapear alineaciones / goleadores / DT / árbitro / resultado + deploy del frontend si guardó alineaciones | `python3 scraper_alineaciones.py` |
+| Después de actualizar datos manualmente por fuera del scraper | Deploy del frontend | `pnpm run deploy` |
 | Sábados | Resultados (automático) | Timer systemd cada 15min (14-21hs) |
 | Domingos 22:15 | Generar placas de resultados (automático) | Timer systemd |
 
@@ -204,11 +203,11 @@ Eso actualiza:
 
 ### 4) Después de una corrida manual importante
 
-Regenerar el frontend en Vercel:
+Si usaste `scraper_alineaciones.py`, el deploy ya queda incluido automáticamente cuando se guardan alineaciones. Si hiciste cambios manuales por fuera del scraper, regenerar el frontend en Vercel:
 
 ```bash
 cd /home/gallardo/Documentos/ligadelincoln/frontend
-npm run deploy
+pnpm run deploy
 ```
 
 ### 5) Precaución con alineaciones
@@ -225,7 +224,7 @@ El frontend está desplegado en Vercel. Para hacer deploy manual:
 
 ```bash
 cd /home/gallardo/Documentos/ligadelincoln/frontend
-npm run deploy
+pnpm run deploy
 ```
 
 O conectar desde GitHub (main branch → auto-deploy).

@@ -78,6 +78,7 @@ def scrape():
     
     resultados = []
     fecha_actual = None
+    fecha_id_actual = None
     ultima_hora = None
     ultima_cancha = None
     
@@ -93,7 +94,7 @@ def scrape():
         return []
     
     filas = tabla.find_all('tr')
-    postergados_encontrado = False
+    ignorar_bloque_postergado = False
     
     for fila in filas:
         celdas = [c.get_text(strip=True) for c in fila.find_all('td')]
@@ -104,16 +105,25 @@ def scrape():
             continue
         
         texto = ' '.join(celdas)
-        
-        if 'Postergados' in celdas[0] and len(celdas) < 3:
-            postergados_encontrado = True
-            continue
-        
-        if postergados_encontrado:
-            continue
+        texto_norm = texto.lower()
         
         match = re.search(r'((?:Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo)\s+\d{1,2}\s+de\s+\w+\s+de\s+\d{4})', texto, re.IGNORECASE)
         if match:
+            ignorar_bloque_postergado = 'postergado' in texto_norm
+            if ignorar_bloque_postergado:
+                fecha_postergada = re.search(r'fecha\s*(\d+)', texto_norm, re.IGNORECASE)
+                if not fecha_postergada:
+                    fecha_actual = None
+                    fecha_id_actual = None
+                    ultima_hora = None
+                    ultima_cancha = None
+                    continue
+
+                fecha_id_actual = int(fecha_postergada.group(1))
+
+            else:
+                fecha_id_actual = None
+
             fecha_str = match.group(1)
             fecha_match = re.search(r'(\d{1,2})\s+de\s+(\w+)\s+de\s+(\d{4})', fecha_str)
             if fecha_match:
@@ -126,6 +136,17 @@ def scrape():
                 fecha_actual = f"{anio}-{meses.get(mes.lower(), '04')}-{dia.zfill(2)}"
                 ultima_hora = None
                 ultima_cancha = None
+                continue
+
+        if 'postergado' in texto_norm and len(celdas) < 3:
+            ignorar_bloque_postergado = True
+            fecha_actual = None
+            fecha_id_actual = None
+            ultima_hora = None
+            ultima_cancha = None
+            continue
+
+        if ignorar_bloque_postergado and not fecha_id_actual:
             continue
         
         if 'Division' in celdas[0] or 'ligaamateurdedeportes' in celdas[0].lower():
@@ -173,6 +194,7 @@ def scrape():
         
         resultados.append({
             "fecha": fecha_actual,
+            "fecha_id": fecha_id_actual,
             "categoria_id": MAPEO_CATEGORIA[cat],
             "categoria": cat,
             "local": local,
@@ -241,7 +263,11 @@ def actualizar_db(partidos_con_hora):
             continue
         
         try:
-            result = supabase.table("partidos").select("id").eq("categoria_id", p['categoria_id']).eq("local_id", p['local_id']).eq("visitante_id", p['visitante_id']).execute()
+            query = supabase.table("partidos").select("id").eq("categoria_id", p['categoria_id']).eq("local_id", p['local_id']).eq("visitante_id", p['visitante_id'])
+            if p.get('fecha_id'):
+                query = query.eq("fecha_id", p['fecha_id'])
+
+            result = query.execute()
             
             if result.data:
                 supabase.table("partidos").update({
