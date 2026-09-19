@@ -21,6 +21,7 @@ PANEL_LAUNCHER = PROJECT_DIR / "abrir-panel-liga.sh"
 WINDOWS_PANEL_LAUNCHER = PROJECT_DIR / "abrir-panel-liga.bat"
 PANEL_README = PROJECT_DIR / "scripts" / "control-panel" / "README.md"
 COMMANDS_GUIDE = PROJECT_DIR / "COMANDOS.md"
+BACKEND_OPERATIONS_GUIDE = PROJECT_DIR / "backend" / "README_OPERACIONES.md"
 
 
 def load_control_panel():
@@ -520,6 +521,8 @@ class OperatorGuidanceTests(unittest.TestCase):
     def setUpClass(cls):
         cls.panel_readme = PANEL_README.read_text(encoding="utf-8")
         cls.commands = COMMANDS_GUIDE.read_text(encoding="utf-8")
+        cls.backend_operations = BACKEND_OPERATIONS_GUIDE.read_text(encoding="utf-8")
+        cls.operator_docs = f"{cls.commands}\n{cls.backend_operations}"
 
     def test_panel_readme_documents_all_six_safe_actions(self):
         for action in (
@@ -537,22 +540,64 @@ class OperatorGuidanceTests(unittest.TestCase):
         self.assertIn("LIGA_PYTHON", self.panel_readme)
         self.assertIn("no construye ni despliega", self.panel_readme)
 
-    def test_commands_guide_uses_explicit_preview_and_execute_contract(self):
-        self.assertNotIn("--dry-run", self.commands)
-        self.assertNotIn("--no-deploy", self.commands)
-        self.assertNotIn("deploy ya queda incluido", self.commands.lower())
-        self.assertNotIn("deploy del frontend si guardó", self.commands.lower())
+    def test_commands_guide_points_to_one_canonical_backend_manual(self):
+        self.assertTrue(BACKEND_OPERATIONS_GUIDE.is_file())
         self.assertIn(
-            "scraper_alineaciones.py --torneo-id 2 --fecha 7",
+            "[`backend/README_OPERACIONES.md`](backend/README_OPERACIONES.md)",
             self.commands,
         )
+        self.assertIn("guía canónica", self.commands)
+        self.assertIn("manual de ingesta", self.commands)
+        self.assertIn("deploy", self.commands.lower())
+        self.assertIn("manual", self.commands.lower())
+        self.assertNotIn("## Deploy a Vercel", self.commands)
+
+    def test_operator_docs_use_preview_execute_and_visible_placeholders(self):
+        self.assertIn("## Camino rápido", self.backend_operations)
+        self.assertIn("Previsualizar", self.backend_operations)
+        self.assertIn("--execute", self.backend_operations)
+        self.assertIn("<TORNEO_ID>", self.backend_operations)
+        self.assertIn("<FECHA>", self.backend_operations)
+        self.assertIn("reemplazá todos los marcadores", self.backend_operations.lower())
+        self.assertIn("secuenciales y no transaccionales", self.backend_operations)
+        self.assertIn("ESCRIBIR", self.backend_operations)
+        self.assertIn("SQL Editor", self.backend_operations)
+
+    def test_operator_docs_cover_all_retained_cli_entrypoints(self):
+        cli_names = (
+            "activar_torneo.py",
+            "auditar_torneo_oficial.py",
+            "comparar_partidos_oficiales.py",
+            "corregir_resultados_desde_oficial.py",
+            "importar_fixture_torneo.py",
+            "importar_torneo_historico_oficial.py",
+            "inicializar_posiciones_torneo.py",
+            "scraper_alineaciones.py",
+            "scraper_horarios.py",
+            "scraper_resultados.py",
+            "upsert_palmares.py",
+        )
+        for cli_name in cli_names:
+            with self.subTest(cli_name=cli_name):
+                self.assertIn(cli_name, self.backend_operations)
+
+    def test_operator_docs_reject_stale_scope_scheduler_and_deploy_guidance(self):
+        lowered = self.operator_docs.lower()
+        self.assertNotIn("--dry-run", self.operator_docs)
+        self.assertNotIn("--no-deploy", self.operator_docs)
+        self.assertNotIn("systemctl --user", self.operator_docs)
+        self.assertNotIn("deploy ya queda incluido", lowered)
+        self.assertNotIn("deploy del frontend si guardó", lowered)
+        self.assertNotIn("cada 15 min", lowered)
+        self.assertNotIn("14-21", lowered)
+        self.assertNotRegex(self.operator_docs, r"--torneo-id\s+[\"']?2(?:\s|$)")
+        self.assertNotRegex(self.operator_docs, r"--fecha\s+[\"']?7(?:\s|$)")
+        self.assertIn("único scheduler de resultados", lowered)
         self.assertIn(
-            "scraper_alineaciones.py --torneo-id 2 --fecha 7 --execute",
+            "`scripts/crontab` conserva únicamente medios y no debe programar resultados",
             self.commands,
         )
-        self.assertIn("No modifica resultados, estado del partido ni posiciones", self.commands)
-        self.assertIn("despliegue se ejecuta manualmente y por separado", self.commands)
-        self.assertIn("## Deploy a Vercel", self.commands)
+        self.assertIn("no construye ni despliega el frontend", lowered)
 
 
 if __name__ == "__main__":
