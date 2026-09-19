@@ -86,7 +86,7 @@ class FixtureRecord:
     tournament_id: int
     category_id: int
     local_id: int
-    visitor_id: int
+    visitor_id: Optional[int]
     round_id: Optional[int]
 
     @classmethod
@@ -96,7 +96,11 @@ class FixtureRecord:
             tournament_id=int(value["torneo_id"]),
             category_id=int(value["categoria_id"]),
             local_id=int(value["local_id"]),
-            visitor_id=int(value["visitante_id"]),
+            visitor_id=(
+                int(value["visitante_id"])
+                if value.get("visitante_id") is not None
+                else None
+            ),
             round_id=(int(value["fecha_id"]) if value.get("fecha_id") is not None else None),
         )
 
@@ -120,51 +124,56 @@ class UpdatePlan:
 
 
 class _ScheduleTableParser(HTMLParser):
-    """Small table extractor sufficient for the official schedule markup."""
+    """Table extractor that preserves nested tables, sufficient for the official schedule markup."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.tables: list[list[list[str]]] = []
-        self._table_depth = 0
-        self._rows: Optional[list[list[str]]] = None
-        self._row: Optional[list[str]] = None
-        self._cell_parts: Optional[list[str]] = None
+        self._stack: list[dict[str, Any]] = []
+
+    def _frame(self) -> Optional[dict[str, Any]]:
+        return self._stack[-1] if self._stack else None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
         del attrs
         tag = tag.lower()
         if tag == "table":
-            self._table_depth += 1
-            if self._table_depth == 1:
-                self._rows = []
-        elif self._table_depth == 1 and tag == "tr":
-            self._row = []
-        elif self._table_depth == 1 and tag in {"td", "th"} and self._row is not None:
-            self._cell_parts = []
-        elif self._cell_parts is not None and tag == "br":
-            self._cell_parts.append(" ")
+            self._stack.append({"rows": [], "row": None, "cell": None})
+            return
+        frame = self._frame()
+        if frame is None:
+            return
+        if tag == "tr":
+            frame["row"] = []
+        elif tag in {"td", "th"} and frame["row"] is not None:
+            frame["cell"] = []
+        elif tag == "br" and frame["cell"] is not None:
+            frame["cell"].append(" ")
 
     def handle_data(self, data: str) -> None:
-        if self._cell_parts is not None:
-            self._cell_parts.append(data)
+        frame = self._frame()
+        if frame is not None and frame["cell"] is not None:
+            frame["cell"].append(data)
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
-        if self._table_depth == 1 and tag in {"td", "th"} and self._cell_parts is not None:
-            text = " ".join("".join(self._cell_parts).split())
-            if self._row is not None:
-                self._row.append(text)
-            self._cell_parts = None
-        elif self._table_depth == 1 and tag == "tr":
-            if self._rows is not None and self._row:
-                self._rows.append(self._row)
-            self._row = None
-            self._cell_parts = None
-        elif tag == "table" and self._table_depth:
-            if self._table_depth == 1 and self._rows is not None:
-                self.tables.append(self._rows)
-                self._rows = None
-            self._table_depth -= 1
+        frame = self._frame()
+        if frame is None:
+            return
+        if tag in {"td", "th"} and frame["cell"] is not None:
+            text = " ".join("".join(frame["cell"]).split())
+            if frame["row"] is not None:
+                frame["row"].append(text)
+            frame["cell"] = None
+        elif tag == "tr":
+            if frame["row"]:
+                frame["rows"].append(frame["row"])
+            frame["row"] = None
+            frame["cell"] = None
+        elif tag == "table":
+            finished = self._stack.pop()
+            if finished["rows"]:
+                self.tables.append(finished["rows"])
 
 
 def _identity_text(value: str) -> str:

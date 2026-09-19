@@ -146,6 +146,32 @@ class ScheduleParsingTests(unittest.TestCase):
             schedule.parse_schedule_html("<table><tr><td>not a schedule</td></tr></table>")
 
 
+    def test_parses_nested_schedule_table(self) -> None:
+        html = """
+            <table>
+              <tr><td>wrapper</td></tr>
+            </table>
+            <table>
+              <tr>
+                <td>
+                  <table>
+                    <tr><th colspan="6">CRONOGRAMA OFICIAL</th></tr>
+                    <tr><th colspan="6">Sábado 12 de abril de 2026</th></tr>
+                    <tr><td>Primera</td><td>Argentino</td><td>vs</td><td>El Linqueño</td><td>13:00</td><td>Estadio Central</td></tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+        """
+        rows = schedule.parse_schedule_html(html)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].local, "ARGENTINO")
+        self.assertEqual(rows[0].visitor, "EL LINQUEÑO")
+        self.assertEqual(rows[0].scheduled_time, "13:00")
+        self.assertEqual(rows[0].venue, "Estadio Central")
+
+
 class SchedulePlanningTests(unittest.TestCase):
     def test_unique_matches_produce_a_complete_tournament_scoped_plan(self) -> None:
         plan = schedule.build_update_plan(parsed_rows(), fixture_records(), 2)
@@ -213,6 +239,26 @@ class SchedulePlanningTests(unittest.TestCase):
         self.assertFalse(plan.valid)
         self.assertTrue(any("Unknown category" in issue for issue in plan.issues))
         self.assertTrue(any("Unknown local club" in issue for issue in plan.issues))
+
+    def test_null_visitor_fixture_is_tolerated_and_not_matched(self) -> None:
+        bye = {
+            "id": 900,
+            "torneo_id": 2,
+            "categoria_id": 1,
+            "local_id": 10,
+            "visitante_id": None,
+            "fecha_id": 1,
+        }
+        records = fixture_records([*INVENTORY, bye])
+
+        plan = schedule.build_update_plan(parsed_rows(), records, 2)
+
+        self.assertTrue(plan.valid)
+        self.assertEqual(
+            [entry.target_id for entry in plan.entries],
+            [101, 102, 103, 104],
+        )
+        self.assertNotIn(900, [entry.target_id for entry in plan.entries])
 
     def test_execute_uses_only_target_id_and_tournament_scope(self) -> None:
         plan = schedule.build_update_plan(parsed_rows(), fixture_records(), 2)
