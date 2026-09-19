@@ -114,15 +114,19 @@ Tournament IDs are immutable historical identities. Every database mutation must
 
 ### OPS-005 — Generalize and rationalize tournament import utilities
 
-- [ ] Extract one pure historical-source core shared by audit, comparison, correction, and historical import while keeping their command responsibilities separate.
-- [ ] Determine the supported generic boundary of the current fixture source and rename or redesign honestly.
+- [x] Extract one pure historical-source core shared by audit, comparison, correction, and historical import while keeping their command responsibilities separate.
+- [ ] Redesign the current fixture importer around explicit versioned source profiles and scoped replacement, without activation side effects.
+- [ ] Add a separate validated tournament activation operation and align position initialization/palmares with the shared contract.
 - [ ] Reuse shared identities/configuration and align safety/exit/reporting conventions.
 - [x] Confirm initialization, historical import, correction, audit, comparison, and palmares utilities remain necessary and compatible; no retained utility is functionally redundant.
 - [ ] Remove or merge only genuinely redundant code with behavior preserved by tests.
 - Route: delegated writer; trigger: broad multi-file utility integration.
 - Allowed scope: tournament import/audit/correction scripts under `backend/scripts/`, shared helpers, focused `backend/tests/`.
 - Checks: focused unit tests, `py_compile`, all CLI `--help` invocations, dry-run parsing against official sources when available.
-- Commit: pending.
+- Evidence (historical-source work unit): 101 tests passed after writer verification, independent findings, targeted integrity correction, final independent PASS, and parent spot-check. Shared core validates LIBRE scores, fixture/standings participant asymmetry, aliases, duplicate/conflicting keys, and text/JSON drift exits. Imports/help are credential/network safe.
+- Commit (historical-source work unit): `c664186` (`refactor(backend): centralize historical source parsing`).
+- Commit (current fixture profiles): pending.
+- Commit (activation/setup utilities): pending.
 
 ### OPS-006 — Update operational integrations
 
@@ -170,9 +174,10 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - OPS-004 completed in commit `5c0716c`: Primera-only lineup replacement with side-effect-free parsing, strict score/event integrity, estado-aware complete coverage, tournament/round scoping, no result/deploy ownership, and 24 lineup-focused tests (79 total).
 - OPS-005 mapping found no fully redundant utility. Historical source parsing is duplicated between audit and comparison, while correction/import already reuse comparison. The current fixture importer remains explicitly 2026-specific.
 - OPS-005 product decisions: versioned source profiles; activation as a separate operation; abort-by-default with explicit scoped replacement and no append; audit/comparison codes 0=no drift, 1=drift, 2=error.
+- OPS-005 historical-source work unit completed in commit `c664186`: one shared parser/catalog/integrity core, distinct audit/comparison/correction/import commands, drift-aware exits, and 22 historical-focused tests (101 total).
 - Mapping incident: a fallback read-only mapper initialized `.codegraph/`. User authorized deletion; exact CodeGraph server/watchdog processes were stopped, the 4.5 MB generated index was removed, and `.codegraph/` was ignored in commit `bb8a259`.
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
 
 ## Next Step
 
-Implement the pure shared historical-source core as the first OPS-005 work unit, preserve command responsibilities, add network-free parser tests, and adopt drift-aware exit codes without production writes.
+Implement versioned current-fixture source profiles and safe scoped replacement as the second OPS-005 work unit, with no activation side effect and no production writes.
