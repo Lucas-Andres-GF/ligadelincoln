@@ -11,21 +11,22 @@ load_backend_environment()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 ACTIVE_TORNEO_ID = resolve_active_tournament_id()
 ACTIVE_TORNEO_NAME = os.environ.get("ACTIVE_TORNEO_NAME") or "Primavera/Verano 2026"
 
 
 def _create_supabase_client() -> Any:
-    """Create the configured client only when database access is requested."""
-    if not SUPABASE_URL or not SUPABASE_KEY:
+    """Create the service-role client only when database access is requested."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         raise RuntimeError(
-            "Supabase credentials are required for database access. "
-            "Set SUPABASE_URL and SUPABASE_KEY."
+            "Supabase service-role credentials are required for backend writes. "
+            "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
         )
 
     from supabase import create_client
 
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 
 class LazySupabaseClient:

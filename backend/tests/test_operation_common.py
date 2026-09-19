@@ -97,12 +97,13 @@ class LazySupabaseCompatibilityTests(unittest.TestCase):
         self.assertIsNone(module.ACTIVE_TORNEO_ID)
         self.assertIsNone(module.SUPABASE_URL)
         self.assertIsNone(module.SUPABASE_KEY)
+        self.assertIsNone(module.SUPABASE_SERVICE_ROLE_KEY)
         create_client.assert_not_called()
 
     def test_missing_credentials_fail_only_when_client_is_requested(self) -> None:
         with mock.patch.object(config, "SUPABASE_URL", None), mock.patch.object(
             config,
-            "SUPABASE_KEY",
+            "SUPABASE_SERVICE_ROLE_KEY",
             None,
         ):
             with self.assertRaisesRegex(RuntimeError, "credentials are required"):
