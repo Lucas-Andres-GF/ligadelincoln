@@ -93,15 +93,17 @@ Tournament IDs are immutable historical identities. Every database mutation must
 
 ### OPS-004 — Rebuild lineup ingestion safely
 
-- [ ] Separate parsing and mutation planning from database execution.
-- [ ] Replace `--dry-run`/implicit-write asymmetry with dry-run default and explicit `--execute`.
-- [ ] Remove deploy behavior and duplicated identity maps.
-- [ ] Prevalidate a complete replacement before deleting existing lineups.
-- [ ] Add parser/planner tests for goals, cards, encoding, and missing matches.
+- [x] Separate parsing and mutation planning from database execution.
+- [x] Replace `--dry-run`/implicit-write asymmetry with dry-run default and explicit `--execute`.
+- [x] Remove deploy behavior and duplicated identity maps.
+- [x] Prevalidate a complete replacement before deleting existing lineups.
+- [x] Add parser/planner tests for goals, cards, encoding, and missing matches.
 - Route: delegated writer; trigger: multi-file implementation and tests.
 - Allowed scope: `backend/scripts/scraper_alineaciones.py`, shared backend helper modules, `backend/tests/` fixtures/tests.
 - Checks: focused unit tests, `py_compile`, CLI smoke checks; no DB writes or deploy.
-- Commit: pending.
+- Evidence: 79 tests passed after writer verification, independent review, recovery from one failed correction worker, two targeted coverage repairs, final independent PASS, and parent spot-check. `py_compile`, credential-free `--help`, and side-effect-free import passed. Production contains no deploy, subprocess, result, state, or standings writes.
+- Review corrections: header scores and attributed goal events must match exactly; malformed, missing, unknown, or ambiguous scorers fail closed; fixture inventory validates estado; omitted played fixtures block while pending/postponed/libre omissions are allowed. The sequential delete/insert/update replacement remains non-transactional and is reported explicitly.
+- Commit: `5c0716c` (`refactor(backend): make lineup ingestion safe`).
 
 ### OPS-005 — Generalize and rationalize tournament import utilities
 
@@ -157,8 +159,9 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - OPS-001 completed in commit `9654c96`: shared validation, lazy Supabase compatibility, dry-run-first CLI helpers, and 13 tests.
 - OPS-002 completed in commit `8866a2a`: side-effect-free schedule parsing/planning, dry-run-first execution, deterministic tournament fixture matching, blocking safety validation, and 13 schedule-focused tests (26 total).
 - OPS-003 completed in commit `6800023`: safe result planning, fixture-derived projected standings, non-destructive scoped position synchronization, no deploy coupling, fail-closed source/inventory integrity, and 29 result-focused tests (55 total).
+- OPS-004 completed in commit `5c0716c`: Primera-only lineup replacement with side-effect-free parsing, strict score/event integrity, estado-aware complete coverage, tournament/round scoping, no result/deploy ownership, and 24 lineup-focused tests (79 total).
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
 
 ## Next Step
 
-Implement OPS-004 through one bounded writer: rebuild lineup ingestion with complete replacement prevalidation, dry-run-first execution, shared identities, and no deployment coupling.
+Map OPS-005 utility overlap and supported source boundaries through a read-only delegated explorer, then implement only the cohesive rationalization it recommends without production writes.
