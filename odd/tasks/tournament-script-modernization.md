@@ -67,14 +67,16 @@ Tournament IDs are immutable historical identities. Every database mutation must
 
 ### OPS-002 — Rebuild schedule ingestion safely
 
-- [ ] Separate fetch, parse, match planning, reporting, and execution.
-- [ ] Add `--torneo-id`, dry-run default, explicit `--execute`, and nonzero failure exits.
-- [ ] Reject ambiguous or missing fixture matches instead of updating the first row.
-- [ ] Add parser/planner tests with local fixtures.
+- [x] Separate fetch, parse, match planning, reporting, and execution.
+- [x] Add `--torneo-id`, dry-run default, explicit `--execute`, and nonzero failure exits.
+- [x] Reject ambiguous or missing fixture matches instead of updating the first row.
+- [x] Add parser/planner tests with local fixtures.
 - Route: delegated writer; trigger: multi-file implementation and tests.
 - Allowed scope: `backend/scripts/scraper_horarios.py`, shared backend helper modules, `backend/tests/` fixtures/tests.
 - Checks: focused unit tests, `py_compile`, `--help`; no DB writes.
-- Commit: pending.
+- Evidence: 26 tests passed after writer verification, independent verification, three added safety-branch tests, and parent spot-check. `py_compile`, credential-free `--help`, and side-effect-free import passed. No network or DB write was used for verification.
+- Review note: no deterministic functional defect found. Direct tests now cover inventory safety-bound rejection, duplicate target rejection, and update-error propagation to exit code 2. Control-panel/runner compatibility remains intentionally assigned to OPS-006.
+- Commit: `8866a2a` (`refactor(backend): make schedule ingestion safe`).
 
 ### OPS-003 — Rebuild result ingestion and standings refresh
 
@@ -151,8 +153,9 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - 2026-09-15: User selected `feature-branch-chain` for future review slicing; no push or PR creation is authorized.
 - Exploration found that control-panel actions and shell runners depend on the legacy implicit-write CLIs.
 - OPS-001 completed in commit `9654c96`: shared validation, lazy Supabase compatibility, dry-run-first CLI helpers, and 13 tests.
+- OPS-002 completed in commit `8866a2a`: side-effect-free schedule parsing/planning, dry-run-first execution, deterministic tournament fixture matching, blocking safety validation, and 13 schedule-focused tests (26 total).
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
 
 ## Next Step
 
-Implement OPS-002 through one bounded writer: rebuild schedule ingestion around the shared contract, add parser/planner tests, and preserve production data by running only non-writing checks.
+Implement OPS-003 through one bounded writer: rebuild result ingestion and standings refresh around a complete dry-run plan, remove implicit lineup/deploy orchestration, and verify calculations without production writes.
