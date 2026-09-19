@@ -144,14 +144,15 @@ Tournament IDs are immutable historical identities. Every database mutation must
 
 ### OPS-007 — Verify and document the final operator workflow
 
-- [ ] Run the complete backend test suite, compile all retained scripts, and exercise every `--help`/dry-run path without writes.
-- [ ] Confirm no retained command silently targets tournament ID 1 or triggers deployment.
-- [ ] Write `backend/README_OPERACIONES.md` with safe workflows, risk levels, recovery, and exact command order.
-- [ ] Reconcile or replace stale command documentation in `COMANDOS.md`.
+- [x] Run the complete backend test suite, compile all retained scripts, and exercise every `--help`/dry-run path without writes.
+- [x] Confirm no retained command silently targets tournament ID 1 or triggers deployment.
+- [x] Write `backend/README_OPERACIONES.md` with safe workflows, risk levels, recovery, and exact command order.
+- [x] Reconcile or replace stale command documentation in `COMANDOS.md`.
 - Route: delegated verification plus bounded documentation writer; trigger: command-running verification and multi-file docs.
 - Allowed scope: `backend/README_OPERACIONES.md`, `COMANDOS.md`, test/read-only verification over operational files.
 - Checks: complete documented command matrix and clean verification report.
-- Commit: pending.
+- Evidence: 197 tests passed; all 15 retained modules compiled/imported credential-free; all 11 CLIs returned `--help`; all nine writers were verified dry-run-first; direct mocked dry-run coverage exists for every writer. Independent documentation review found no code/guide contradictions across setup, recurring, historical, recovery, scheduler, panel, deploy/media, or RLS boundaries.
+- Commits: `6e30be1` (`test(ops): close operational verification gaps`) and `0560a6a` (`docs(ops): add safe tournament runbook`).
 
 ## Acceptance Criteria
 
@@ -181,9 +182,12 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - OPS-005 current-fixture work unit completed in commit `2b2b540`: versioned source profiles without DB identity, explicit profile/scope, exact-count paginated dependency inspection, fail-closed scoped replacement, inactive-only creation, active-state preservation, and 34 fixture-focused tests (135 total).
 - OPS-005 activation/setup work unit completed in commit `aa7e496`: explicit setup IDs, immutable 307-row profile completeness, stable exact pagination, fixture-derived participant membership, validated target-first activation, safe position initialization, and explicit palmares mutation. Writer and independent verification passed 162 tests; production schema assumptions were confirmed read-only through Supabase MCP.
 - OPS-006 completed in commit `389b07b`: six explicit control-panel preview/execute actions, server-side scope/confirmation validation, bounded HTTP bodies, project-venv launchers, explicit scheduled writes, direct systemd runner wiring, and corrected immediate operator guidance. Final independent verification passed 187 tests.
+- OPS-007 verification gaps closed in commit `6e30be1`: direct dry-run tests for correction/historical import, venv-only Windows launcher, and one authoritative systemd results scheduler. Independent verification passed 194 tests.
+- OPS-007 documentation completed in commit `0560a6a`: canonical `backend/README_OPERACIONES.md`, concise `COMANDOS.md`, recovery playbooks, all 11 CLI workflows, and documentation contracts. Independent verification passed 197 tests.
 - Mapping incident: a fallback read-only mapper initialized `.codegraph/`. User authorized deletion; exact CodeGraph server/watchdog processes were stopped, the 4.5 MB generated index was removed, and `.codegraph/` was ignored in commit `bb8a259`.
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
+- During final documentation verification, a read-only verifier again initialized ignored `.codegraph/` metadata. The exact server PID 25592 and watchdog PID 24944 were stopped and only the 6.2 MB regenerable index was removed; no source or documentation was changed by the incident.
 
 ## Next Step
 
-Implement OPS-007: run the complete retained-script verification matrix and write the durable backend operations guide, reconciling the remaining command documentation without production writes.
+Review and group the inherited frontend, RLS, dependency, and obsolete-script cleanup changes into their own work-unit commits; then run the final frontend build and prepare (but do not publish) the authorized preview-deploy plan.
