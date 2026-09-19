@@ -116,10 +116,10 @@ Tournament IDs are immutable historical identities. Every database mutation must
 
 - [x] Extract one pure historical-source core shared by audit, comparison, correction, and historical import while keeping their command responsibilities separate.
 - [x] Redesign the current fixture importer around explicit versioned source profiles and scoped replacement, without activation side effects.
-- [ ] Add a separate validated tournament activation operation and align position initialization/palmares with the shared contract.
-- [ ] Reuse shared identities/configuration and align safety/exit/reporting conventions.
+- [x] Add a separate validated tournament activation operation and align position initialization/palmares with the shared contract.
+- [x] Reuse shared identities/configuration and align safety/exit/reporting conventions.
 - [x] Confirm initialization, historical import, correction, audit, comparison, and palmares utilities remain necessary and compatible; no retained utility is functionally redundant.
-- [ ] Remove or merge only genuinely redundant code with behavior preserved by tests.
+- [x] Remove or merge only genuinely redundant code with behavior preserved by tests; mapping found no additional utility eligible for removal.
 - Route: delegated writer; trigger: broad multi-file utility integration.
 - Allowed scope: tournament import/audit/correction scripts under `backend/scripts/`, shared helpers, focused `backend/tests/`.
 - Checks: focused unit tests, `py_compile`, all CLI `--help` invocations, dry-run parsing against official sources when available.
@@ -127,7 +127,8 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - Commit (historical-source work unit): `c664186` (`refactor(backend): centralize historical source parsing`).
 - Evidence (current fixture profiles): 135 tests passed after writer verification, two independent findings/corrections (exact-count pagination and valid LIBRE inventory continuity), final independent PASS, and parent spot-check. Existing replacement scope is paginated with exact stable counts, strict identities/states, dependency blockers, no append, and no activation.
 - Commit (current fixture profiles): `2b2b540` (`refactor(backend): add versioned fixture profiles`).
-- Commit (activation/setup utilities): pending.
+- Evidence (activation/setup utilities): 162 tests passed with `py_compile`, credential-free imports, and all setup `--help` paths. Final independent PASS followed corrections for explicit setup IDs, exact profile completeness, source-owned participation, and deterministic `id` ordering on every paginated inventory. Activation is target-first with narrow deactivation; initialization is fixture-derived and insert-only; palmares remains explicit and conflict-safe. No production write occurred.
+- Commit (activation/setup utilities): `aa7e496` (`feat(ops): finalize tournament setup commands`).
 
 ### OPS-006 — Update operational integrations
 
@@ -177,9 +178,10 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - OPS-005 product decisions: versioned source profiles; activation as a separate operation; abort-by-default with explicit scoped replacement and no append; audit/comparison codes 0=no drift, 1=drift, 2=error.
 - OPS-005 historical-source work unit completed in commit `c664186`: one shared parser/catalog/integrity core, distinct audit/comparison/correction/import commands, drift-aware exits, and 22 historical-focused tests (101 total).
 - OPS-005 current-fixture work unit completed in commit `2b2b540`: versioned source profiles without DB identity, explicit profile/scope, exact-count paginated dependency inspection, fail-closed scoped replacement, inactive-only creation, active-state preservation, and 34 fixture-focused tests (135 total).
+- OPS-005 activation/setup work unit completed in commit `aa7e496`: explicit setup IDs, immutable 307-row profile completeness, stable exact pagination, fixture-derived participant membership, validated target-first activation, safe position initialization, and explicit palmares mutation. Writer and independent verification passed 162 tests; production schema assumptions were confirmed read-only through Supabase MCP.
 - Mapping incident: a fallback read-only mapper initialized `.codegraph/`. User authorized deletion; exact CodeGraph server/watchdog processes were stopped, the 4.5 MB generated index was removed, and `.codegraph/` was ignored in commit `bb8a259`.
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
 
 ## Next Step
 
-Implement a separate safe activation command and align position initialization and palmares utilities with the shared operational contract as the final OPS-005 work unit, without production writes.
+Implement OPS-006 by updating the control panel and shell runners to the explicit tournament, preview/execute, project-venv contract without production writes or implicit deployment.
