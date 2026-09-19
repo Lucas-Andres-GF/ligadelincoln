@@ -1,8 +1,13 @@
 .env
 env/
+venv/
+.venv/
+backend/venv/
+backend/scripts/venv/
 node_modules/
 dist/
 __pycache__/
+*.log
 redes.md
 extensions.json
 launch.json
@@ -19,3 +24,6 @@ scripts/social/drafts/
 scripts/social/prepared-images/
 scripts/social/publicaciones.json
 backend/run_scraper.sh
+# Local Pi runtime state
+.atl/
+.codegraph/
