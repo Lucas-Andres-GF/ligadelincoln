@@ -115,7 +115,7 @@ Tournament IDs are immutable historical identities. Every database mutation must
 ### OPS-005 — Generalize and rationalize tournament import utilities
 
 - [x] Extract one pure historical-source core shared by audit, comparison, correction, and historical import while keeping their command responsibilities separate.
-- [ ] Redesign the current fixture importer around explicit versioned source profiles and scoped replacement, without activation side effects.
+- [x] Redesign the current fixture importer around explicit versioned source profiles and scoped replacement, without activation side effects.
 - [ ] Add a separate validated tournament activation operation and align position initialization/palmares with the shared contract.
 - [ ] Reuse shared identities/configuration and align safety/exit/reporting conventions.
 - [x] Confirm initialization, historical import, correction, audit, comparison, and palmares utilities remain necessary and compatible; no retained utility is functionally redundant.
@@ -125,7 +125,8 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - Checks: focused unit tests, `py_compile`, all CLI `--help` invocations, dry-run parsing against official sources when available.
 - Evidence (historical-source work unit): 101 tests passed after writer verification, independent findings, targeted integrity correction, final independent PASS, and parent spot-check. Shared core validates LIBRE scores, fixture/standings participant asymmetry, aliases, duplicate/conflicting keys, and text/JSON drift exits. Imports/help are credential/network safe.
 - Commit (historical-source work unit): `c664186` (`refactor(backend): centralize historical source parsing`).
-- Commit (current fixture profiles): pending.
+- Evidence (current fixture profiles): 135 tests passed after writer verification, two independent findings/corrections (exact-count pagination and valid LIBRE inventory continuity), final independent PASS, and parent spot-check. Existing replacement scope is paginated with exact stable counts, strict identities/states, dependency blockers, no append, and no activation.
+- Commit (current fixture profiles): `2b2b540` (`refactor(backend): add versioned fixture profiles`).
 - Commit (activation/setup utilities): pending.
 
 ### OPS-006 — Update operational integrations
@@ -175,9 +176,10 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - OPS-005 mapping found no fully redundant utility. Historical source parsing is duplicated between audit and comparison, while correction/import already reuse comparison. The current fixture importer remains explicitly 2026-specific.
 - OPS-005 product decisions: versioned source profiles; activation as a separate operation; abort-by-default with explicit scoped replacement and no append; audit/comparison codes 0=no drift, 1=drift, 2=error.
 - OPS-005 historical-source work unit completed in commit `c664186`: one shared parser/catalog/integrity core, distinct audit/comparison/correction/import commands, drift-aware exits, and 22 historical-focused tests (101 total).
+- OPS-005 current-fixture work unit completed in commit `2b2b540`: versioned source profiles without DB identity, explicit profile/scope, exact-count paginated dependency inspection, fail-closed scoped replacement, inactive-only creation, active-state preservation, and 34 fixture-focused tests (135 total).
 - Mapping incident: a fallback read-only mapper initialized `.codegraph/`. User authorized deletion; exact CodeGraph server/watchdog processes were stopped, the 4.5 MB generated index was removed, and `.codegraph/` was ignored in commit `bb8a259`.
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
 
 ## Next Step
 
-Implement versioned current-fixture source profiles and safe scoped replacement as the second OPS-005 work unit, with no activation side effect and no production writes.
+Implement a separate safe activation command and align position initialization and palmares utilities with the shared operational contract as the final OPS-005 work unit, without production writes.
