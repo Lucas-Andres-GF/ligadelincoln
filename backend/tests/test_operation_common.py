@@ -8,6 +8,7 @@ import os
 import sys
 import types
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 from unittest import mock
 
@@ -129,6 +130,94 @@ class LazySupabaseCompatibilityTests(unittest.TestCase):
         self.assertTrue(callable(config.supabase.table))
 
 
+class ExactPaginationTests(unittest.TestCase):
+    def test_accumulates_by_actual_rows_and_preserves_callback_scope(self) -> None:
+        rows = [{"id": value} for value in range(1, 6)]
+        calls = []
+
+        def fetch(start: int, end: int) -> SimpleNamespace:
+            calls.append((start, end, "fixed-scope"))
+            cap_end = min(end, start + 1)
+            return SimpleNamespace(data=rows[start : cap_end + 1], count=5)
+
+        actual = operation_common.read_exact_paginated(
+            fetch, label="Inventory", maximum_total=10, page_size=4
+        )
+
+        self.assertEqual(actual, rows)
+        self.assertEqual([call[:2] for call in calls], [(0, 3), (2, 5), (4, 7)])
+        self.assertTrue(all(call[2] == "fixed-scope" for call in calls))
+
+    def test_rejects_invalid_or_changing_counts_and_maximum(self) -> None:
+        cases = (
+            (lambda start, end: SimpleNamespace(data=[], count=None), "missing or malformed"),
+            (lambda start, end: SimpleNamespace(data=[], count=-1), "missing or malformed"),
+            (lambda start, end: SimpleNamespace(data=[], count=11), "exceeds safety maximum"),
+        )
+        for fetch, message in cases:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    operation_common.read_exact_paginated(
+                        fetch, label="Inventory", maximum_total=10
+                    )
+
+        calls = 0
+
+        def changing(start: int, end: int) -> SimpleNamespace:
+            nonlocal calls
+            calls += 1
+            return SimpleNamespace(data=[{"id": calls}], count=2 if calls == 1 else 3)
+
+        with self.assertRaisesRegex(RuntimeError, "exact count changed"):
+            operation_common.read_exact_paginated(
+                changing, label="Inventory", maximum_total=10, page_size=1
+            )
+
+    def test_rejects_empty_over_count_repeated_and_incomplete_pages(self) -> None:
+        cases = (
+            (
+                lambda start, end: SimpleNamespace(data=[], count=1),
+                "ended before exact count",
+            ),
+            (
+                lambda start, end: SimpleNamespace(data=[{"id": 1}, {"id": 2}], count=1),
+                "rows exceed exact count",
+            ),
+        )
+        for fetch, message in cases:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    operation_common.read_exact_paginated(
+                        fetch, label="Inventory", maximum_total=10
+                    )
+
+        pages = [[{"id": 1}], [{"id": 1}]]
+        with self.assertRaisesRegex(RuntimeError, "repeated row identity"):
+            operation_common.read_exact_paginated(
+                lambda start, end: SimpleNamespace(data=pages.pop(0), count=2),
+                label="Inventory",
+                maximum_total=10,
+                page_size=1,
+            )
+
+    def test_rejects_malformed_identity_and_bounds(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "malformed row identity"):
+            operation_common.read_exact_paginated(
+                lambda start, end: SimpleNamespace(data=[{}], count=1),
+                label="Inventory",
+                maximum_total=10,
+            )
+        for page_size, maximum in ((0, 1), (1, 0)):
+            with self.subTest(page_size=page_size, maximum=maximum):
+                with self.assertRaisesRegex(ValueError, "bounds must be positive"):
+                    operation_common.read_exact_paginated(
+                        lambda start, end: None,
+                        label="Inventory",
+                        maximum_total=maximum,
+                        page_size=page_size,
+                    )
+
+
 class OperationCliContractTests(unittest.TestCase):
     def test_cli_defaults_to_dry_run_and_resolves_environment_scope(self) -> None:
         parser = argparse.ArgumentParser()
@@ -150,6 +239,12 @@ class OperationCliContractTests(unittest.TestCase):
                 "metadata": {"planned": 3},
             },
         )
+
+    def test_required_scope_mode_has_no_environment_fallback(self) -> None:
+        parser = argparse.ArgumentParser()
+        operation_common.add_operation_arguments(parser, tournament_required=True)
+        with self.assertRaises(SystemExit):
+            parser.parse_args([])
 
     def test_execute_mode_requires_an_explicit_flag(self) -> None:
         parser = argparse.ArgumentParser()

@@ -20,6 +20,7 @@ from fuente_fixture_actual import (
     SOURCE_PROFILES,
     CurrentFixtureSourceProfile,
     get_source_profile,
+    validate_category_completeness,
     validate_supported_format,
 )
 from operation_common import (
@@ -27,6 +28,7 @@ from operation_common import (
     add_operation_arguments,
     load_backend_environment,
     operation_context_from_args,
+    read_exact_paginated,
     validate_positive_tournament_id,
 )
 
@@ -378,19 +380,30 @@ def parse_profile_source(
     category_key: str,
     html: str,
 ) -> list[OfficialFixtureRow]:
-    """Dispatch only to an explicitly supported current-source parser."""
+    """Parse and require the exact versioned shape for one profile category."""
     validate_supported_format(profile)
-    return parse_current_table_html(
+    rows = parse_current_table_html(
         html,
         category_key,
         requires_contiguous_rounds=profile.requires_contiguous_rounds,
     )
+    try:
+        validate_category_completeness(
+            profile,
+            category_key,
+            (row.round_id for row in rows),
+            len(rows),
+        )
+    except ValueError as exc:
+        raise FixtureParseError(str(exc)) from exc
+    return rows
 
 
-def _identity_configuration() -> tuple[dict[str, int], dict[str, int], dict[int, set[int]]]:
-    # Config remains the sole owner of numeric identities. Import is deferred so
-    # module import and --help remain independent from credentials and DB access.
-    from config import CATEGORIAS, EQUIPOS_POR_CATEGORIA, MAPEO_CLUBES
+def _identity_configuration() -> tuple[dict[str, int], dict[str, int]]:
+    # Config remains the sole owner of numeric identities. Profile fixture data,
+    # not legacy membership lists, defines current/future category participants.
+    # Import is deferred so module import and --help remain credential-free.
+    from config import CATEGORIAS, MAPEO_CLUBES
 
     clubs: dict[str, int] = {}
     for source_name, club_id in MAPEO_CLUBES.items():
@@ -404,14 +417,7 @@ def _identity_configuration() -> tuple[dict[str, int], dict[str, int], dict[int,
         key: validate_positive_tournament_id(value, source=f"category ID for {key}")
         for key, value in CATEGORIAS.items()
     }
-    memberships = {
-        validate_positive_tournament_id(category_id, source="category membership ID"): {
-            validate_positive_tournament_id(club_id, source="category club ID")
-            for club_id in club_ids
-        }
-        for category_id, club_ids in EQUIPOS_POR_CATEGORIA.items()
-    }
-    return clubs, categories, memberships
+    return clubs, categories
 
 
 def build_category_plan(
@@ -421,13 +427,10 @@ def build_category_plan(
 ) -> CategoryPlan:
     """Resolve identities and validate one complete category fixture."""
     tournament_id = validate_positive_tournament_id(tournament_id)
-    clubs, categories, memberships = _identity_configuration()
+    clubs, categories = _identity_configuration()
     category_id = categories.get(category_key)
     if category_id is None:
         raise ValueError(f"Unknown configured category: {category_key}")
-    allowed_clubs = memberships.get(category_id)
-    if allowed_clubs is None:
-        raise RuntimeError(f"Missing authoritative club membership for category {category_key}")
 
     source_rows = list(rows)
     fixtures: list[PlannedFixture] = []
@@ -472,12 +475,6 @@ def build_category_plan(
             issues.append(f"Self-play fixture at {label}")
             continue
         participants = {local_id} if visitor_id is None else {local_id, visitor_id}
-        outside = sorted(participants - allowed_clubs)
-        if outside:
-            issues.append(
-                f"Club IDs {outside} are not configured for category {category_key} at {label}"
-            )
-            continue
 
         exact_key = (row.round_id, local_id, visitor_id)
         previous_exact = exact_keys.get(exact_key)
@@ -595,12 +592,6 @@ def _inventory_positive_int(value: Any, label: str) -> int:
     return value
 
 
-def _exact_count(value: Any, label: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise RuntimeError(f"{label} exact count is missing or malformed")
-    return value
-
-
 def _read_complete_inventory(
     client: Any,
     *,
@@ -611,69 +602,26 @@ def _read_complete_inventory(
     maximum_total: int,
     page_size: int = INVENTORY_PAGE_SIZE,
 ) -> list[Mapping[str, Any]]:
-    """Read and prove a complete exact-count inventory despite server page caps."""
-    if page_size <= 0 or maximum_total <= 0:
-        raise ValueError("Inventory pagination bounds must be positive")
+    """Read a scoped Supabase inventory through the shared exact paginator."""
 
-    rows: list[Mapping[str, Any]] = []
-    seen_ids: set[int] = set()
-    expected_count: Optional[int] = None
-    effective_page_size: Optional[int] = None
-    start = 0
-
-    while expected_count is None or len(rows) < expected_count:
+    def fetch_page(start: int, end: int) -> Any:
         query = client.table(table).select(columns, count="exact")
         query = scope_query(query)
-        response = query.range(start, start + page_size - 1).execute()
-        page_count = _exact_count(getattr(response, "count", None), label)
-        if page_count > maximum_total:
-            raise RuntimeError(
-                f"{label} exact count {page_count} exceeds safety maximum {maximum_total}"
-            )
-        if expected_count is None:
-            expected_count = page_count
-        elif page_count != expected_count:
-            raise RuntimeError(
-                f"{label} exact count changed during pagination: "
-                f"expected {expected_count}, received {page_count}"
-            )
+        return query.order("id").range(start, end).execute()
 
-        page = list(getattr(response, "data", None) or [])
-        if len(rows) + len(page) > expected_count:
-            raise RuntimeError(f"{label} page rows exceed exact count {expected_count}")
-        if expected_count == 0:
-            if page:
-                raise RuntimeError(f"{label} returned rows for an exact count of zero")
-            break
-        if not page:
-            raise RuntimeError(
-                f"{label} pagination ended before exact count {expected_count} was satisfied"
-            )
-
-        remaining_after_page = expected_count - len(rows) - len(page)
-        if effective_page_size is None and remaining_after_page > 0:
-            effective_page_size = len(page)
-        elif remaining_after_page > 0 and len(page) != effective_page_size:
-            raise RuntimeError(
-                f"{label} returned an inconsistent short page before exact count was satisfied"
-            )
-        elif effective_page_size is not None and len(page) > effective_page_size:
-            raise RuntimeError(f"{label} returned an inconsistent page size")
-
-        for item in page:
-            if not isinstance(item, Mapping):
-                raise RuntimeError(f"{label} contains a malformed row")
-            row_id = _inventory_positive_int(item.get("id"), f"{label} row id")
-            if row_id in seen_ids:
-                raise RuntimeError(f"{label} pagination repeated row id {row_id}")
-            seen_ids.add(row_id)
-            rows.append(item)
-        start += len(page)
-
-    if expected_count is None or len(rows) != expected_count:
-        raise RuntimeError(
-            f"{label} accumulated {len(rows)} rows but exact count was {expected_count}"
-        )
+    rows = read_exact_paginated(
+        fetch_page,
+        label=label,
+        maximum_total=maximum_total,
+        page_size=page_size,
+        identity=lambda row: _inventory_positive_int(
+            row.get("id") if isinstance(row, Mapping) else None,
+            f"{label} row id",
+        ),
+        identity_name="row id",
+    )
+    if not all(isinstance(row, Mapping) for row in rows):
+        raise RuntimeError(f"{label} contains a malformed row")
     return rows
 
 
@@ -1069,7 +1017,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=tuple(SOURCE_PROFILES),
         help="Required versioned current-fixture source profile.",
     )
-    add_operation_arguments(parser)
+    add_operation_arguments(parser, tournament_required=True)
     parser.add_argument(
         "--category",
         action="append",

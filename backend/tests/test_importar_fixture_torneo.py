@@ -22,6 +22,23 @@ import importar_fixture_torneo as importer  # noqa: E402
 
 
 SAMPLE_HTML = FIXTURE_PATH.read_text(encoding="utf-8")
+COMPACT_PROFILE = profiles.CurrentFixtureSourceProfile(
+    key="primavera-verano-2026",
+    display_name="Primavera/Verano 2026",
+    slug="primavera-verano-2026",
+    season=2026,
+    parser_format=profiles.CURRENT_TABLE_FORMAT,
+    parser_version=profiles.CURRENT_TABLE_VERSION,
+    category_sources={"primera": str(FIXTURE_PATH)},
+    category_expectations={
+        "primera": profiles.CategoryCompletenessExpectation(frozenset({1, 2}), 6)
+    },
+)
+
+
+def run_compact_main(argv, **kwargs):
+    with mock.patch.object(importer, "get_source_profile", return_value=COMPACT_PROFILE):
+        return importer.main(argv, **kwargs)
 
 
 class FakeQuery:
@@ -33,6 +50,7 @@ class FakeQuery:
         self.filters: list[tuple[str, object]] = []
         self.limit_value: int | None = None
         self.range_value: tuple[int, int] | None = None
+        self.order_value: tuple[str, bool] | None = None
         self.count_mode: object = None
 
     def select(self, columns: str, **kwargs: object) -> "FakeQuery":
@@ -68,6 +86,10 @@ class FakeQuery:
         self.client.limits[self.table] = value
         return self
 
+    def order(self, column: str, desc: bool = False) -> "FakeQuery":
+        self.order_value = (column, desc)
+        return self
+
     def range(self, start: int, end: int) -> "FakeQuery":
         self.range_value = (start, end)
         return self
@@ -76,7 +98,9 @@ class FakeQuery:
         if self.operation == "select":
             if self.client.read_error is not None:
                 raise self.client.read_error
-            self.client.reads.append((self.table, tuple(self.filters), self.range_value))
+            self.client.reads.append(
+                (self.table, tuple(self.filters), self.range_value, self.order_value)
+            )
             rows = list(self.client.inventory.get(self.table, []))
             if self.range_value is None:
                 return SimpleNamespace(data=rows)
@@ -151,8 +175,9 @@ def parsed_rows(html: str = SAMPLE_HTML) -> list[importer.OfficialFixtureRow]:
 
 
 def source_plan() -> importer.SourcePlan:
-    plan = importer.build_category_plan(parsed_rows(), 7, "primera")
-    return importer.validate_source_plan([plan], 7, "primavera-verano-2026", ["primera"])
+    rows = importer.parse_profile_source(COMPACT_PROFILE, "primera", SAMPLE_HTML)
+    plan = importer.build_category_plan(rows, 7, "primera")
+    return importer.validate_source_plan([plan], 7, COMPACT_PROFILE.key, ["primera"])
 
 
 def empty_scope(
@@ -207,6 +232,45 @@ class SourceProfileTests(unittest.TestCase):
         )
         self.assertNotIn("torneo", {field.name for field in fields(profile)})
 
+    def test_builtin_profile_records_exact_verified_completeness(self) -> None:
+        profile = profiles.get_source_profile("primavera-verano-2026")
+        counts = {
+            key: expectation.fixture_count
+            for key, expectation in profile.category_expectations.items()
+        }
+        self.assertEqual(
+            counts,
+            {"primera": 66, "septima": 56, "octava": 63, "novena": 56, "decima": 66},
+        )
+        self.assertEqual(sum(counts.values()), 307)
+        self.assertTrue(
+            all(
+                expectation.round_ids == frozenset(range(1, 12))
+                for expectation in profile.category_expectations.values()
+            )
+        )
+        with self.assertRaises(TypeError):
+            profile.category_expectations["primera"] = profiles.CategoryCompletenessExpectation(
+                frozenset({1}), 1
+            )
+
+    def test_profile_construction_rejects_incomplete_or_malformed_expectations(self) -> None:
+        base = dict(
+            key="test",
+            display_name="Test",
+            slug="test",
+            season=2026,
+            parser_format=profiles.CURRENT_TABLE_FORMAT,
+            parser_version=profiles.CURRENT_TABLE_VERSION,
+            category_sources={"primera": "https://example.invalid/fixture"},
+        )
+        with self.assertRaisesRegex(ValueError, "exactly match"):
+            profiles.CurrentFixtureSourceProfile(**base, category_expectations={})
+        with self.assertRaisesRegex(ValueError, "round IDs"):
+            profiles.CategoryCompletenessExpectation(frozenset(), 1)
+        with self.assertRaisesRegex(ValueError, "fixture count"):
+            profiles.CategoryCompletenessExpectation(frozenset({1}), 0)
+
     def test_unknown_profile_and_unsupported_format_fail_closed(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown current fixture"):
             profiles.get_source_profile("unknown")
@@ -219,12 +283,20 @@ class SourceProfileTests(unittest.TestCase):
             parser_format="current-table",
             parser_version=2,
             category_sources={"primera": "https://example.invalid/fixture"},
+            category_expectations={
+                "primera": profiles.CategoryCompletenessExpectation(frozenset({1, 2}), 6)
+            },
         )
         with self.assertRaisesRegex(ValueError, "Unsupported current fixture parser"):
             importer.parse_profile_source(unsupported, "primera", SAMPLE_HTML)
 
 
 class CurrentFixtureParserTests(unittest.TestCase):
+    def test_production_profile_rejects_structurally_valid_partial_source(self) -> None:
+        profile = profiles.get_source_profile("primavera-verano-2026")
+        with self.assertRaisesRegex(importer.FixtureParseError, "Incomplete fixture rounds"):
+            importer.parse_profile_source(profile, "primera", SAMPLE_HTML)
+
     def test_valid_rounds_dates_aliases_and_byes_are_preserved(self) -> None:
         rows = parsed_rows()
         plan = importer.build_category_plan(rows, 7, "primera")
@@ -320,15 +392,70 @@ class CurrentFixtureParserTests(unittest.TestCase):
         participation = importer.build_category_plan([base[0], repeated_team], 7, "primera")
         self.assertIn("Duplicate team participation", "\n".join(participation.issues))
 
-    def test_unknown_category_and_out_of_category_membership_fail_closed(self) -> None:
+    def test_unknown_category_fails_but_legacy_membership_does_not_constrain_profiles(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown configured category"):
             importer.build_category_plan(parsed_rows(), 7, "missing")
 
         row = importer.OfficialFixtureRow(
-            1, "septima", 1, "2026-04-06", "Villa Francia", "Argentino"
+            1, "septima", 1, "2026-04-06", "Villa Francia", "San Martin"
         )
         plan = importer.build_category_plan([row], 7, "septima")
-        self.assertIn("not configured for category", "\n".join(plan.issues))
+        self.assertTrue(plan.valid, plan.issues)
+        self.assertEqual(
+            {(fixture.local_id, fixture.visitor_id) for fixture in plan.fixtures},
+            {(11, 10)},
+        )
+
+    def test_production_profile_row_count_is_not_limited_by_legacy_capacity(self) -> None:
+        profile = profiles.get_source_profile("primavera-verano-2026")
+        clubs = (
+            "Argentino",
+            "Atl. Pasteur",
+            "Atl. Roberts",
+            "CA. Pintense",
+            "CASET",
+            "Dep. Arenaza",
+            "Dep. Gral Pinto",
+            "El Linqueño",
+            "Juventud Unida",
+            "San Martin",
+            "Villa Francia",
+        )
+        rows: list[importer.OfficialFixtureRow] = []
+        source_row = 1
+        for round_id in range(1, 12):
+            round_clubs = clubs if round_id <= 8 else clubs[:10]
+            for index in range(0, 10, 2):
+                rows.append(
+                    importer.OfficialFixtureRow(
+                        source_row,
+                        "octava",
+                        round_id,
+                        None,
+                        round_clubs[index],
+                        round_clubs[index + 1],
+                    )
+                )
+                source_row += 1
+            if round_id <= 8:
+                rows.append(
+                    importer.OfficialFixtureRow(
+                        source_row,
+                        "octava",
+                        round_id,
+                        None,
+                        clubs[10],
+                        "LIBRE",
+                    )
+                )
+                source_row += 1
+
+        importer.validate_category_completeness(
+            profile, "octava", (row.round_id for row in rows), len(rows)
+        )
+        plan = importer.build_category_plan(rows, 7, "octava")
+        self.assertTrue(plan.valid, plan.issues)
+        self.assertEqual(len(plan.fixtures), 63)
 
 
 class SelectionAndCliTests(unittest.TestCase):
@@ -373,22 +500,17 @@ class SelectionAndCliTests(unittest.TestCase):
         self.assertFalse(args.execute)
         self.assertFalse(args.replace_existing)
 
-    def test_missing_tournament_id_has_no_hidden_fallback_and_stops_before_source_load(self) -> None:
+    def test_missing_tournament_id_is_rejected_even_with_active_environment(self) -> None:
         loader = mock.Mock(return_value=SAMPLE_HTML)
         client_factory = mock.Mock()
-        error_output = io.StringIO()
-        with mock.patch.dict(os.environ, {}, clear=True), mock.patch.object(
-            importer, "load_backend_environment", return_value=False
-        ):
-            exit_code = importer.main(
-                ["--profile", "primavera-verano-2026"],
-                source_loader=loader,
-                client_factory=client_factory,
-                stderr=error_output,
-            )
+        with mock.patch.dict(os.environ, {"ACTIVE_TORNEO_ID": "7"}, clear=True):
+            with self.assertRaises(SystemExit):
+                run_compact_main(
+                    ["--profile", "primavera-verano-2026"],
+                    source_loader=loader,
+                    client_factory=client_factory,
+                )
 
-        self.assertEqual(exit_code, 2)
-        self.assertIn("Tournament ID is required", error_output.getvalue())
         loader.assert_not_called()
         client_factory.assert_not_called()
 
@@ -484,6 +606,12 @@ class ExistingScopePolicyTests(unittest.TestCase):
         self.assertIn(("torneo_id", 7), client.reads[1][1])
         self.assertIn(("categoria_id", (1,)), client.reads[1][1])
         self.assertEqual(client.reads[1][2], (0, importer.INVENTORY_PAGE_SIZE - 1))
+        paged_reads = [read for read in client.reads if read[2] is not None]
+        self.assertEqual(
+            {read[0] for read in paged_reads},
+            {"partidos", "posiciones", "alineaciones"},
+        )
+        self.assertTrue(all(read[3] == ("id", False) for read in paged_reads))
 
         wrong_tournament = FakeClient(tournaments=[{"id": 8}])
         with self.assertRaisesRegex(RuntimeError, "outside the requested scope"):
@@ -516,6 +644,7 @@ class InventoryPaginationTests(unittest.TestCase):
             [(0, 1), (2, 3), (4, 5)],
         )
         self.assertTrue(all(read[1] == (("torneo_id", 7),) for read in client.reads))
+        self.assertTrue(all(read[3] == ("id", False) for read in client.reads))
 
     def test_server_cap_smaller_than_requested_page_still_reads_complete_scope(self) -> None:
         fixtures = [existing_fixture(90 + index) for index in range(5)]
@@ -527,6 +656,7 @@ class InventoryPaginationTests(unittest.TestCase):
         self.assertEqual(client.page_calls["partidos"], 3)
         fixture_reads = [read for read in client.reads if read[0] == "partidos"]
         self.assertTrue(all(read[1] == fixture_reads[0][1] for read in fixture_reads))
+        self.assertTrue(all(read[3] == ("id", False) for read in fixture_reads))
         self.assertEqual([read[2][0] for read in fixture_reads], [0, 2, 4])
 
     def test_missing_changed_and_underreported_exact_counts_fail_closed(self) -> None:
@@ -700,7 +830,7 @@ class InventoryPaginationTests(unittest.TestCase):
             fixtures=[existing_fixture(state="libre", local_id=4, visitor_id=None)]
         )
         output = io.StringIO()
-        exit_code = importer.main(
+        exit_code = run_compact_main(
             [
                 "--profile",
                 "primavera-verano-2026",
@@ -809,7 +939,7 @@ class ExecutionTests(unittest.TestCase):
     def test_dry_run_reads_scope_but_performs_zero_mutations(self) -> None:
         client = FakeClient()
         output = io.StringIO()
-        exit_code = importer.main(
+        exit_code = run_compact_main(
             [
                 "--profile",
                 "primavera-verano-2026",
@@ -835,7 +965,7 @@ class ExecutionTests(unittest.TestCase):
         invalid_html = SAMPLE_HTML.replace("El Linqueño", "Unknown Club")
         client_factory = mock.Mock()
         output = io.StringIO()
-        invalid_code = importer.main(
+        invalid_code = run_compact_main(
             [
                 "--profile",
                 "primavera-verano-2026",
@@ -855,7 +985,7 @@ class ExecutionTests(unittest.TestCase):
         client_factory.assert_not_called()
 
         error_output = io.StringIO()
-        db_error_code = importer.main(
+        db_error_code = run_compact_main(
             [
                 "--profile",
                 "primavera-verano-2026",
@@ -876,7 +1006,7 @@ class ExecutionTests(unittest.TestCase):
     def test_execute_failure_returns_nonzero_without_suppressing_error(self) -> None:
         error_output = io.StringIO()
         client = FakeClient(write_error=RuntimeError("database write failed"))
-        exit_code = importer.main(
+        exit_code = run_compact_main(
             [
                 "--profile",
                 "primavera-verano-2026",

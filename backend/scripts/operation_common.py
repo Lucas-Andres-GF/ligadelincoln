@@ -6,7 +6,7 @@ import argparse
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, MutableMapping, Optional, Union
+from typing import Any, Callable, Hashable, Mapping, MutableMapping, Optional, Union
 
 from dotenv import load_dotenv
 
@@ -84,13 +84,22 @@ def tournament_id_argument(value: str) -> int:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
-def add_operation_arguments(parser: argparse.ArgumentParser) -> None:
+def add_operation_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    tournament_required: bool = False,
+) -> None:
     """Add the shared tournament scope and dry-run-first execution flags."""
     parser.add_argument(
         "--torneo-id",
         type=tournament_id_argument,
+        required=tournament_required,
         default=None,
-        help="Positive tournament ID; defaults to validated ACTIVE_TORNEO_ID.",
+        help=(
+            "Required positive tournament ID."
+            if tournament_required
+            else "Positive tournament ID; defaults to validated ACTIVE_TORNEO_ID."
+        ),
     )
     parser.add_argument(
         "--execute",
@@ -121,6 +130,99 @@ class OperationContext:
             "tournament_id": self.tournament_id,
             "metadata": dict(metadata or {}),
         }
+
+
+def read_exact_paginated(
+    fetch_page: Callable[[int, int], Any],
+    *,
+    label: str,
+    maximum_total: int,
+    page_size: int = 200,
+    identity: Callable[[Any], Hashable] = lambda row: row["id"],
+    identity_name: str = "row identity",
+) -> list[Any]:
+    """Read a bounded inventory while proving exact, stable completeness.
+
+    ``fetch_page`` receives inclusive start/end offsets. It owns query creation,
+    invariant filters, and deterministic ordering; callers must apply the same
+    stable order (normally ascending primary-key order) before every range.
+    """
+    if page_size <= 0 or maximum_total <= 0:
+        raise ValueError("Exact pagination bounds must be positive")
+
+    rows: list[Any] = []
+    seen: set[Hashable] = set()
+    expected_count: Optional[int] = None
+    effective_page_size: Optional[int] = None
+
+    while expected_count is None or len(rows) < expected_count:
+        start = len(rows)
+        response = fetch_page(start, start + page_size - 1)
+        page_count = getattr(response, "count", None)
+        if isinstance(page_count, bool) or not isinstance(page_count, int) or page_count < 0:
+            raise RuntimeError(f"{label} exact count is missing or malformed")
+        if page_count > maximum_total:
+            raise RuntimeError(
+                f"{label} exact count {page_count} exceeds safety maximum {maximum_total}"
+            )
+        if expected_count is None:
+            expected_count = page_count
+        elif page_count != expected_count:
+            raise RuntimeError(
+                f"{label} exact count changed during pagination: "
+                f"expected {expected_count}, received {page_count}"
+            )
+
+        raw_page = getattr(response, "data", None)
+        if raw_page is None:
+            page: list[Any] = []
+        elif isinstance(raw_page, (str, bytes, Mapping)):
+            raise RuntimeError(f"{label} returned malformed page data")
+        else:
+            try:
+                page = list(raw_page)
+            except TypeError as exc:
+                raise RuntimeError(f"{label} returned malformed page data") from exc
+
+        if len(rows) + len(page) > expected_count:
+            raise RuntimeError(f"{label} page rows exceed exact count {expected_count}")
+        if expected_count == 0:
+            if page:
+                raise RuntimeError(f"{label} returned rows for an exact count of zero")
+            break
+        if not page:
+            raise RuntimeError(
+                f"{label} pagination ended before exact count {expected_count} was satisfied"
+            )
+
+        remaining_after_page = expected_count - len(rows) - len(page)
+        if effective_page_size is None and remaining_after_page > 0:
+            effective_page_size = len(page)
+        elif remaining_after_page > 0 and len(page) != effective_page_size:
+            raise RuntimeError(
+                f"{label} returned an inconsistent short page before exact count was satisfied"
+            )
+        elif effective_page_size is not None and len(page) > effective_page_size:
+            raise RuntimeError(f"{label} returned an inconsistent page size")
+
+        for item in page:
+            try:
+                item_identity = identity(item)
+                hash(item_identity)
+            except Exception as exc:
+                raise RuntimeError(f"{label} contains a malformed row identity") from exc
+            if item_identity in seen:
+                raise RuntimeError(
+                    f"{label} pagination repeated {identity_name} {item_identity!r}"
+                )
+            seen.add(item_identity)
+            rows.append(item)
+
+    if expected_count is None or len(rows) != expected_count:
+        raise RuntimeError(
+            f"{label} accumulated {len(rows)} rows but exact count was {expected_count}"
+        )
+    return rows
 
 
 def operation_context_from_args(
