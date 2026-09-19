@@ -80,14 +80,16 @@ Tournament IDs are immutable historical identities. Every database mutation must
 
 ### OPS-003 — Rebuild result ingestion and standings refresh
 
-- [ ] Separate parsing, result-change planning, standings calculation, and execution.
-- [ ] Add explicit tournament selection, dry-run default, `--execute`, visible failures, and transactional-style prevalidation.
-- [ ] Remove automatic lineup/deploy invocation.
-- [ ] Preserve tournament-scoped standings behavior and test calculations/edge cases.
+- [x] Separate parsing, result-change planning, standings calculation, and execution.
+- [x] Add explicit tournament selection, dry-run default, `--execute`, visible failures, and transactional-style prevalidation.
+- [x] Remove automatic lineup/deploy invocation.
+- [x] Preserve tournament-scoped standings behavior and test calculations/edge cases.
 - Route: delegated writer; trigger: multi-file implementation and tests.
 - Allowed scope: `backend/scripts/scraper_resultados.py`, shared backend helper modules, `backend/tests/` fixtures/tests.
 - Checks: focused unit tests, `py_compile`, dry-run/CLI smoke checks; no DB writes.
-- Commit: pending.
+- Evidence: 55 tests passed after writer verification, independent review, two correction rounds, final independent PASS, and parent spot-check. `py_compile`, credential-free `--help`, and side-effect-free import passed. Production code contains no subprocess, lineup, pnpm, deploy, or positions-delete references.
+- Review corrections: incomplete official result rows now fail closed; played fixtures with missing participants block projection; existing position rows require positive IDs; update actions always filter by position ID, tournament, category, and club. Sequential remote writes remain non-transactional, mitigated by complete prevalidation and narrow filters.
+- Commit: `6800023` (`refactor(backend): make result ingestion safe`).
 
 ### OPS-004 — Rebuild lineup ingestion safely
 
@@ -154,8 +156,9 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - Exploration found that control-panel actions and shell runners depend on the legacy implicit-write CLIs.
 - OPS-001 completed in commit `9654c96`: shared validation, lazy Supabase compatibility, dry-run-first CLI helpers, and 13 tests.
 - OPS-002 completed in commit `8866a2a`: side-effect-free schedule parsing/planning, dry-run-first execution, deterministic tournament fixture matching, blocking safety validation, and 13 schedule-focused tests (26 total).
+- OPS-003 completed in commit `6800023`: safe result planning, fixture-derived projected standings, non-destructive scoped position synchronization, no deploy coupling, fail-closed source/inventory integrity, and 29 result-focused tests (55 total).
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
 
 ## Next Step
 
-Implement OPS-003 through one bounded writer: rebuild result ingestion and standings refresh around a complete dry-run plan, remove implicit lineup/deploy orchestration, and verify calculations without production writes.
+Implement OPS-004 through one bounded writer: rebuild lineup ingestion with complete replacement prevalidation, dry-run-first execution, shared identities, and no deployment coupling.
