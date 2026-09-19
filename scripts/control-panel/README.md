@@ -1,75 +1,77 @@
 # Panel local de operaciones
 
-Dashboard local para ejecutar scripts del proyecto sin usar la consola.
+Dashboard local para ejecutar scripts del proyecto sin usar la consola. Escucha únicamente en `127.0.0.1`.
 
-## Ejecutar
+## Ejecutar con el entorno del proyecto
 
-Desde la raíz del repo:
-
-```bash
-python scripts/control-panel/app.py
-```
-
-En Linux, también se puede usar el lanzador de la raíz del proyecto:
+Desde la raíz del repositorio, usá el lanzador:
 
 ```bash
 ./abrir-panel-liga.sh
 ```
 
-Abre:
+El lanzador y el panel usan solamente el intérprete del entorno virtual del backend:
 
-```txt
-http://127.0.0.1:8765
-```
+- `backend/venv/bin/python`
+- `backend/venv/Scripts/python.exe`
+- la ruta indicada por `LIGA_PYTHON`, si se define explícitamente
 
-Para cambiar puerto:
+No hay fallback a `python` o `python3` del sistema. Si el entorno no existe, el lanzamiento falla con un mensaje visible.
 
-```bash
-CONTROL_PANEL_PORT=8766 python scripts/control-panel/app.py
-```
-
-Para evitar que abra el navegador automáticamente:
+Ejemplo con override:
 
 ```bash
-CONTROL_PANEL_OPEN=0 python scripts/control-panel/app.py
+LIGA_PYTHON=/ruta/al/venv/bin/python ./abrir-panel-liga.sh
 ```
 
-## Acciones incluidas
+Abre `http://127.0.0.1:8765`. Para cambiar el puerto o evitar que se abra el navegador:
 
-- Actualizar resultados (`backend/scripts/scraper_resultados.py`)
-- Actualizar horarios (`backend/scripts/scraper_horarios.py`)
-- Alineaciones dry-run (`scraper_alineaciones.py --fecha N --dry-run`)
-- Alineaciones real (`scraper_alineaciones.py --fecha N`)
-- Generar tablas (`scripts/capturar_tablas.py --fecha N`)
-- Generar fixture (`scripts/capturar_fixture.py --fecha N`)
-- Generar placas de resultados (`scripts/generador-placas/generar_placas_resultados.py`)
-- Subir tablas dry-run (`scripts/social/subir_tablas.py --fecha N --dry-run`)
-- Subir tablas a Supabase Storage (`scripts/social/subir_tablas.py --fecha N`)
-- Publicar tablas con caption automático (`scripts/social/subir_tablas.py --fecha N --publish`)
-- Publicar resultados por división con caption automático (`scripts/social/subir_resultados.py --fecha N --categoria decima --publish`)
-- Publicar fixture con caption automático (`scripts/social/subir_fixture.py --fecha N --publish`)
+```bash
+CONTROL_PANEL_PORT=8766 CONTROL_PANEL_OPEN=0 ./abrir-panel-liga.sh
+```
 
-## Flujo recomendado para publicar contenido social
+## Operaciones de scrapers
 
-Las acciones de publicación generan un caption con IA, convierten imágenes a JPEG, suben a Storage y publican en la plataforma elegida.
+Cada scraper tiene dos acciones explícitas. Todas exigen un **ID de torneo positivo**; alineaciones también exige una **fecha positiva**.
 
-1. Verificar/generar primero las imágenes necesarias (resultados, tablas o fixture).
+| Acción | Alcance | Comportamiento |
+|---|---|---|
+| Previsualizar horarios | Torneo | No pasa `--execute`; no escribe en DB |
+| Ejecutar horarios | Torneo | Pasa `--execute`; exige `ESCRIBIR` |
+| Previsualizar resultados | Torneo y categoría opcional | No pasa `--execute`; no escribe en DB |
+| Ejecutar resultados | Torneo y categoría opcional | Pasa `--execute`; exige `ESCRIBIR` |
+| Previsualizar alineaciones | Torneo y fecha; solo Primera | No pasa `--execute`; no escribe en DB |
+| Ejecutar alineaciones | Torneo y fecha; solo Primera | Pasa `--execute`; exige `ESCRIBIR` |
+
+La previsualización es el comportamiento predeterminado de los scripts backend. Una escritura real requiere tanto elegir la acción **Ejecutar** como confirmar `ESCRIBIR`; el servidor vuelve a validar torneo, fecha, categoría y confirmación antes de crear el proceso.
+
+La ingesta de horarios, resultados o alineaciones no construye ni despliega el frontend. Cualquier despliegue es una operación manual y separada.
+
+## Otras acciones
+
+Las operaciones de medios y redes conservan su comportamiento:
+
+- Generar tablas, fixture y placas de resultados.
+- Validar tablas sociales en modo dry-run.
+- Subir tablas a Supabase Storage.
+- Publicar tablas, resultados o fixture en Instagram/Facebook.
+
+Las publicaciones externas exigen su confirmación propia (`S` o `Y`) y el panel pasa `--yes` al script para evitar una espera interactiva.
+
+## Flujo recomendado para contenido social
+
+1. Verificar o generar las imágenes necesarias.
 2. Ejecutar **Publicar resultados**, **Publicar tablas** o **Publicar fixture**.
 3. Confirmar escribiendo `S` o `Y`.
 4. Elegir `both`, `instagram` o `facebook`.
 
-## Flujo recomendado para publicar resultados
-
-Orden editorial recomendado en el feed: **Décima → Novena → Octava → Séptima → Primera**, después tablas y fixture.
-
-Para resultados, publicar una división por vez en ese orden.
+Para resultados, el orden editorial recomendado es **Décima → Novena → Octava → Séptima → Primera**, seguido por tablas y fixture.
 
 ## Seguridad
 
-- Corre solo en `127.0.0.1`.
-- No expone credenciales en el frontend.
-- Las acciones que escriben en DB o publican afuera están marcadas por riesgo.
-- Alineaciones real exige escribir `ESCRIBIR` antes de ejecutar.
-- Las acciones de publicación exigen escribir `S` o `Y` antes de ejecutar; el panel pasa `--yes` al script para que no quede esperando entrada interactiva.
-
-Este panel es local/privado. No desplegar en Vercel ni exponer públicamente.
+- El panel corre solamente en `127.0.0.1`.
+- Las credenciales no se envían al frontend.
+- Las previsualizaciones están marcadas como seguras.
+- Las acciones que escriben en DB o publican externamente están marcadas por riesgo.
+- Los parámetros también se validan en el servidor; los atributos HTML no son la única barrera.
+- Este panel es local y privado: no debe exponerse públicamente.

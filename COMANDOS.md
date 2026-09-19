@@ -67,53 +67,64 @@ systemctl --user restart scraper-resultados.timer
 ## Scripts manuales (corrida operativa)
 
 ### Scraper de horarios (inicio de semana)
-Actualiza fecha, hora y cancha de los partidos desde la web de la Liga.
+
+Previsualiza cambios de fecha, hora y cancha para un torneo explícito:
 
 ```bash
-cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
-python3 scraper_horarios.py
+cd /home/gallardo/Documentos/ligadelincoln
+backend/venv/bin/python backend/scripts/scraper_horarios.py --torneo-id 2
+```
+
+Para aplicar la actualización después de revisar el reporte:
+
+```bash
+backend/venv/bin/python backend/scripts/scraper_horarios.py --torneo-id 2 --execute
+```
+
+### Scraper de resultados
+
+Previsualiza resultados y posiciones para todas las categorías del torneo:
+
+```bash
+cd /home/gallardo/Documentos/ligadelincoln
+backend/venv/bin/python backend/scripts/scraper_resultados.py --torneo-id 2
+```
+
+Se puede limitar la previsualización a una categoría con `--category primera`. Para escribir realmente:
+
+```bash
+backend/venv/bin/python backend/scripts/scraper_resultados.py --torneo-id 2 --category primera --execute
 ```
 
 ### Scraper de alineaciones (cuando la web ya esté actualizada)
-Extrae alineaciones, goleadores, DTs, árbitro y también actualiza el resultado/estado del partido en `partidos`.
+
+El scraper reemplaza alineaciones de **Primera** y actualiza únicamente sus metadatos de DT local, DT visitante y árbitro. No actualiza resultados, estado del partido ni posiciones.
+
+La invocación predeterminada es una previsualización sin escrituras y requiere torneo y fecha explícitos:
 
 ```bash
-cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
-python3 scraper_alineaciones.py
+cd /home/gallardo/Documentos/ligadelincoln
+backend/venv/bin/python backend/scripts/scraper_alineaciones.py --torneo-id 2 --fecha 7
 ```
 
-Para revisar sin escribir en la base:
+Después de revisar un plan válido, la escritura real requiere `--execute`:
 
 ```bash
-cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
-python3 scraper_alineaciones.py --fecha 7 --dry-run
-```
-
-Para correr una fecha explícita:
-
-```bash
-cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
-python3 scraper_alineaciones.py --fecha 7
+backend/venv/bin/python backend/scripts/scraper_alineaciones.py --torneo-id 2 --fecha 7 --execute
 ```
 
 **Cuándo correrlo**
 
-- Cuando termine un partido y la web `alineaciones.html` ya muestre ese partido con sus jugadores.
-- También sirve para la fecha completa, cuando la Liga sube todas las alineaciones.
+- Cuando la web `alineaciones.html` ya muestre la fecha correcta y sus jugadores.
+- También sirve para la fecha completa cuando la Liga publica todas las alineaciones de Primera.
 
 **Importante**
 
 - `alineaciones.html` muestra la **fecha actual**; no es una fuente histórica estable.
-- Antes de correrlo, verificar visualmente que la página tenga la fecha y los partidos correctos.
-- El script trabaja sobre la fecha detectada en la web, o la indicada con `--fecha`, y vuelve a guardar las alineaciones de los partidos efectivamente encontrados.
-- Usar `--dry-run` primero: muestra qué partidos actualizaría y cuántas alineaciones reemplazaría sin borrar ni insertar datos.
-- Si la web cambia de fecha, ya no se pueden reconstruir alineaciones viejas desde esa misma URL.
-
-**Importante:** En una corrida real, el scraper ejecuta automáticamente `pnpm run deploy` desde `frontend/` si guardó alineaciones, para regenerar las páginas de partido en Vercel. Para omitirlo excepcionalmente:
-
-```bash
-python3 scraper_alineaciones.py --fecha 7 --no-deploy
-```
+- Verificar visualmente la fecha y los partidos antes de previsualizar.
+- Una previsualización válida informa qué alineaciones y metadatos reemplazaría sin mutar la base.
+- Si la web cambia de fecha, esa misma URL ya no permite reconstruir alineaciones anteriores.
+- La ingesta no ejecuta despliegues. El despliegue manual documentado más abajo es una acción separada.
 
 ### Capturar fixture (inicio de semana)
 Genera imágenes PNG del fixture por categoría y fecha.
@@ -154,10 +165,10 @@ Para una categoría concreta:
 
 | Día | Acción | Comando |
 |-----|--------|---------|
-| Inicio de semana | Actualizar horarios de la semana | `python3 scraper_horarios.py` |
+| Inicio de semana | Previsualizar y luego ejecutar horarios del torneo | `backend/venv/bin/python backend/scripts/scraper_horarios.py --torneo-id 2 [--execute]` |
 | Inicio de semana | Capturar fixture | `python3 capturar_fixture.py` |
-| Cuando termina un partido y la web ya fue actualizada | Scrapear alineaciones / goleadores / DT / árbitro / resultado + deploy del frontend si guardó alineaciones | `python3 scraper_alineaciones.py` |
-| Después de actualizar datos manualmente por fuera del scraper | Deploy del frontend | `pnpm run deploy` |
+| Cuando la web ya fue actualizada | Previsualizar y luego reemplazar alineaciones/metadatos de Primera | `backend/venv/bin/python backend/scripts/scraper_alineaciones.py --torneo-id 2 --fecha 7 [--execute]` |
+| Después de actualizar datos, si corresponde | Deploy manual y separado del frontend | `pnpm run deploy` |
 | Sábados | Resultados (automático) | Timer systemd cada 15min (14-21hs) |
 | Domingos 22:15 | Generar placas de resultados (automático) | Timer systemd |
 
@@ -168,9 +179,11 @@ Para una categoría concreta:
 ### 1) Inicio de semana
 
 ```bash
-cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
-python3 scraper_horarios.py
-python3 /home/gallardo/Documentos/ligadelincoln/scripts/capturar_fixture.py
+cd /home/gallardo/Documentos/ligadelincoln
+backend/venv/bin/python backend/scripts/scraper_horarios.py --torneo-id 2
+# Después de revisar el reporte:
+backend/venv/bin/python backend/scripts/scraper_horarios.py --torneo-id 2 --execute
+python3 scripts/capturar_fixture.py
 ```
 
 ### 2) Durante el fin de semana
@@ -186,24 +199,24 @@ systemctl --user status scraper-resultados.service
 ### 3) Cuando la Liga sube alineaciones de un partido o de la fecha
 
 ```bash
-cd /home/gallardo/Documentos/ligadelincoln/backend/scripts
-python3 scraper_alineaciones.py
+cd /home/gallardo/Documentos/ligadelincoln
+backend/venv/bin/python backend/scripts/scraper_alineaciones.py --torneo-id 2 --fecha 7
+# Después de revisar el reporte:
+backend/venv/bin/python backend/scripts/scraper_alineaciones.py --torneo-id 2 --fecha 7 --execute
 ```
 
-Eso actualiza:
+Eso reemplaza únicamente:
 
-- `alineaciones`
-- goleadores
+- alineaciones de Primera para la fecha seleccionada
 - `dt_local`
 - `dt_visitante`
 - `arbitro`
-- `goles_local`
-- `goles_visitante`
-- `estado = jugado`
+
+No modifica resultados, estado del partido ni posiciones.
 
 ### 4) Después de una corrida manual importante
 
-Si usaste `scraper_alineaciones.py`, el deploy ya queda incluido automáticamente cuando se guardan alineaciones. Si hiciste cambios manuales por fuera del scraper, regenerar el frontend en Vercel:
+Si corresponde regenerar el frontend, el despliegue se ejecuta manualmente y por separado:
 
 ```bash
 cd /home/gallardo/Documentos/ligadelincoln/frontend

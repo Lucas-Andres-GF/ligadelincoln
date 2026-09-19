@@ -1,3 +1,7 @@
 #!/bin/bash
-export PYTHONPATH="/home/gallardo/.local/lib/python3.12/site-packages:$PYTHONPATH"
-/home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_resultados.sh
+# Compatibility entry point; active systemd service calls the runner directly.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec /bin/bash "$SCRIPT_DIR/run_scraper_resultados.sh"

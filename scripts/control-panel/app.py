@@ -8,7 +8,6 @@ No tiene dependencias externas: usa solo la librería estándar de Python.
 import json
 import os
 import subprocess
-import sys
 import threading
 import time
 import uuid
@@ -19,18 +18,92 @@ from urllib.parse import parse_qs, urlparse
 
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("CONTROL_PANEL_PORT", "8765"))
+MAX_REQUEST_BODY_BYTES = 1024 * 1024
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent.parent
 BACKEND_SCRIPTS = PROJECT_DIR / "backend" / "scripts"
-PYTHON = sys.executable
+VENV_PYTHON_CANDIDATES = (
+    Path("backend/venv/Scripts/python.exe"),
+    Path("backend/venv/bin/python"),
+)
+RESULT_CATEGORIES = ("primera", "septima", "octava", "novena", "decima")
+SCRAPER_ACTIONS = {
+    "scraper_horarios_preview": ("horarios", False),
+    "scraper_horarios_execute": ("horarios", True),
+    "scraper_resultados_preview": ("resultados", False),
+    "scraper_resultados_execute": ("resultados", True),
+    "scraper_alineaciones_preview": ("alineaciones", False),
+    "scraper_alineaciones_execute": ("alineaciones", True),
+}
 
 JOBS = {}
 JOBS_LOCK = threading.Lock()
 
 
-def py(path, *args):
-    command = [PYTHON, str(path)]
+class PythonResolutionError(RuntimeError):
+    """Raised when the project's backend Python interpreter is unavailable."""
+
+
+class RequestValidationError(ValueError):
+    """Raised when an action request is unsafe or incomplete."""
+
+
+def parse_content_length(value, maximum=MAX_REQUEST_BODY_BYTES):
+    """Parse a bounded HTTP Content-Length without reading request data."""
+    if not isinstance(value, str) or not value.isascii() or not value.isdecimal():
+        raise RequestValidationError("Content-Length inválido")
+
+    try:
+        length = int(value)
+    except ValueError as exc:
+        raise RequestValidationError("Content-Length inválido") from exc
+    if length > maximum:
+        raise RequestValidationError(
+            f"Content-Length excede el máximo permitido de {maximum} bytes"
+        )
+    return length
+
+
+def parse_json_request(content_length, body_reader):
+    """Read and decode one size-bounded JSON request body."""
+    length = parse_content_length(content_length)
+    try:
+        raw_body = body_reader(length)
+        return json.loads(raw_body.decode("utf-8") or "{}")
+    except (AttributeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RequestValidationError("JSON inválido") from exc
+
+
+def resolve_project_python(project_dir=PROJECT_DIR, environ=None):
+    """Resolve the backend venv interpreter without running or importing it."""
+    project_dir = Path(project_dir)
+    environ = os.environ if environ is None else environ
+    override = str(environ.get("LIGA_PYTHON", "")).strip()
+
+    if override:
+        candidate = Path(override).expanduser()
+        if not candidate.is_absolute():
+            candidate = project_dir / candidate
+        if candidate.is_file():
+            return candidate
+        raise PythonResolutionError(f"LIGA_PYTHON no existe o no es un archivo: {candidate}")
+
+    candidates = [project_dir / relative_path for relative_path in VENV_PYTHON_CANDIDATES]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    checked = ", ".join(str(candidate) for candidate in candidates)
+    raise PythonResolutionError(
+        "No se encontró el intérprete Python del entorno virtual del backend. "
+        f"Revisados: {checked}. También podés definir LIGA_PYTHON."
+    )
+
+
+def py(path, *args, python=None):
+    interpreter = Path(python) if python is not None else resolve_project_python()
+    command = [str(interpreter), str(path)]
     index = 0
     args = list(args)
     while index < len(args):
@@ -48,13 +121,66 @@ def py(path, *args):
     return command
 
 
+def _positive_integer(params, name, label):
+    value = params.get(name)
+    if isinstance(value, bool) or value in (None, ""):
+        raise RequestValidationError(f"{label} es obligatorio y debe ser un entero positivo")
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise RequestValidationError(f"{label} debe ser un entero positivo") from exc
+    if parsed <= 0 or str(value).strip() != str(parsed):
+        raise RequestValidationError(f"{label} debe ser un entero positivo")
+    return parsed
+
+
+def validate_scraper_params(scraper, params):
+    """Validate and normalize tournament-scoped scraper parameters."""
+    if not isinstance(params, dict):
+        raise RequestValidationError("params debe ser un objeto JSON")
+
+    normalized = dict(params)
+    normalized["torneo_id"] = _positive_integer(params, "torneo_id", "torneo_id")
+
+    if scraper == "alineaciones":
+        normalized["fecha"] = _positive_integer(params, "fecha", "fecha")
+    elif scraper == "resultados":
+        category = params.get("category")
+        if category in (None, ""):
+            normalized.pop("category", None)
+        elif not isinstance(category, str) or category not in RESULT_CATEGORIES:
+            allowed = ", ".join(RESULT_CATEGORIES)
+            raise RequestValidationError(f"category inválida; opciones: {allowed}")
+        else:
+            normalized["category"] = category
+    elif scraper != "horarios":
+        raise RequestValidationError(f"scraper inválido: {scraper}")
+
+    return normalized
+
+
+def build_scraper_command(scraper, params, *, execute=False, python=None):
+    """Build one validated dry-run-first scraper command vector."""
+    normalized = validate_scraper_params(scraper, params)
+    script = BACKEND_SCRIPTS / f"scraper_{scraper}.py"
+    args = ["--torneo-id", normalized["torneo_id"]]
+
+    if scraper == "resultados" and normalized.get("category"):
+        args.extend(["--category", normalized["category"]])
+    if scraper == "alineaciones":
+        args.extend(["--fecha", normalized["fecha"]])
+    if execute:
+        args.append("--execute")
+
+    return py(script, *args, python=python)
+
+
 def placas_resultados_command(params):
-    command = [
-        PYTHON,
-        str(PROJECT_DIR / "scripts" / "generador-placas" / "generar_placas_resultados.py"),
+    command = py(
+        PROJECT_DIR / "scripts" / "generador-placas" / "generar_placas_resultados.py",
         "--fecha",
-        str(params.get("fecha")),
-    ]
+        params.get("fecha"),
+    )
 
     categoria = params.get("categoria")
     if categoria:
@@ -122,38 +248,80 @@ def publicar_fixture_command(params):
 
 def action_definitions():
     return {
-        "scraper_resultados": {
-            "title": "Actualizar resultados",
-            "description": "Scrapea resultados y actualiza partidos/posiciones.",
-            "risk": "writes-db",
-            "fields": [],
-            "cwd": BACKEND_SCRIPTS,
-            "command": lambda p: py(BACKEND_SCRIPTS / "scraper_resultados.py"),
-        },
-        "scraper_horarios": {
-            "title": "Actualizar horarios",
-            "description": "Scrapea fecha, hora y cancha de partidos.",
-            "risk": "writes-db",
-            "fields": [],
-            "cwd": BACKEND_SCRIPTS,
-            "command": lambda p: py(BACKEND_SCRIPTS / "scraper_horarios.py"),
-        },
-        "alineaciones_dry_run": {
-            "title": "Alineaciones dry-run",
-            "description": "Verifica qué alineaciones tocaría sin escribir en DB.",
+        "scraper_horarios_preview": {
+            "title": "Previsualizar horarios",
+            "description": "Muestra los cambios de fecha, hora y cancha sin escribir en la base de datos.",
             "risk": "safe",
-            "fields": [{"name": "fecha", "label": "Fecha", "type": "number", "required": True}],
+            "scraper": "horarios",
+            "execute": False,
+            "fields": [{"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True}],
             "cwd": BACKEND_SCRIPTS,
-            "command": lambda p: py(BACKEND_SCRIPTS / "scraper_alineaciones.py", "--fecha", p.get("fecha"), "--dry-run"),
+            "command": lambda p: build_scraper_command("horarios", p),
         },
-        "alineaciones_run": {
-            "title": "Alineaciones real",
-            "description": "Scrapea alineaciones de Primera, escribe en DB y despliega el frontend si guardó alineaciones.",
+        "scraper_horarios_execute": {
+            "title": "Ejecutar horarios",
+            "description": "Actualiza fecha, hora y cancha para el torneo indicado.",
             "risk": "writes-db",
+            "scraper": "horarios",
+            "execute": True,
             "confirm": "ESCRIBIR",
-            "fields": [{"name": "fecha", "label": "Fecha", "type": "number", "required": True}],
+            "fields": [{"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True}],
             "cwd": BACKEND_SCRIPTS,
-            "command": lambda p: py(BACKEND_SCRIPTS / "scraper_alineaciones.py", "--fecha", p.get("fecha")),
+            "command": lambda p: build_scraper_command("horarios", p, execute=True),
+        },
+        "scraper_resultados_preview": {
+            "title": "Previsualizar resultados",
+            "description": "Muestra los cambios de resultados y posiciones sin escribir en la base de datos.",
+            "risk": "safe",
+            "scraper": "resultados",
+            "execute": False,
+            "fields": [
+                {"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True},
+                {"name": "category", "label": "Categoría opcional", "type": "select", "options": ["", *RESULT_CATEGORIES]},
+            ],
+            "cwd": BACKEND_SCRIPTS,
+            "command": lambda p: build_scraper_command("resultados", p),
+        },
+        "scraper_resultados_execute": {
+            "title": "Ejecutar resultados",
+            "description": "Actualiza resultados y posiciones para el torneo indicado.",
+            "risk": "writes-db",
+            "scraper": "resultados",
+            "execute": True,
+            "confirm": "ESCRIBIR",
+            "fields": [
+                {"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True},
+                {"name": "category", "label": "Categoría opcional", "type": "select", "options": ["", *RESULT_CATEGORIES]},
+            ],
+            "cwd": BACKEND_SCRIPTS,
+            "command": lambda p: build_scraper_command("resultados", p, execute=True),
+        },
+        "scraper_alineaciones_preview": {
+            "title": "Previsualizar alineaciones",
+            "description": "Muestra el reemplazo de alineaciones de Primera sin escribir en la base de datos.",
+            "risk": "safe",
+            "scraper": "alineaciones",
+            "execute": False,
+            "fields": [
+                {"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True},
+                {"name": "fecha", "label": "Fecha", "type": "number", "required": True},
+            ],
+            "cwd": BACKEND_SCRIPTS,
+            "command": lambda p: build_scraper_command("alineaciones", p),
+        },
+        "scraper_alineaciones_execute": {
+            "title": "Ejecutar alineaciones",
+            "description": "Reemplaza las alineaciones de Primera para el torneo y la fecha indicados.",
+            "risk": "writes-db",
+            "scraper": "alineaciones",
+            "execute": True,
+            "confirm": "ESCRIBIR",
+            "fields": [
+                {"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True},
+                {"name": "fecha", "label": "Fecha", "type": "number", "required": True},
+            ],
+            "cwd": BACKEND_SCRIPTS,
+            "command": lambda p: build_scraper_command("alineaciones", p, execute=True),
         },
         "capturar_tablas": {
             "title": "Generar tablas",
@@ -263,6 +431,25 @@ def serialize_actions():
     ]
 
 
+def validate_action_request(action_id, params):
+    """Validate action-specific API input before any command or job is created."""
+    config = ACTIONS[action_id]
+    if not isinstance(params, dict):
+        raise RequestValidationError("params debe ser un objeto JSON")
+
+    scraper = config.get("scraper")
+    if not scraper:
+        return dict(params)
+
+    normalized = validate_scraper_params(scraper, params)
+    if config.get("execute"):
+        confirmation = str(params.get("confirm_text", "")).strip().upper()
+        if confirmation != "ESCRIBIR":
+            raise RequestValidationError("confirmación inválida; escribí ESCRIBIR")
+    normalized.pop("confirm_text", None)
+    return normalized
+
+
 def create_job(action_id, params):
     job_id = uuid.uuid4().hex[:10]
     config = ACTIONS[action_id]
@@ -282,6 +469,35 @@ def create_job(action_id, params):
         JOBS[job_id] = job
     threading.Thread(target=run_job, args=(job_id,), daemon=True).start()
     return job
+
+
+def dispatch_run(payload, job_factory=None):
+    """Validate an API run payload and create a job only when it is safe."""
+    if not isinstance(payload, dict):
+        return {"error": "el cuerpo debe ser un objeto JSON"}, 400
+
+    action_id = payload.get("action_id")
+    if action_id not in ACTIONS:
+        return {"error": "acción inválida"}, 400
+
+    try:
+        params = validate_action_request(action_id, payload.get("params") or {})
+        job = (job_factory or create_job)(action_id, params)
+    except RequestValidationError as exc:
+        return {"error": str(exc)}, 400
+    except PythonResolutionError as exc:
+        return {"error": str(exc)}, 500
+
+    return job, 201
+
+
+def handle_run_http_request(content_length, body_reader, dispatcher=None):
+    """Validate HTTP framing and JSON before dispatching any action."""
+    try:
+        payload = parse_json_request(content_length, body_reader)
+    except RequestValidationError as exc:
+        return {"error": str(exc)}, 400
+    return (dispatcher or dispatch_run)(payload)
 
 
 def append_log(job, line):
@@ -427,7 +643,7 @@ async function runAction(ev) {
   const fd = new FormData(form);
   if (confirmWord && !acceptedConfirmations.includes(String(fd.get('confirm_text') || '').trim().toUpperCase())) { alert(`Para esta acción escribí ${acceptedConfirmations.join(' o ')}`); return; }
   const params = {};
-  for (const [k, v] of fd.entries()) if (k !== 'confirm_text') params[k] = v === 'on' ? true : v;
+  for (const [k, v] of fd.entries()) params[k] = v === 'on' ? true : v;
   const action_id = form.dataset.id;
   await api('/api/run', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({action_id, params}) });
   startPolling();
@@ -483,15 +699,11 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": "not found"}, 404)
             return
 
-        length = int(self.headers.get("Content-Length", "0"))
-        payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-        action_id = payload.get("action_id")
-        params = payload.get("params") or {}
-        if action_id not in ACTIONS:
-            self._json({"error": "acción inválida"}, 400)
-            return
-        job = create_job(action_id, params)
-        self._json(job, 201)
+        response, status = handle_run_http_request(
+            self.headers.get("Content-Length"),
+            self.rfile.read,
+        )
+        self._json(response, status)
 
     def log_message(self, fmt, *args):
         return

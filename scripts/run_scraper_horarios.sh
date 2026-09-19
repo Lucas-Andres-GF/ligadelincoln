@@ -1,17 +1,56 @@
 #!/bin/bash
-# Runner para ejecutar scraper de horarios
-# Uso: ./run_scraper_horarios.sh
+# Scheduled mutation runner for tournament schedule updates.
+
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-cd "$PROJECT_DIR/backend/scripts"
+if [[ -f "$PROJECT_DIR/backend/.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$PROJECT_DIR/backend/.env"
+    set +a
+fi
 
-source "$PROJECT_DIR/backend/.env" 2>/dev/null || true
+resolve_python() {
+    local candidate
 
-export SUPABASE_URL
-export SUPABASE_KEY
+    if [[ -n "${LIGA_PYTHON:-}" ]]; then
+        candidate="$LIGA_PYTHON"
+        if [[ ! -f "$candidate" && "$candidate" != /* ]]; then
+            candidate="$PROJECT_DIR/$candidate"
+        fi
+        if [[ -f "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+        echo "ERROR: LIGA_PYTHON no existe o no es un archivo: $candidate" >&2
+        return 1
+    fi
 
-pip install -q requests beautifulsoup4 supabase python-dotenv
+    for candidate in \
+        "$PROJECT_DIR/backend/venv/Scripts/python.exe" \
+        "$PROJECT_DIR/backend/venv/bin/python"; do
+        if [[ -f "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
 
-python3 scraper_horarios.py
+    echo "ERROR: no se encontró Python en backend/venv/Scripts/python.exe ni backend/venv/bin/python" >&2
+    return 1
+}
+
+ACTIVE_TORNEO_ID="${ACTIVE_TORNEO_ID:-}"
+if [[ ! "$ACTIVE_TORNEO_ID" =~ ^[0-9]+$ || "$ACTIVE_TORNEO_ID" =~ ^0+$ ]]; then
+    echo "ERROR: ACTIVE_TORNEO_ID debe ser un entero decimal positivo" >&2
+    exit 2
+fi
+
+PYTHON_BIN="$(resolve_python)"
+
+echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Ejecutando scraper de horarios para torneo $ACTIVE_TORNEO_ID"
+"$PYTHON_BIN" "$PROJECT_DIR/backend/scripts/scraper_horarios.py" \
+    --torneo-id "$ACTIVE_TORNEO_ID" \
+    --execute
