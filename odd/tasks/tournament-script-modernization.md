@@ -107,9 +107,10 @@ Tournament IDs are immutable historical identities. Every database mutation must
 
 ### OPS-005 — Generalize and rationalize tournament import utilities
 
+- [ ] Extract one pure historical-source core shared by audit, comparison, correction, and historical import while keeping their command responsibilities separate.
 - [ ] Determine the supported generic boundary of the current fixture source and rename or redesign honestly.
 - [ ] Reuse shared identities/configuration and align safety/exit/reporting conventions.
-- [ ] Confirm initialization, historical import, correction, audit, comparison, and palmares utilities remain necessary and compatible.
+- [x] Confirm initialization, historical import, correction, audit, comparison, and palmares utilities remain necessary and compatible; no retained utility is functionally redundant.
 - [ ] Remove or merge only genuinely redundant code with behavior preserved by tests.
 - Route: delegated writer; trigger: broad multi-file utility integration.
 - Allowed scope: tournament import/audit/correction scripts under `backend/scripts/`, shared helpers, focused `backend/tests/`.
@@ -160,8 +161,10 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - OPS-002 completed in commit `8866a2a`: side-effect-free schedule parsing/planning, dry-run-first execution, deterministic tournament fixture matching, blocking safety validation, and 13 schedule-focused tests (26 total).
 - OPS-003 completed in commit `6800023`: safe result planning, fixture-derived projected standings, non-destructive scoped position synchronization, no deploy coupling, fail-closed source/inventory integrity, and 29 result-focused tests (55 total).
 - OPS-004 completed in commit `5c0716c`: Primera-only lineup replacement with side-effect-free parsing, strict score/event integrity, estado-aware complete coverage, tournament/round scoping, no result/deploy ownership, and 24 lineup-focused tests (79 total).
+- OPS-005 mapping found no fully redundant utility. Historical source parsing is duplicated between audit and comparison, while correction/import already reuse comparison. The current fixture importer remains explicitly 2026-specific and has unsafe activation/force defaults that require product decisions.
+- Mapping incident: a fallback read-only mapper initialized `.codegraph/`. User authorized deletion; exact CodeGraph server/watchdog processes were stopped, the 4.5 MB generated index was removed, and `.codegraph/` was ignored in commit `bb8a259`.
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
 
 ## Next Step
 
-Map OPS-005 utility overlap and supported source boundaries through a read-only delegated explorer, then implement only the cohesive rationalization it recommends without production writes.
+Resolve the four current-import product decisions, then implement the pure shared historical-source core as the first OPS-005 work unit without production writes.
