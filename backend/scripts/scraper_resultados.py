@@ -190,50 +190,56 @@ class OperationPlan:
 
 
 class _TableParser(HTMLParser):
-    """Extract table rows without importing a browser-oriented parser."""
+    """Extract table rows while preserving independently nested tables."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.tables: list[list[list[str]]] = []
-        self._depth = 0
-        self._rows: Optional[list[list[str]]] = None
-        self._row: Optional[list[str]] = None
-        self._cell: Optional[list[str]] = None
+        self._stack: list[dict[str, Any]] = []
+
+    def _frame(self) -> Optional[dict[str, Any]]:
+        return self._stack[-1] if self._stack else None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
         del attrs
         tag = tag.lower()
         if tag == "table":
-            self._depth += 1
-            if self._depth == 1:
-                self._rows = []
-        elif self._depth == 1 and tag == "tr":
-            self._row = []
-        elif self._depth == 1 and tag in {"td", "th"} and self._row is not None:
-            self._cell = []
-        elif tag == "br" and self._cell is not None:
-            self._cell.append(" ")
+            self._stack.append({"rows": [], "row": None, "cell": None})
+            return
+        frame = self._frame()
+        if frame is None:
+            return
+        if tag == "tr":
+            frame["row"] = []
+        elif tag in {"td", "th"} and frame["row"] is not None:
+            frame["cell"] = []
+        elif tag == "br" and frame["cell"] is not None:
+            frame["cell"].append(" ")
 
     def handle_data(self, data: str) -> None:
-        if self._cell is not None:
-            self._cell.append(data)
+        frame = self._frame()
+        if frame is not None and frame["cell"] is not None:
+            frame["cell"].append(data)
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
-        if self._depth == 1 and tag in {"td", "th"} and self._cell is not None:
-            if self._row is not None:
-                self._row.append(" ".join("".join(self._cell).split()))
-            self._cell = None
-        elif self._depth == 1 and tag == "tr":
-            if self._rows is not None and self._row:
-                self._rows.append(self._row)
-            self._row = None
-            self._cell = None
-        elif tag == "table" and self._depth:
-            if self._depth == 1 and self._rows is not None:
-                self.tables.append(self._rows)
-                self._rows = None
-            self._depth -= 1
+        frame = self._frame()
+        if frame is None:
+            return
+        if tag in {"td", "th"} and frame["cell"] is not None:
+            text = " ".join("".join(frame["cell"]).split())
+            if frame["row"] is not None:
+                frame["row"].append(text)
+            frame["cell"] = None
+        elif tag == "tr":
+            if frame["row"]:
+                frame["rows"].append(frame["row"])
+            frame["row"] = None
+            frame["cell"] = None
+        elif tag == "table":
+            finished = self._stack.pop()
+            if finished["rows"]:
+                self.tables.append(finished["rows"])
 
 
 def _required_int(value: Any, label: str) -> int:
@@ -362,6 +368,9 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
 
     for source_row, cells in enumerate(table, start=1):
         text = " ".join(cells)
+        if headers_seen and "PROXIMA" in _identity_text(text):
+            break
+
         round_match = ROUND_PATTERN.search(text)
         if round_match is not None:
             next_round = int(round_match.group(1))
@@ -385,6 +394,8 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
                 raise ResultParseError(
                     f"Incomplete result row {source_row} in category {category_name}: {cells!r}"
                 )
+            continue
+        if not any(cell.strip() for cell in cells[:4]):
             continue
 
         local = " ".join(cells[0].upper().split())

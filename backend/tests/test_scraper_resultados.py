@@ -168,6 +168,54 @@ class ResultParsingTests(unittest.TestCase):
         self.assertEqual((rows[1].local_id, rows[1].visitor_id), (2, 4))
         self.assertNotIn("VILLA FRANCIA", [row.local for row in rows])
 
+    def test_parses_nested_official_results_table_without_flattening_rows(self) -> None:
+        html = """
+        <table class="outer-wrapper">
+          <tr><td>
+            <table class="results">
+              <tr><td colspan="4">ÚLTIMOS ENCUENTROS</td></tr>
+              <tr><td colspan="4">FECHA 3 - 12/04/2026</td></tr>
+              <tr><th>LOCAL</th><th>GL</th><th>GV</th><th>VISITANTE</th></tr>
+              <tr><td>Argentino</td><td>2</td><td>1</td><td>El Linqueño</td></tr>
+              <tr><td>Atl. Pasteur</td><td></td><td></td><td>CA. Pintense</td></tr>
+              <tr><td>LIBRE</td><td></td><td></td><td>Villa Francia</td></tr>
+              <tr>
+                <td></td><td></td><td></td><td></td><td></td>
+                <td>Argentino</td><td>6</td><td>4</td>
+              </tr>
+              <tr><td colspan="8">PRÓXIMA: SEGUNDA FECHA</td></tr>
+              <tr><td>Villa Francia</td><td></td><td></td><td>Argentino</td></tr>
+              <tr><th>LOCAL</th><th>GL</th><th>GV</th><th>VISITANTE</th></tr>
+              <tr><td>Argentino</td><td>2</td><td>1</td><td>El Linqueño</td></tr>
+            </table>
+          </td></tr>
+        </table>
+        <table>
+          <tr><td colspan="4">ÚLTIMOS ENCUENTROS</td></tr>
+          <tr><td colspan="4">FECHA 2 - 05/04/2026</td></tr>
+          <tr><th>LOCAL</th><th>GL</th><th>GV</th><th>VISITANTE</th></tr>
+          <tr><td>Villa Francia</td><td>9</td><td>9</td><td>Argentino</td></tr>
+        </table>
+        """
+
+        rows = results.parse_results_html(html, "primera")
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(
+            (rows[0].category_key, rows[0].category_id, rows[0].round_id, rows[0].date),
+            ("primera", 1, 3, "2026-04-12"),
+        )
+        self.assertEqual(
+            (rows[0].local, rows[0].local_goals, rows[0].visitor_goals, rows[0].visitor),
+            ("ARGENTINO", 2, 1, "EL LINQUEÑO"),
+        )
+        self.assertEqual(
+            (rows[1].local, rows[1].local_goals, rows[1].visitor_goals, rows[1].visitor),
+            ("ATL. PASTEUR", None, None, "CA. PINTENSE"),
+        )
+        self.assertNotIn("LIBRE", {row.local for row in rows})
+        self.assertNotIn("VILLA FRANCIA", {row.local for row in rows})
+
     def test_score_validation_rejects_signed_decimal_and_mixed_values(self) -> None:
         self.assertEqual(results.parse_score(" 12 "), 12)
         for value in ("", "-1", "1.0", "2 goals", "+3"):
