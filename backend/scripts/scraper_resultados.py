@@ -58,6 +58,7 @@ class OfficialResult:
     local_goals: Optional[int]
     visitor_goals: Optional[int]
     score_raw: str
+    pending: bool = False
 
 
 @dataclass(frozen=True)
@@ -408,6 +409,9 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
         if "LIBRE" in _identity_text(local) or "LIBRE" in _identity_text(visitor):
             continue
 
+        observation = cells[4].strip() if len(cells) >= 5 else ""
+        pending = "JUEGAN" in _identity_text(observation)
+
         results.append(
             OfficialResult(
                 source_row=source_row,
@@ -423,6 +427,7 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
                 local_goals=parse_score(cells[1]),
                 visitor_goals=parse_score(cells[2]),
                 score_raw=f"{cells[1]}-{cells[2]}",
+                pending=pending,
             )
         )
 
@@ -559,6 +564,8 @@ def build_result_plan(
             conflicting_rows.update(id(item) for item in grouped)
 
     for row in official_rows:
+        if row.pending and (row.local_goals is None or row.visitor_goals is None):
+            continue
         label = _result_label(row)
         row_issues: list[str] = []
         if row.category_id is None:

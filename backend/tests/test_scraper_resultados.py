@@ -216,6 +216,42 @@ class ResultParsingTests(unittest.TestCase):
         self.assertNotIn("LIBRE", {row.local for row in rows})
         self.assertNotIn("VILLA FRANCIA", {row.local for row in rows})
 
+    def test_pending_juegan_rows_are_skipped_not_blocking(self) -> None:
+        html = """
+        <table>
+          <tr><td colspan="5">ÚLTIMOS ENCUENTROS</td></tr>
+          <tr><td colspan="5">FECHA 3 - 12/04/2026</td></tr>
+          <tr><th>LOCAL</th><th>L</th><th>V</th><th>VISITANTE</th><th>OBSERVACIONES</th></tr>
+          <tr><td>Argentino</td><td>2</td><td>1</td><td>El Linqueño</td><td></td></tr>
+          <tr><td>Atl. Pasteur</td><td></td><td></td><td>CA. Pintense</td><td>Juegan 20-9-26</td></tr>
+        </table>
+        """
+
+        rows = results.parse_results_html(html, "primera")
+        plan = results.build_result_plan(rows, fixture_records(), 2)
+
+        self.assertTrue(plan.valid)
+        self.assertEqual([entry.target_id for entry in plan.entries], [101])
+        pending = [row for row in rows if row.pending]
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0].local, "ATL. PASTEUR")
+
+    def test_blank_score_without_juegan_note_still_blocks(self) -> None:
+        html = """
+        <table>
+          <tr><td colspan="5">ÚLTIMOS ENCUENTROS</td></tr>
+          <tr><td colspan="5">FECHA 3 - 12/04/2026</td></tr>
+          <tr><th>LOCAL</th><th>L</th><th>V</th><th>VISITANTE</th><th>OBSERVACIONES</th></tr>
+          <tr><td>Atl. Pasteur</td><td></td><td></td><td>CA. Pintense</td><td></td></tr>
+        </table>
+        """
+
+        rows = results.parse_results_html(html, "primera")
+        plan = results.build_result_plan(rows, fixture_records(), 2)
+
+        self.assertFalse(plan.valid)
+        self.assertTrue(any("Malformed score" in issue for issue in plan.issues))
+
     def test_score_validation_rejects_signed_decimal_and_mixed_values(self) -> None:
         self.assertEqual(results.parse_score(" 12 "), 12)
         for value in ("", "-1", "1.0", "2 goals", "+3"):
