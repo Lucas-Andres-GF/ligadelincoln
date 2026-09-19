@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { cachedQuery } from "../utils/supabaseCached";
 import { slugify } from "../utils/slugify";
+import { getSelectedTorneoId, listenToTorneoChange, parseTorneoId, withTorneoParam } from "../utils/torneoSelection";
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -38,40 +39,74 @@ function getEscudoPath(nombre) {
 export default function StandingsTable({
   categoriaId = 1,
   showUltimos5 = true,
+  torneoId = null,
 }) {
   const [standings, setStandings] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [selectedTorneoId, setSelectedTorneoId] = useState(() => getSelectedTorneoId(torneoId));
+
+  useEffect(() => listenToTorneoChange(setSelectedTorneoId), []);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function getStandingsData() {
-      const cacheKey = `standings_categoria_${categoriaId}`
-      
-      const { data, error } = await cachedQuery(cacheKey, () =>
+      setStandings([]);
+      setError(null);
+      const scopedTorneoId = parseTorneoId(selectedTorneoId);
+      if (scopedTorneoId === null) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      const cacheKey = `standings_torneo_${scopedTorneoId}_categoria_${categoriaId}`
+      const { data, error: standingsError } = await cachedQuery(cacheKey, () =>
         supabase
           .from("posiciones")
           .select(
             `pts, pj, pg, pe, pp, gf, gc, dif, ultimos_5, clubes ( nombre )`,
           )
           .eq("categoria_id", categoriaId)
+          .eq("torneo_id", scopedTorneoId)
           .order("pts", { ascending: false })
           .order("dif", { ascending: false })
       )
 
-      if (error) {
-        console.error("Supabase error:", error);
-        setStandings([]);
+      if (cancelled) return;
+      if (standingsError) {
+        console.error("Supabase error:", standingsError);
+        setError("No se pudo cargar la tabla de posiciones.");
       } else {
         setStandings(data || []);
       }
       setIsLoading(false);
     }
     getStandingsData();
-  }, [categoriaId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [categoriaId, selectedTorneoId]);
+
+  if (parseTorneoId(selectedTorneoId) === null)
+    return (
+      <div className='text-center py-8 text-yellow-200 text-xs uppercase tracking-widest' role='status'>
+        Seleccioná un torneo válido para ver la tabla.
+      </div>
+    );
 
   if (isLoading)
     return (
       <div className='text-center py-8 text-green-700 animate-pulse text-xs uppercase tracking-widest'>
-        Cargando...
+        Cargando posiciones...
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className='text-center py-8 text-red-300 text-xs font-semibold' role='alert'>
+        {error}
       </div>
     );
 
@@ -108,7 +143,7 @@ export default function StandingsTable({
             >
               <td className='py-2 px-1 font-bold text-green-100'>
                 <a
-                  href={`/club/${slugify(row.clubes?.nombre || "")}?categoria=${categoriaId}`}
+                  href={withTorneoParam(`/club/${slugify(row.clubes?.nombre || "")}?categoria=${categoriaId}`, selectedTorneoId)}
                   className='flex items-center gap-1 hover:opacity-80 transition-opacity'
                 >
                   <span className='text-[9px] text-green-700 w-3'>

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { slugify } from "../utils/slugify";
+import { ACTIVE_TORNEO_ID } from "../config/torneo";
+import { withTorneoParam } from "../utils/torneoSelection";
 
 const CATEGORIAS = [
   { id: 1, nombre: "primera" },
@@ -101,7 +103,7 @@ function detectarFechaActual(grouped) {
   }
 
   if (mejor === null) {
-    mejor = Math.min(...fechas);
+    mejor = fechas.length > 0 ? Math.min(...fechas) : null;
   }
 
   return mejor;
@@ -121,11 +123,27 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
   const [partidoEditando, setPartidoEditando] = useState(null);
 
   useEffect(() => {
+    if (ACTIVE_TORNEO_ID === null) {
+      setAllMatches({});
+      setFechaActual(null);
+      setError("Falta configurar un ID de torneo activo válido para administrar partidos.");
+      setLoading(false);
+      return;
+    }
     fetchPartidos();
   }, [categoria]);
 
   async function fetchPartidos() {
+    setAllMatches({});
+    setFechaActual(null);
+    if (ACTIVE_TORNEO_ID === null) {
+      setError("Falta configurar un ID de torneo activo válido para administrar partidos.");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase
         .from("partidos")
@@ -140,12 +158,14 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
           arbitro,
           cancha,
           categoria_id,
+          torneo_id,
           local_id,
           visitante_id,
           local:local_id ( nombre ),
           visitante:visitante_id ( nombre )
         `)
         .eq("categoria_id", categoria)
+        .eq("torneo_id", ACTIVE_TORNEO_ID)
         .order("fecha_id")
         .order("id");
 
@@ -197,15 +217,20 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
   }
 
   async function recalcularPosiciones(categoriaId) {
+    if (ACTIVE_TORNEO_ID === null) {
+      throw new Error("No hay un torneo activo válido configurado.");
+    }
     const [{ data: posiciones, error: posicionesError }, { data: partidos, error: partidosError }] = await Promise.all([
       supabase
         .from("posiciones")
         .select("id, torneo_id, categoria_id, club_id")
-        .eq("categoria_id", categoriaId),
+        .eq("categoria_id", categoriaId)
+        .eq("torneo_id", ACTIVE_TORNEO_ID),
       supabase
         .from("partidos")
         .select("torneo_id, categoria_id, local_id, visitante_id, goles_local, goles_visitante, estado, fecha_id, id")
         .eq("categoria_id", categoriaId)
+        .eq("torneo_id", ACTIVE_TORNEO_ID)
         .order("fecha_id")
         .order("id"),
     ]);
@@ -282,10 +307,9 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
       }
     }
 
-    const torneoId = posiciones?.[0]?.torneo_id || partidos?.find((partido) => partido.torneo_id)?.torneo_id || 1;
     const rows = Array.from(tabla.values()).map((row) => ({
       ...row,
-      torneo_id: row.torneo_id || torneoId,
+      torneo_id: ACTIVE_TORNEO_ID,
       dif: row.gf - row.gc,
       ultimos_5: row.ultimos_5.slice(-5),
     }));
@@ -304,6 +328,10 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
   }
 
   async function guardarPartido(id) {
+    if (ACTIVE_TORNEO_ID === null) {
+      alert("No se puede guardar: falta configurar un torneo activo válido.");
+      return;
+    }
     setGuardando(true);
     const partido = getEditing(id);
     
@@ -323,7 +351,8 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
     const { error } = await supabase
       .from("partidos")
       .update(updates)
-      .eq("id", id);
+      .eq("id", id)
+      .eq("torneo_id", ACTIVE_TORNEO_ID);
 
     if (error) {
       alert("Error al guardar: " + error.message);
@@ -346,6 +375,10 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
   }
 
   async function resetPartido(id) {
+    if (ACTIVE_TORNEO_ID === null) {
+      alert("No se puede resetear: falta configurar un torneo activo válido.");
+      return;
+    }
     if (!confirm("¿Estás seguro de resetear este partido? Se borrará fecha, hora, resultado y cambiará a estado 'programado'.")) {
       return;
     }
@@ -363,7 +396,8 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
         goles_local: null,
         goles_visitante: null,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("torneo_id", ACTIVE_TORNEO_ID);
 
     if (error) {
       alert("Error al resetear: " + error.message);
@@ -412,6 +446,14 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
   }
 
   const matches = allMatches[fechaActual] || [];
+
+  if (ACTIVE_TORNEO_ID === null) {
+    return (
+      <div className="p-4 text-center text-red-300" role="alert">
+        No se puede administrar partidos: PUBLIC_ACTIVE_TORNEO_ID no contiene un ID canónico válido.
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">
@@ -515,7 +557,7 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
                 >
                   <span className="text-[10px] text-green-700 font-mono w-10 shrink-0 text-center"></span>
                   <a
-                    href={`/equipo/${slugify(match.local?.nombre || "")}`}
+                    href={withTorneoParam(`/club/${slugify(match.local?.nombre || "")}`, ACTIVE_TORNEO_ID)}
                     className="flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80"
                   >
                     {match.local?.nombre && (
@@ -554,7 +596,7 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
                   ) : (match.hora ? `${formatearFecha(match.dia) || "A DEFINIR"} - ${match.hora.slice(0, 5)}hs` : (formatearFecha(match.dia) || <span className="font-bold text-green-400">A DEFINIR</span>))}
                 </span>
                 <a
-                  href={`/equipo/${slugify(match.local?.nombre || "")}`}
+                  href={withTorneoParam(`/club/${slugify(match.local?.nombre || "")}`, ACTIVE_TORNEO_ID)}
                   className="flex items-center gap-1.5 flex-1 justify-end min-w-0 hover:opacity-80"
                 >
                   <span className="truncate text-green-100 font-semibold text-right">
@@ -584,7 +626,7 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
                   )}
                 </div>
                 <a
-                  href={`/equipo/${slugify(match.visitante?.nombre || "")}`}
+                  href={withTorneoParam(`/club/${slugify(match.visitante?.nombre || "")}`, ACTIVE_TORNEO_ID)}
                   className="flex items-center gap-1.5 flex-1 min-w-0 hover:opacity-80"
                 >
                   {match.visitante?.nombre && (

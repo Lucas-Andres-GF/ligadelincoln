@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro'
+import HistoricalChampions from '../components/HistoricalChampions.jsx'
+---
+
+<Layout
+  title='Historial de campeones - Liga De Lincoln'
+  description='Campeones oficiales por torneo y categoría de la Liga Amateur de Deportes de Lincoln.'
+>
+  <header class='mb-5 overflow-hidden rounded-2xl border border-green-400/20 bg-[#123912] p-5 shadow-2xl shadow-black/25 sm:p-6'>
+    <p class='text-[10px] font-black uppercase tracking-[0.3em] text-yellow-300/80'>Archivo de la liga</p>
+    <h1 class='mt-2 text-2xl font-black uppercase tracking-tight text-green-50 sm:text-3xl'>Historial de campeones</h1>
+    <p class='mt-2 max-w-2xl text-sm leading-relaxed text-green-200/70'>
+      Un registro compacto de los campeones oficiales cargados por torneo y división. La tabla de posiciones no reemplaza una final o un desempate: el campeón se publica únicamente desde el palmarés.
+    </p>
+  </header>
+
+  <HistoricalChampions client:load />
+</Layout>

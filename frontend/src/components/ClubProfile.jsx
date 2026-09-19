@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { slugify } from "../utils/slugify";
+import { getSelectedTorneoId, listenToTorneoChange, parseTorneoId, withTorneoParam } from "../utils/torneoSelection";
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -66,24 +67,51 @@ function formatearFecha(dia) {
 export default function ClubProfile({ club }) {
   const [categoriaId, setCategoriaId] = useState(getInitialCategoriaId);
   const [fixture, setFixture] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [selectedTorneoId, setSelectedTorneoId] = useState(() =>
+    getSelectedTorneoId(null),
+  );
+
+  useEffect(() => listenToTorneoChange(setSelectedTorneoId), []);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchFixture() {
+      setFixture([]);
+      setError(null);
+      const scopedTorneoId = parseTorneoId(selectedTorneoId);
+      if (scopedTorneoId === null) {
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
-      const { data, error } = await supabase
+      const { data, error: fixtureError } = await supabase
         .from("partidos")
         .select(
           `fecha_id, dia, hora, goles_local, goles_visitante, estado, categoria_id, local:local_id ( id, nombre ), visitante:visitante_id ( id, nombre )`,
         )
         .or(`local_id.eq.${club.id},visitante_id.eq.${club.id}`)
         .eq("categoria_id", categoriaId)
+        .eq("torneo_id", scopedTorneoId)
         .order("fecha_id");
-      setFixture(data || []);
+
+      if (cancelled) return;
+      if (fixtureError) {
+        console.error("Error fetching club fixture:", fixtureError);
+        setError("No se pudo cargar el fixture del club.");
+      } else {
+        setFixture(data || []);
+      }
       setIsLoading(false);
     }
     fetchFixture();
-  }, [club.id, categoriaId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [club.id, categoriaId, selectedTorneoId]);
 
   return (
     <div className='max-w-2xl mx-auto'>
@@ -125,13 +153,21 @@ export default function ClubProfile({ club }) {
           </h2>
         </div>
         <div className='divide-y divide-green-900/20'>
-          {isLoading ? (
+          {parseTorneoId(selectedTorneoId) === null ? (
+            <div className='text-center py-8 text-yellow-200 text-xs uppercase tracking-widest' role='status'>
+              Seleccioná un torneo válido para ver el fixture del club.
+            </div>
+          ) : isLoading ? (
             <div className='text-center py-8 text-green-700 animate-pulse text-xs uppercase tracking-widest'>
-              Cargando...
+              Cargando fixture...
+            </div>
+          ) : error ? (
+            <div className='text-center py-8 text-red-300 text-xs font-semibold' role='alert'>
+              {error}
             </div>
           ) : fixture.length === 0 ? (
             <div className='text-center py-8 text-green-700 text-xs uppercase tracking-widest'>
-              No presenta la categoría seleccionada.
+              No hay partidos del club en esta categoría y torneo.
             </div>
           ) : (
             fixture.map((match, i) => {
@@ -195,7 +231,7 @@ export default function ClubProfile({ club }) {
                     {isLocal ? "LOC" : "VIS"}
                   </div>
                   <a
-                    href={`/club/${slugify(rival?.nombre || "")}`}
+                    href={withTorneoParam(`/club/${slugify(rival?.nombre || "")}`, selectedTorneoId)}
                     className='flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity'
                   >
                     {rival?.nombre && (
@@ -235,7 +271,7 @@ export default function ClubProfile({ club }) {
       </div>
       <div className='mt-6 text-center'>
         <a
-          href='/'
+          href={withTorneoParam('/', selectedTorneoId)}
           className='text-green-500 hover:text-green-400 text-sm font-medium transition-colors'
         >
           ← Volver al inicio

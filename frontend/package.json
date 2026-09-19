@@ -7,7 +7,8 @@
     "build": "astro build",
     "deploy": "pnpm run build && vercel .. --prod",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "node --test src/utils/torneoSelection.test.js"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",

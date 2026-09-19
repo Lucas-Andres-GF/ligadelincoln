@@ -1,69 +1,74 @@
 ---
 import Layout from '../../layouts/Layout.astro'
 import { createClient } from '@supabase/supabase-js'
+import { slugify } from '../../utils/slugify'
 
 export async function getStaticPaths() {
   const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
   const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
   const supabase = createClient(supabaseUrl, supabaseKey)
 
-  // Get all played matches
-  const { data: partidos } = await supabase
-    .from('partidos')
-    .select('id, categoria_id, fecha_id, dia, hora, local_id, visitante_id, goles_local, goles_visitante, estado, dt_local, dt_visitante, arbitro')
-    .eq('categoria_id', 1)
-    .eq('estado', 'jugado')
+  const { data: torneos, error: torneosError } = await supabase
+    .from('torneos')
+    .select('id')
+    .order('id')
 
-  // Get clubs for names
-  const { data: clubes } = await supabase.from('clubes').select('id, nombre')
+  if (torneosError) throw torneosError
 
-  const slugToId = {
-    'argentino': 1, 'atl-pasteur': 2, 'atl-roberts': 3, 'ca-pintense': 4,
-    'caset': 5, 'dep-arenaza': 6, 'dep-gral-pinto': 7, 'el-linqueno': 8,
-    'juventud-unida': 9, 'san-martin': 10, 'villa-francia': 11,
-  }
-  
-  const idToSlug = {}
-  for (const [slug, id] of Object.entries(slugToId)) {
-    idToSlug[id] = slug
-  }
+  // Enumerate each immutable tournament scope independently. Never issue a
+  // cross-tournament partidos read while generating static detail routes.
+  const partidosPorTorneo = await Promise.all(
+    (torneos || []).map(async (torneo) => {
+      const torneoId = Number(torneo.id)
+      if (!Number.isSafeInteger(torneoId) || torneoId <= 0) {
+        throw new Error(`Invalid torneo_id while generating match paths: ${torneo.id}`)
+      }
 
-  const clubNames = {}
-  for (const c of clubes) {
-    clubNames[c.id] = c.nombre
-  }
+      const { data, error } = await supabase
+        .from('partidos')
+        .select('id, torneo_id, categoria_id, fecha_id, dia, hora, local_id, visitante_id, goles_local, goles_visitante, estado, dt_local, dt_visitante, arbitro')
+        .eq('torneo_id', torneoId)
+        .eq('categoria_id', 1)
+        .eq('estado', 'jugado')
 
-  const paths = []
-  for (const p of partidos || []) {
-    if (!p.local_id || !p.visitante_id) continue
-    
-    const localSlug = idToSlug[p.local_id]
-    const visitaSlug = idToSlug[p.visitante_id]
-    
-    if (!localSlug || !visitaSlug) continue
+      if (error) throw error
+      return data || []
+    }),
+  )
+  const partidos = partidosPorTorneo.flat()
 
-    paths.push({
-      params: { slug: `${localSlug}-vs-${visitaSlug}` },
-      props: { 
-        partido: p,
-        nombreLocal: clubNames[p.local_id],
-        nombreVisita: clubNames[p.visitante_id],
-      },
-    })
-  }
+  const { data: clubes, error: clubesError } = await supabase.from('clubes').select('id, nombre')
+  if (clubesError) throw clubesError
 
-  return paths
+  const clubNames = Object.fromEntries((clubes || []).map((club) => [club.id, club.nombre]))
+  const usedPaths = new Set()
+
+  return partidos.flatMap((partido) => {
+    const nombreLocal = clubNames[partido.local_id]
+    const nombreVisita = clubNames[partido.visitante_id]
+    if (!partido.id || !partido.torneo_id || !nombreLocal || !nombreVisita) return []
+
+    const slug = `t${partido.torneo_id}-p${partido.id}-${slugify(nombreLocal)}-vs-${slugify(nombreVisita)}`
+    if (usedPaths.has(slug)) return []
+    usedPaths.add(slug)
+
+    return [{
+      params: { slug },
+      props: { partido, nombreLocal, nombreVisita },
+    }]
+  })
 }
 
 const { slug } = Astro.params
 const { partido, nombreLocal, nombreVisita } = Astro.props
 
-// Get alineaciones
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-const { data: aliData } = await supabase
+// alineaciones has no torneo_id. partido.id is safe here because this props
+// record was generated from one exact torneo_id + partido.id route identity.
+const { data: aliData, error: alineacionesError } = await supabase
   .from('alineaciones')
   .select('partido_id, equipo_id, numero, nombre, es_titular, goleo, roja')
   .eq('partido_id', partido.id)
@@ -104,13 +109,13 @@ const estadoHorarioLabel = seJugo ? 'JUGADO' : horaPartido
 const fechaHoraLabel = [diaPartido, estadoHorarioLabel].filter(Boolean).join(' - ')
 
 const pageTitle = `${nombreLocal} ${partido.goles_local ?? 0}-${partido.goles_visitante ?? 0} ${nombreVisita} - Liga De Lincoln`
-const pageDescription = `Resultado, alineaciones, titulares, suplentes y datos del partido ${nombreLocal} vs ${nombreVisita} de la Liga Amateur de Deportes de Lincoln.`
+const pageDescription = `Resultado, alineaciones, titulares, suplentes y datos del partido ${nombreLocal} vs ${nombreVisita} del torneo ${partido.torneo_id} de la Liga Amateur de Deportes de Lincoln.`
 const matchStructuredData = {
   '@context': 'https://schema.org',
   '@type': 'SportsEvent',
   name: `${nombreLocal} vs ${nombreVisita}`,
   description: pageDescription,
-  url: new URL(`/partido/${slug}`, Astro.site || 'https://ligadelincoln.com').href,
+  url: new URL(`/partido/${slug}?torneo=${partido.torneo_id}`, Astro.site || 'https://ligadelincoln.com').href,
   sport: 'Soccer',
   competitor: [
     { '@type': 'SportsTeam', name: nombreLocal },
@@ -127,9 +132,14 @@ if (partido.dia) {
 <Layout title={pageTitle} description={pageDescription} structuredData={matchStructuredData}>
   <div class="max-w-4xl mx-auto px-4 py-6">
     <div class="text-center mb-8">
-      <p class="inline-block mt-2 px-3 py-0.5 text-[14px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
-        Fecha {partido.fecha_id}
-      </p>
+      <div class="mt-2 flex flex-wrap items-center justify-center gap-2">
+        <p class="inline-block px-3 py-0.5 text-[14px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
+          Fecha {partido.fecha_id}
+        </p>
+        <p class="inline-block px-3 py-0.5 text-[11px] font-bold uppercase tracking-widest text-yellow-200 border border-yellow-300/30 rounded-full bg-yellow-300/10">
+          Torneo {partido.torneo_id}
+        </p>
+      </div>
       {fechaHoraLabel && (
         <div class="mt-3 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest text-green-300/80">
           <span class="rounded-full border border-green-800/50 bg-green-950/30 px-3 py-1">
@@ -182,9 +192,13 @@ if (partido.dia) {
       </div>
     )}
 
-    {alineaciones.length === 0 ? (
+    {alineacionesError ? (
+      <div class="text-center py-8 text-red-300" role="alert">
+        No se pudieron cargar las alineaciones de este partido.
+      </div>
+    ) : alineaciones.length === 0 ? (
       <div class="text-center py-8 text-green-600">
-        No hay alineaciones disponibles
+        No hay alineaciones disponibles para este partido.
       </div>
     ) : (
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
