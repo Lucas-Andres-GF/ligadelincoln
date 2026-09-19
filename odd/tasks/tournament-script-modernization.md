@@ -51,6 +51,13 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - Estimated authored change: over 400 diff lines across the feature; slice by cohesive work units.
 - Native RDD: disabled for the current clone; ordinary verification applies.
 
+## Product Decisions
+
+- Current fixture imports use versioned source profiles: shared engine, explicit URLs/season/format metadata, and no hidden tournament defaults.
+- Fixture import never changes active tournament state. Activation is a separate explicit validated operation.
+- Existing tournament fixtures abort by default. An explicit replacement operation may replace only fully validated tournament/category scope; append semantics are forbidden.
+- Audit/comparison exit codes are `0` for no drift, `1` for verified differences, and `2` for operational or validation failure.
+
 ## Tasks
 
 ### OPS-001 — Establish shared operational contract and test seam
@@ -161,10 +168,11 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - OPS-002 completed in commit `8866a2a`: side-effect-free schedule parsing/planning, dry-run-first execution, deterministic tournament fixture matching, blocking safety validation, and 13 schedule-focused tests (26 total).
 - OPS-003 completed in commit `6800023`: safe result planning, fixture-derived projected standings, non-destructive scoped position synchronization, no deploy coupling, fail-closed source/inventory integrity, and 29 result-focused tests (55 total).
 - OPS-004 completed in commit `5c0716c`: Primera-only lineup replacement with side-effect-free parsing, strict score/event integrity, estado-aware complete coverage, tournament/round scoping, no result/deploy ownership, and 24 lineup-focused tests (79 total).
-- OPS-005 mapping found no fully redundant utility. Historical source parsing is duplicated between audit and comparison, while correction/import already reuse comparison. The current fixture importer remains explicitly 2026-specific and has unsafe activation/force defaults that require product decisions.
+- OPS-005 mapping found no fully redundant utility. Historical source parsing is duplicated between audit and comparison, while correction/import already reuse comparison. The current fixture importer remains explicitly 2026-specific.
+- OPS-005 product decisions: versioned source profiles; activation as a separate operation; abort-by-default with explicit scoped replacement and no append; audit/comparison codes 0=no drift, 1=drift, 2=error.
 - Mapping incident: a fallback read-only mapper initialized `.codegraph/`. User authorized deletion; exact CodeGraph server/watchdog processes were stopped, the 4.5 MB generated index was removed, and `.codegraph/` was ignored in commit `bb8a259`.
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
 
 ## Next Step
 
-Resolve the four current-import product decisions, then implement the pure shared historical-source core as the first OPS-005 work unit without production writes.
+Implement the pure shared historical-source core as the first OPS-005 work unit, preserve command responsibilities, add network-free parser tests, and adopt drift-aware exit codes without production writes.
