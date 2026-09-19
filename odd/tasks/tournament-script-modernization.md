@@ -132,14 +132,15 @@ Tournament IDs are immutable historical identities. Every database mutation must
 
 ### OPS-006 — Update operational integrations
 
-- [ ] Update the control panel to pass tournament IDs and use preview/execute actions explicitly.
-- [ ] Update shell runners to use the project environment/venv without installing dependencies on every run.
-- [ ] Remove implicit deploy assumptions and preserve clear confirmations.
-- [ ] Keep automation backwards-safe or document deliberate command changes.
+- [x] Update the control panel to pass tournament IDs and use preview/execute actions explicitly.
+- [x] Update shell runners to use the project environment/venv without installing dependencies on every run.
+- [x] Remove implicit deploy assumptions and preserve clear confirmations.
+- [x] Keep automation backwards-safe or document deliberate command changes.
 - Route: delegated writer; trigger: multi-file integration update.
 - Allowed scope: `scripts/control-panel/`, `scripts/run_scraper_horarios.sh`, `scripts/run_scraper_resultados.sh`, related narrow runner files.
 - Checks: Python compile/tests for control panel, shell syntax checks where available, command-construction tests/readback.
-- Commit: pending.
+- Evidence: 187 tests passed, including 25 focused panel/runner tests; `py_compile`, `bash -n`, `sh -n`, credential-free imports, stale-contract greps, and independent verification passed. HTTP request framing fails closed, systemd targets the project runner directly, scheduled writes pass explicit tournament/execute flags, and operator guidance separates ingestion from deployment.
+- Commit: `389b07b` (`refactor(ops): modernize scraper integrations`).
 
 ### OPS-007 — Verify and document the final operator workflow
 
@@ -179,9 +180,10 @@ Tournament IDs are immutable historical identities. Every database mutation must
 - OPS-005 historical-source work unit completed in commit `c664186`: one shared parser/catalog/integrity core, distinct audit/comparison/correction/import commands, drift-aware exits, and 22 historical-focused tests (101 total).
 - OPS-005 current-fixture work unit completed in commit `2b2b540`: versioned source profiles without DB identity, explicit profile/scope, exact-count paginated dependency inspection, fail-closed scoped replacement, inactive-only creation, active-state preservation, and 34 fixture-focused tests (135 total).
 - OPS-005 activation/setup work unit completed in commit `aa7e496`: explicit setup IDs, immutable 307-row profile completeness, stable exact pagination, fixture-derived participant membership, validated target-first activation, safe position initialization, and explicit palmares mutation. Writer and independent verification passed 162 tests; production schema assumptions were confirmed read-only through Supabase MCP.
+- OPS-006 completed in commit `389b07b`: six explicit control-panel preview/execute actions, server-side scope/confirmation validation, bounded HTTP bodies, project-venv launchers, explicit scheduled writes, direct systemd runner wiring, and corrected immediate operator guidance. Final independent verification passed 187 tests.
 - Mapping incident: a fallback read-only mapper initialized `.codegraph/`. User authorized deletion; exact CodeGraph server/watchdog processes were stopped, the 4.5 MB generated index was removed, and `.codegraph/` was ignored in commit `bb8a259`.
 - Delegated exploration was attempted twice but the configured explorer failed before returning a report; parent continued read-only mapping as the documented fallback.
 
 ## Next Step
 
-Implement OPS-006 by updating the control panel and shell runners to the explicit tournament, preview/execute, project-venv contract without production writes or implicit deployment.
+Implement OPS-007: run the complete retained-script verification matrix and write the durable backend operations guide, reconciling the remaining command documentation without production writes.
