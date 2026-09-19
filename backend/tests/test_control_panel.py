@@ -14,7 +14,11 @@ RUNNER_HORARIOS = PROJECT_DIR / "scripts" / "run_scraper_horarios.sh"
 RUNNER_RESULTADOS = PROJECT_DIR / "scripts" / "run_scraper_resultados.sh"
 RUNNER_WRAPPER = PROJECT_DIR / "scripts" / "run_scraper_wrapper.sh"
 RESULTADOS_SERVICE = PROJECT_DIR / "scripts" / "scraper-resultados.service"
+RESULTADOS_TIMER = PROJECT_DIR / "scripts" / "scraper-resultados.timer"
+SYSTEMD_INSTALLER = PROJECT_DIR / "scripts" / "install_scraper_systemd.sh"
+CRONTAB_PATH = PROJECT_DIR / "scripts" / "crontab"
 PANEL_LAUNCHER = PROJECT_DIR / "abrir-panel-liga.sh"
+WINDOWS_PANEL_LAUNCHER = PROJECT_DIR / "abrir-panel-liga.bat"
 PANEL_README = PROJECT_DIR / "scripts" / "control-panel" / "README.md"
 COMMANDS_GUIDE = PROJECT_DIR / "COMANDOS.md"
 
@@ -419,6 +423,9 @@ class SystemdContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.service = RESULTADOS_SERVICE.read_text(encoding="utf-8")
+        cls.timer = RESULTADOS_TIMER.read_text(encoding="utf-8")
+        cls.installer = SYSTEMD_INSTALLER.read_text(encoding="utf-8")
+        cls.crontab = CRONTAB_PATH.read_text(encoding="utf-8")
         cls.wrapper = RUNNER_WRAPPER.read_text(encoding="utf-8")
 
     def test_service_calls_modern_runner_directly(self):
@@ -441,6 +448,22 @@ class SystemdContractTests(unittest.TestCase):
         self.assertNotIn("/home/gallardo", self.wrapper)
         self.assertIn('exec /bin/bash "$SCRIPT_DIR/run_scraper_resultados.sh"', self.wrapper)
 
+    def test_systemd_is_the_only_results_schedule(self):
+        self.assertNotIn("run_scraper_resultados.sh", self.crontab)
+        self.assertIn("scraper-resultados.timer", self.crontab)
+        self.assertIn("generar_placas_resultados.sh", self.crontab)
+        self.assertIn("OnCalendar=", self.timer)
+        self.assertIn("WantedBy=timers.target", self.timer)
+
+    def test_installer_uses_checked_in_system_units_without_user_mode(self):
+        self.assertIn('"$SCRIPT_DIR/scraper-resultados.service"', self.installer)
+        self.assertIn('"$SCRIPT_DIR/scraper-resultados.timer"', self.installer)
+        self.assertIn("/etc/systemd/system/scraper-resultados.service", self.installer)
+        self.assertIn("/etc/systemd/system/scraper-resultados.timer", self.installer)
+        self.assertIn("systemctl daemon-reload", self.installer)
+        self.assertIn("systemctl enable --now scraper-resultados.timer", self.installer)
+        self.assertNotIn("--user", self.installer)
+
 
 class PanelLauncherContractTests(unittest.TestCase):
     @classmethod
@@ -455,6 +478,41 @@ class PanelLauncherContractTests(unittest.TestCase):
         self.assertNotIn("command -v python3", self.launcher)
         self.assertNotIn("command -v python)", self.launcher)
         self.assertNotIn('PYTHON="python', self.launcher)
+
+
+class WindowsPanelLauncherContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.launcher = WINDOWS_PANEL_LAUNCHER.read_text(encoding="utf-8")
+
+    def test_launcher_uses_existing_override_then_project_venv_candidates(self):
+        override = 'if exist "%LIGA_PYTHON%"'
+        windows_venv = "backend\\venv\\Scripts\\python.exe"
+        posix_venv = "backend\\venv\\bin\\python"
+
+        self.assertIn("LIGA_PYTHON", self.launcher)
+        self.assertIn(override, self.launcher)
+        self.assertIn(windows_venv, self.launcher)
+        self.assertIn(posix_venv, self.launcher)
+        self.assertLess(self.launcher.index(override), self.launcher.index(windows_venv))
+        self.assertLess(self.launcher.index(windows_venv), self.launcher.index(posix_venv))
+        self.assertIn(f'"%~dp0{posix_venv}" --version', self.launcher)
+
+    def test_launcher_fails_visibly_and_propagates_panel_exit_status(self):
+        self.assertIn("ERROR: no se encontro Python", self.launcher)
+        self.assertIn("exit /b 1", self.launcher)
+        self.assertIn('"%PYTHON%" "%~dp0scripts\\control-panel\\app.py"', self.launcher)
+        self.assertIn('set "EXIT_CODE=%ERRORLEVEL%"', self.launcher)
+        self.assertIn("exit /b %EXIT_CODE%", self.launcher)
+
+    def test_launcher_neither_uses_system_python_nor_kills_port_owners(self):
+        lowered = self.launcher.lower()
+        self.assertNotIn("powershell", lowered)
+        self.assertNotIn("get-nettcpconnection", lowered)
+        self.assertNotIn("stop-process", lowered)
+        self.assertNotIn("taskkill", lowered)
+        self.assertNotIn("where python", lowered)
+        self.assertNotIn("python scripts\\control-panel\\app.py", lowered)
 
 
 class OperatorGuidanceTests(unittest.TestCase):

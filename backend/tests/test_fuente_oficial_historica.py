@@ -18,7 +18,9 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 
 import auditar_torneo_oficial as standings_audit  # noqa: E402
 import comparar_partidos_oficiales as match_comparator  # noqa: E402
+import corregir_resultados_desde_oficial as result_correction  # noqa: E402
 import fuente_oficial_historica as source  # noqa: E402
+import importar_torneo_historico_oficial as historical_import  # noqa: E402
 
 
 CLUBS = {
@@ -225,6 +227,108 @@ class HistoricalSourceIntegrityTests(unittest.TestCase):
     def test_missing_fixture_section_fails_closed(self) -> None:
         with self.assertRaisesRegex(source.HistoricalSourceError, "FIXTURE COMPLETO"):
             source.parse_official_fixture([["ÚLTIMOS ENCUENTROS"]], URL, "octava", CLUBS)
+
+
+class DryRunMainContractTests(unittest.TestCase):
+    def test_result_correction_main_dry_run_never_executes_category(self) -> None:
+        category_report = {
+            "category": "octava",
+            "source_url": URL,
+            "skipped": False,
+            "skip_reasons": [],
+            "missing_in_db": [],
+            "extra_in_db": [],
+            "date_only_differences_ignored": [],
+            "extra_existing_positions": [],
+            "actions": {"partidos": [], "posiciones": []},
+        }
+        dependencies = (object(), CLUBS, {"octava": 3})
+        stdout = io.StringIO()
+
+        with mock.patch.object(
+            result_correction,
+            "load_supabase_dependencies",
+            return_value=dependencies,
+        ), mock.patch.object(
+            result_correction,
+            "analyze_category",
+            return_value=category_report,
+        ), mock.patch.object(
+            result_correction,
+            "execute_category",
+        ) as execute_category, redirect_stdout(stdout):
+            exit_code = result_correction.main(
+                [
+                    "--torneo-id",
+                    "7",
+                    "--competencia",
+                    "apertura-2026",
+                    "--categoria",
+                    "octava",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("DRY-RUN", stdout.getvalue())
+        self.assertIn("no se realizaron escrituras en Supabase", stdout.getvalue())
+        execute_category.assert_not_called()
+
+    def test_historical_import_main_dry_run_keeps_tournament_inactive_without_writes(
+        self,
+    ) -> None:
+        category_report = {
+            "category": "octava",
+            "categoria_id": 3,
+            "source_url": URL,
+            "status": "ready",
+            "official_participants_count": 2,
+            "official_match_count": 1,
+            "official_bye_count": 0,
+            "official_standings_count": 2,
+            "final_table_omissions": [],
+            "existing_rows": {"partidos": False, "posiciones": False},
+            "manual_review_required": False,
+            "skip_reasons": [],
+        }
+        ready_plan = historical_import.CategoryPlan(category_report, [], [])
+        dependencies = (object(), CLUBS, {"octava": 3})
+        stdout = io.StringIO()
+
+        with mock.patch.object(
+            historical_import,
+            "load_supabase_dependencies",
+            return_value=dependencies,
+        ), mock.patch.object(
+            historical_import,
+            "analyze_category",
+            return_value=ready_plan,
+        ), mock.patch.object(
+            historical_import,
+            "upsert_inactive_tournament",
+        ) as upsert_tournament, mock.patch.object(
+            historical_import,
+            "execute_category",
+        ) as execute_category, redirect_stdout(stdout):
+            exit_code = historical_import.main(
+                [
+                    "--torneo-id",
+                    "7",
+                    "--nombre",
+                    "Apertura 2026",
+                    "--competencia",
+                    "apertura-2026",
+                    "--categoria",
+                    "octava",
+                ]
+            )
+
+        output = stdout.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("DRY-RUN", output)
+        self.assertIn("permanecerá inactivo", output)
+        self.assertIn("no se realizaron escrituras en Supabase", output)
+        upsert_tournament.assert_not_called()
+        execute_category.assert_not_called()
 
 
 class DriftExitContractTests(unittest.TestCase):
