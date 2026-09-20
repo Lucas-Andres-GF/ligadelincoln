@@ -134,7 +134,7 @@ export default function MobileMenu({ currentPath = '/' }) {
           {categorias.map((cat) => (
             <a
               key={cat.href}
-              href={scopedHref(cat.href)}
+              href={cat.href}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
                 isActive(cat.href)
                   ? 'bg-green-500/20 text-green-400'

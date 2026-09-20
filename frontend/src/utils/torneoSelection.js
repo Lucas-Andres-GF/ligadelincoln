@@ -35,12 +35,30 @@ export function listenToTorneoChange(callback) {
   return () => window.removeEventListener('torneo:change', handleTorneoChange)
 }
 
+const CATEGORY_PATHS = new Set([
+  '/primera',
+  '/septima',
+  '/octava',
+  '/novena',
+  '/decima',
+])
+
+export function isCategoryPath(pathname) {
+  if (!pathname) return false
+  const normalized =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname
+  return CATEGORY_PATHS.has(normalized)
+}
+
 function isExcludedPath(pathname) {
   return (
     pathname === '/admin' ||
     pathname.startsWith('/admin/') ||
     pathname === '/login' ||
-    pathname.startsWith('/login/')
+    pathname.startsWith('/login/') ||
+    isCategoryPath(pathname)
   )
 }
 

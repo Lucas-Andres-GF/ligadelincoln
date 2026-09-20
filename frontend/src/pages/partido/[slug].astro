@@ -1,73 +1,61 @@
 ---
+export const prerender = false
+
 import Layout from '../../layouts/Layout.astro'
 import { createClient } from '@supabase/supabase-js'
-import { slugify } from '../../utils/slugify'
-
-export async function getStaticPaths() {
-  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
-  const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
-  const supabase = createClient(supabaseUrl, supabaseKey)
-
-  const { data: torneos, error: torneosError } = await supabase
-    .from('torneos')
-    .select('id')
-    .order('id')
-
-  if (torneosError) throw torneosError
-
-  // Enumerate each immutable tournament scope independently. Never issue a
-  // cross-tournament partidos read while generating static detail routes.
-  const partidosPorTorneo = await Promise.all(
-    (torneos || []).map(async (torneo) => {
-      const torneoId = Number(torneo.id)
-      if (!Number.isSafeInteger(torneoId) || torneoId <= 0) {
-        throw new Error(`Invalid torneo_id while generating match paths: ${torneo.id}`)
-      }
-
-      const { data, error } = await supabase
-        .from('partidos')
-        .select('id, torneo_id, categoria_id, fecha_id, dia, hora, local_id, visitante_id, goles_local, goles_visitante, estado, dt_local, dt_visitante, arbitro')
-        .eq('torneo_id', torneoId)
-        .eq('categoria_id', 1)
-        .eq('estado', 'jugado')
-
-      if (error) throw error
-      return data || []
-    }),
-  )
-  const partidos = partidosPorTorneo.flat()
-
-  const { data: clubes, error: clubesError } = await supabase.from('clubes').select('id, nombre')
-  if (clubesError) throw clubesError
-
-  const clubNames = Object.fromEntries((clubes || []).map((club) => [club.id, club.nombre]))
-  const usedPaths = new Set()
-
-  return partidos.flatMap((partido) => {
-    const nombreLocal = clubNames[partido.local_id]
-    const nombreVisita = clubNames[partido.visitante_id]
-    if (!partido.id || !partido.torneo_id || !nombreLocal || !nombreVisita) return []
-
-    const slug = `t${partido.torneo_id}-p${partido.id}-${slugify(nombreLocal)}-vs-${slugify(nombreVisita)}`
-    if (usedPaths.has(slug)) return []
-    usedPaths.add(slug)
-
-    return [{
-      params: { slug },
-      props: { partido, nombreLocal, nombreVisita },
-    }]
-  })
-}
 
 const { slug } = Astro.params
-const { partido, nombreLocal, nombreVisita } = Astro.props
+if (!slug) {
+  return new Response(null, { status: 404, statusText: 'Not Found' })
+}
+
+// Slug pattern: t{torneo_id}-p{partido_id}-{local}-vs-{visita}
+const match = slug.match(/^t(\d+)-p(\d+)/)
+if (!match) {
+  return new Response(null, { status: 404, statusText: 'Not Found' })
+}
+
+const torneoId = parseInt(match[1], 10)
+const partidoId = parseInt(match[2], 10)
+
+if (!Number.isSafeInteger(torneoId) || !Number.isSafeInteger(partidoId)) {
+  return new Response(null, { status: 404, statusText: 'Not Found' })
+}
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-// alineaciones has no torneo_id. partido.id is safe here because this props
-// record was generated from one exact torneo_id + partido.id route identity.
+const { data: partido, error: partidoError } = await supabase
+  .from('partidos')
+  .select('id, torneo_id, categoria_id, fecha_id, dia, hora, local_id, visitante_id, goles_local, goles_visitante, estado, dt_local, dt_visitante, arbitro')
+  .eq('id', partidoId)
+  .eq('torneo_id', torneoId)
+  .maybeSingle()
+
+if (partidoError || !partido || partido.estado !== 'jugado') {
+  return new Response(null, { status: 404, statusText: 'Not Found' })
+}
+
+const { data: clubes, error: clubesError } = await supabase
+  .from('clubes')
+  .select('id, nombre')
+  .in('id', [partido.local_id, partido.visitante_id])
+
+if (clubesError || !clubes) {
+  return new Response(null, { status: 500, statusText: 'Server Error' })
+}
+
+const clubMap = Object.fromEntries(clubes.map((c) => [c.id, c.nombre]))
+const nombreLocal = clubMap[partido.local_id]
+const nombreVisita = clubMap[partido.visitante_id]
+
+if (!nombreLocal || !nombreVisita) {
+  return new Response(null, { status: 404, statusText: 'Not Found' })
+}
+
+// alineaciones has no torneo_id. partido.id is safe here because this
+// record was resolved from exact torneo_id + partido.id.
 const { data: aliData, error: alineacionesError } = await supabase
   .from('alineaciones')
   .select('partido_id, equipo_id, numero, nombre, es_titular, goleo, roja')
@@ -76,6 +64,9 @@ const { data: aliData, error: alineacionesError } = await supabase
   .order('numero')
 
 const alineaciones = aliData || []
+
+// Configure Edge cache: 60s max-age, 300s stale-while-revalidate for fast response
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
 
 const aliLocal = alineaciones.filter(a => a.equipo_id === partido.local_id)
 const aliVisita = alineaciones.filter(a => a.equipo_id === partido.visitante_id)

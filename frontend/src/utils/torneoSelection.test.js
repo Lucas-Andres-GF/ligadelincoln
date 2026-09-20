@@ -72,8 +72,8 @@ test('withTorneoParam adds or replaces one tournament query while preserving oth
     '/club/argentino?categoria=1&torneo=9#fixture',
   )
   assert.equal(
-    withTorneoParam('/primera?torneo=2&categoria=1#tabla', '9', base),
-    '/primera?torneo=9&categoria=1#tabla',
+    withTorneoParam('/clubes?torneo=2&vista=tabla', '9', base),
+    '/clubes?torneo=9&vista=tabla',
   )
 })
 
@@ -87,19 +87,34 @@ test('withTorneoParam leaves external, hash-only, protocol, and excluded links u
     '/admin',
     '/admin/partidos?categoria=1',
     '/login',
+    '/primera',
+    '/septima',
+    '/octava',
+    '/novena',
+    '/decima',
   ]
 
   for (const href of excluded) {
     assert.equal(withTorneoParam(href, 3, base), href)
   }
-  assert.equal(withTorneoParam('/primera', ' 3', base), '/primera')
+  assert.equal(withTorneoParam('/club/argentino', ' 3', base), '/club/argentino')
 })
 
 test('canScopeTorneoHref excludes download and non-self target navigation', () => {
   const baseHref = 'https://ligadelincoln.com/primera'
 
-  assert.equal(canScopeTorneoHref('/septima', { baseHref }), true)
-  assert.equal(canScopeTorneoHref('/septima', { baseHref, download: true }), false)
-  assert.equal(canScopeTorneoHref('/septima', { baseHref, target: '_blank' }), false)
-  assert.equal(canScopeTorneoHref('/septima', { baseHref, target: '_self' }), true)
+  assert.equal(canScopeTorneoHref('/club/argentino', { baseHref }), true)
+  assert.equal(canScopeTorneoHref('/club/argentino', { baseHref, download: true }), false)
+  assert.equal(canScopeTorneoHref('/club/argentino', { baseHref, target: '_blank' }), false)
+  assert.equal(canScopeTorneoHref('/club/argentino', { baseHref, target: '_self' }), true)
+})
+
+test('canScopeTorneoHref excludes category navigation paths so they always load active tournament', () => {
+  const baseHref = 'https://ligadelincoln.com/septima?torneo=2'
+
+  assert.equal(canScopeTorneoHref('/primera', { baseHref }), false)
+  assert.equal(canScopeTorneoHref('/septima', { baseHref }), false)
+  assert.equal(canScopeTorneoHref('/octava', { baseHref }), false)
+  assert.equal(canScopeTorneoHref('/novena', { baseHref }), false)
+  assert.equal(canScopeTorneoHref('/decima', { baseHref }), false)
 })
