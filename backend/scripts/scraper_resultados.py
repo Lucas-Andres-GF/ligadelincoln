@@ -35,7 +35,7 @@ FIXTURE_INVENTORY_LIMIT = 2000
 POSITION_INVENTORY_LIMIT = 1000
 SCORE_PATTERN = re.compile(r"\d+")
 ROUND_PATTERN = re.compile(r"\bFECHA\s*:?\s*(\d+)\b", re.IGNORECASE)
-DATE_PATTERN = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{2}|\d{4})\b")
+DATE_PATTERN = re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b")
 POSITION_FIELDS = ("pts", "pj", "pg", "pe", "pp", "gf", "gc", "dif", "ultimos_5")
 
 
@@ -59,6 +59,7 @@ class OfficialResult:
     visitor_goals: Optional[int]
     score_raw: str
     pending: bool = False
+    observation: str = ""
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,7 @@ class FixtureRecord:
     state: str
     local_goals: Optional[int]
     visitor_goals: Optional[int]
+    hora: Optional[str] = None
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "FixtureRecord":
@@ -87,6 +89,7 @@ class FixtureRecord:
             state=str(value.get("estado") or ""),
             local_goals=_optional_int(value.get("goles_local"), "fixture goles_local"),
             visitor_goals=_optional_int(value.get("goles_visitante"), "fixture goles_visitante"),
+            hora=_optional_text(value.get("hora")),
         )
 
 
@@ -438,6 +441,7 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
                 visitor_goals=parse_score(cells[2]),
                 score_raw=f"{cells[1]}-{cells[2]}",
                 pending=pending,
+                observation=observation,
             )
         )
 
@@ -476,7 +480,7 @@ def read_fixture_inventory(
     response = (
         client.table("partidos")
         .select(
-            "id,torneo_id,categoria_id,local_id,visitante_id,fecha_id,dia,estado,"
+            "id,torneo_id,categoria_id,local_id,visitante_id,fecha_id,dia,hora,estado,"
             "goles_local,goles_visitante"
         )
         .eq("torneo_id", tournament_id)
@@ -537,9 +541,10 @@ def read_position_inventory(
 
 
 def _result_label(row: OfficialResult) -> str:
+    obs = f" [{row.observation}]" if row.observation else ""
     return (
         f"row {row.source_row}: {row.category_raw} round={row.round_id or '-'} "
-        f"date={row.date or '-'} | {row.local} {row.score_raw} {row.visitor}"
+        f"date={row.date or '-'} | {row.local} {row.score_raw}{obs} {row.visitor}"
     )
 
 
@@ -568,14 +573,17 @@ def build_result_plan(
     conflicting_rows: set[int] = set()
     for grouped in source_groups.values():
         scores = {(item.local_goals, item.visitor_goals) for item in grouped}
-        if len(grouped) > 1 and len(scores) > 1:
+        observations = {item.observation.strip().lower() for item in grouped}
+        if len(grouped) > 1 and (len(scores) > 1 or len(observations) > 1):
             labels = "; ".join(_result_label(item) for item in grouped)
             issues.append(f"Conflicting official rows: {labels}")
             conflicting_rows.update(id(item) for item in grouped)
 
     for row in official_rows:
-        if row.pending and (row.local_goals is None or row.visitor_goals is None):
+        is_observation_row = row.pending and (row.local_goals is None or row.visitor_goals is None)
+        if is_observation_row and not row.observation.strip():
             continue
+
         label = _result_label(row)
         row_issues: list[str] = []
         if row.category_id is None:
@@ -584,12 +592,13 @@ def build_result_plan(
             row_issues.append(f"Unknown local club at {label}")
         if row.visitor_id is None:
             row_issues.append(f"Unknown visiting club at {label}")
-        if row.local_goals is None or row.visitor_goals is None:
-            row_issues.append(f"Malformed score at {label}")
-        if row.local_goals is not None and row.local_goals < 0:
-            row_issues.append(f"Malformed score at {label}")
-        if row.visitor_goals is not None and row.visitor_goals < 0:
-            row_issues.append(f"Malformed score at {label}")
+        if not is_observation_row:
+            if row.local_goals is None or row.visitor_goals is None:
+                row_issues.append(f"Malformed score at {label}")
+            if row.local_goals is not None and row.local_goals < 0:
+                row_issues.append(f"Malformed score at {label}")
+            if row.visitor_goals is not None and row.visitor_goals < 0:
+                row_issues.append(f"Malformed score at {label}")
         if row_issues:
             issues.extend(row_issues)
             continue
@@ -613,6 +622,8 @@ def build_result_plan(
                 if row.date is None or fixture.date == row.date
             ]
         if not matches:
+            if is_observation_row:
+                continue
             issues.append(f"Missing fixture target for {label}")
             continue
         if len(matches) > 1:
@@ -620,11 +631,15 @@ def build_result_plan(
             continue
 
         target = matches[0]
+        if is_observation_row and target.state.strip().lower() == "jugado":
+            continue
         previous = claimed.get(target.id)
         if previous is not None:
             previous_score = (previous.local_goals, previous.visitor_goals)
             current_score = (row.local_goals, row.visitor_goals)
-            if previous_score != current_score:
+            previous_obs = previous.observation.strip().lower()
+            current_obs = row.observation.strip().lower()
+            if previous_score != current_score or previous_obs != current_obs:
                 issues.append(
                     f"Conflicting official rows for fixture target {target.id}: "
                     f"{_result_label(previous)}; {label}"
@@ -635,17 +650,43 @@ def build_result_plan(
 
         claimed[target.id] = row
         matched_targets.append(target.id)
-        desired = {
-            "goles_local": row.local_goals,
-            "goles_visitante": row.visitor_goals,
-            "estado": "jugado",
-        }
-        if (
-            target.state.strip().lower() != "jugado"
-            or target.local_goals != row.local_goals
-            or target.visitor_goals != row.visitor_goals
-        ):
-            entries.append(ResultUpdate(target_id=target.id, row=row, values=desired))
+
+        if is_observation_row:
+            norm_obs = _identity_text(row.observation)
+            parsed_obs_date = _parse_date(row.observation)
+            if "SUSPEND" in norm_obs:
+                target_state = "suspendido"
+            elif "JUEGA" in norm_obs:
+                target_state = row.observation.strip()
+            else:
+                target_state = row.observation.strip()
+
+            desired = {
+                "estado": target_state,
+                "hora": None,
+            }
+            if parsed_obs_date is not None:
+                desired["dia"] = parsed_obs_date
+
+            needs_update = (
+                target.state.strip().lower() != target_state.lower()
+                or target.hora is not None
+                or (parsed_obs_date is not None and target.date != parsed_obs_date)
+            )
+            if needs_update:
+                entries.append(ResultUpdate(target_id=target.id, row=row, values=desired))
+        else:
+            desired = {
+                "goles_local": row.local_goals,
+                "goles_visitante": row.visitor_goals,
+                "estado": "jugado",
+            }
+            if (
+                target.state.strip().lower() != "jugado"
+                or target.local_goals != row.local_goals
+                or target.visitor_goals != row.visitor_goals
+            ):
+                entries.append(ResultUpdate(target_id=target.id, row=row, values=desired))
 
     return ResultPlan(
         tournament_id=tournament_id,
@@ -668,14 +709,24 @@ def overlay_planned_results(
         if entry is None:
             projected.append(fixture)
             continue
-        projected.append(
-            replace(
-                fixture,
-                state="jugado",
-                local_goals=int(entry.values["goles_local"]),
-                visitor_goals=int(entry.values["goles_visitante"]),
+        if entry.values.get("estado") == "jugado":
+            projected.append(
+                replace(
+                    fixture,
+                    state="jugado",
+                    local_goals=int(entry.values["goles_local"]),
+                    visitor_goals=int(entry.values["goles_visitante"]),
+                )
             )
-        )
+        else:
+            projected.append(
+                replace(
+                    fixture,
+                    state=str(entry.values.get("estado") or fixture.state),
+                    date=str(entry.values["dia"]) if "dia" in entry.values else fixture.date,
+                    hora=entry.values.get("hora"),
+                )
+            )
     return projected
 
 
@@ -965,11 +1016,17 @@ def render_report(context: OperationContext, plan: OperationPlan) -> str:
         f"Planned result updates: {len(plan.result_plan.entries)}",
     ]
     for entry in plan.result_plan.entries:
-        lines.append(
-            f"  RESULT target={entry.target_id}: {entry.row.local} "
-            f"{entry.values['goles_local']}-{entry.values['goles_visitante']} "
-            f"{entry.row.visitor}"
-        )
+        if entry.values.get("estado") == "jugado":
+            lines.append(
+                f"  RESULT target={entry.target_id}: {entry.row.local} "
+                f"{entry.values['goles_local']}-{entry.values['goles_visitante']} "
+                f"{entry.row.visitor}"
+            )
+        else:
+            lines.append(
+                f"  OBSERVATION target={entry.target_id}: {entry.row.local} vs "
+                f"{entry.row.visitor} -> {entry.values.get('estado')}"
+            )
     lines.append(f"Projected standings rows: {len(plan.standings)}")
     lines.append(f"Planned position actions: {len(plan.position_actions)}")
     for action in plan.position_actions:

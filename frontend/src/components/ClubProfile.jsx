@@ -250,6 +250,14 @@ export default function ClubProfile({ club }) {
                       <span className='font-black text-sm text-green-400'>
                         {match.goles_local} - {match.goles_visitante}
                       </span>
+                    ) : match.estado?.toLowerCase() === 'suspendido' ? (
+                      <span className='text-red-400 text-xs font-bold uppercase'>
+                        SUSP
+                      </span>
+                    ) : match.estado && !['programado', 'libre'].includes(match.estado.toLowerCase()) ? (
+                      <span className='text-yellow-400 text-[11px] font-bold uppercase'>
+                        {match.estado}
+                      </span>
                     ) : (
                       <span className='text-green-700 text-xs font-medium'>
                         Próximo

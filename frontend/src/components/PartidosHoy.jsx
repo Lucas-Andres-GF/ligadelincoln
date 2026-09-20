@@ -429,8 +429,11 @@ export default function PartidosHoy() {
                   {groupedByCategory[categoriaId].map((match, i) => {
                     const isLibre = match.visitante_id === null
                     const seJugo = match.estado === 'jugado' || (match.goles_local !== null && match.goles_visitante !== null)
+                    const estadoNormalizado = String(match.estado || '').trim().toLowerCase()
+                    const esSuspendido = estadoNormalizado === 'suspendido'
+                    const tieneObservacion = Boolean(match.estado && !['programado', 'jugado', 'libre'].includes(estadoNormalizado))
                     const mostrarCancha = debeMostrarCancha(match.cancha, match.local?.nombre)
-                    const linkPartido = seJugo && Number(categoriaId) === 1
+                    const linkPartido = seJugo && Number(categoriaId) === 1 && !isLibre
                     const matchUrl = linkPartido
                       ? withTorneoParam(
                           `/partido/t${selectedTorneoId}-p${match.id}-${slugify(match.local?.nombre || '')}-vs-${slugify(match.visitante?.nombre || '')}`,
@@ -459,7 +462,17 @@ export default function PartidosHoy() {
                         className={`flex flex-col gap-0 py-1 px-2 rounded-lg bg-green-900/30 hover:bg-green-900/50 transition-colors text-xs border border-green-800/50 ${linkPartido ? 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300' : ''}`}
                       >
                         <div className='text-[10px] text-green-600 font-medium mb-1'>
-                          {seJugo ? 'JUGADO' : (match.hora ? match.hora.slice(0, 5) + 'hs' : '')}
+                          {seJugo ? (
+                            'JUGADO'
+                          ) : esSuspendido ? (
+                            <span className='text-red-400 font-bold uppercase tracking-wide'>SUSPENDIDO</span>
+                          ) : tieneObservacion ? (
+                            <span className='text-yellow-400 font-bold uppercase tracking-wide'>{match.estado}</span>
+                          ) : match.hora ? (
+                            match.hora.slice(0, 5) + 'hs'
+                          ) : (
+                            ''
+                          )}
                         </div>
                         <div className='flex items-center gap-1'>
                           <div className='flex-1 flex items-center gap-1 justify-end min-w-0'>

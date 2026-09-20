@@ -336,6 +336,9 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
           {matches.map((match) => {
             const isLibre = match.visitante_id === null
             const seJugo = match.estado === 'jugado' || (match.goles_local !== null && match.goles_visitante !== null)
+            const estadoNormalizado = String(match.estado || '').trim().toLowerCase()
+            const esSuspendido = estadoNormalizado === 'suspendido'
+            const tieneObservacion = Boolean(match.estado && !['programado', 'jugado', 'libre'].includes(estadoNormalizado))
             const mostrarCancha = debeMostrarCancha(match.cancha, match.local?.nombre)
             const linkPartido = seJugo && Number(categoria) === 1 && !isLibre
             const matchUrl = linkPartido
@@ -360,7 +363,17 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
                 className={`flex flex-col gap-0 py-1 px-2 rounded-lg bg-green-900/30 hover:bg-green-900/50 transition-colors text-xs border border-green-800/50 ${linkPartido ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300' : ''}`}
               >
                 <div className='text-[10px] sm:text-xs text-green-600 font-medium mb-1'>
-                  {seJugo ? (formatearFechaMostrar(match.dia) ? <span>{formatearFechaMostrar(match.dia)} <span className='text-green-400 font-semibold'>JUGADO</span></span> : <span className='text-green-400 font-semibold'>JUGADO</span>) : match.hora ? <span>{formatearFechaMostrar(match.dia) || 'A DEFINIR'} - {match.hora.slice(0, 5)}hs</span> : formatearFechaMostrar(match.dia) || <span className='font-semibold'>A DEFINIR</span>}
+                  {seJugo ? (
+                    formatearFechaMostrar(match.dia) ? <span>{formatearFechaMostrar(match.dia)} <span className='text-green-400 font-semibold'>JUGADO</span></span> : <span className='text-green-400 font-semibold'>JUGADO</span>
+                  ) : esSuspendido ? (
+                    <span className='text-red-400 font-bold uppercase tracking-wide'>SUSPENDIDO</span>
+                  ) : tieneObservacion ? (
+                    <span className='text-yellow-400 font-bold uppercase tracking-wide'>{match.estado}</span>
+                  ) : match.hora ? (
+                    <span>{formatearFechaMostrar(match.dia) || 'A DEFINIR'} - {match.hora.slice(0, 5)}hs</span>
+                  ) : (
+                    formatearFechaMostrar(match.dia) || <span className='font-semibold'>A DEFINIR</span>
+                  )}
                 </div>
                 <div className='flex items-center gap-1'>
                   <div className='flex-1 flex items-center gap-1 justify-end min-w-0'>

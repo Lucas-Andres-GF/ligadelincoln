@@ -811,5 +811,180 @@ class ResultCliSafetyTests(unittest.TestCase):
         self.assertIn("--source", helped.stdout)
 
 
+class ObservationResultPlanTests(unittest.TestCase):
+    def test_parses_observation_text_from_html(self) -> None:
+        html = """
+        <table>
+          <tr><td colspan="5">ÚLTIMOS ENCUENTROS</td></tr>
+          <tr><td colspan="5">FECHA 1 - 20/09/2026</td></tr>
+          <tr><th>LOCAL</th><th>L</th><th>V</th><th>VISITANTE</th><th>OBSERVACIONES</th></tr>
+          <tr><td>Argentino</td><td></td><td></td><td>CA. Pintense</td><td>Suspendido</td></tr>
+          <tr><td>Dep Arenaza</td><td>4</td><td>1</td><td>Caset</td><td></td></tr>
+          <tr><td>El Linqueño</td><td></td><td></td><td>Atl. Pasteur</td><td>Juegan 22-9-26</td></tr>
+        </table>
+        """
+        rows = results.parse_results_html(html, "primera")
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(rows[0].observation, "Suspendido")
+        self.assertTrue(rows[0].pending)
+        self.assertEqual(rows[1].observation, "")
+        self.assertFalse(rows[1].pending)
+        self.assertEqual(rows[2].observation, "Juegan 22-9-26")
+        self.assertTrue(rows[2].pending)
+
+    def test_plans_suspension_for_scheduled_fixture(self) -> None:
+        fixture = results.FixtureRecord(
+            id=501,
+            tournament_id=3,
+            category_id=1,
+            local_id=1,
+            visitor_id=4,
+            round_id=1,
+            date="2026-09-20",
+            state="programado",
+            local_goals=None,
+            visitor_goals=None,
+            hora="14:25:00",
+        )
+        row = results.OfficialResult(
+            source_row=1,
+            category_raw="primera",
+            category_key="primera",
+            category_id=1,
+            round_id=1,
+            date="2026-09-20",
+            local="ARGENTINO",
+            local_id=1,
+            visitor="CA. PINTENSE",
+            visitor_id=4,
+            local_goals=None,
+            visitor_goals=None,
+            score_raw="-",
+            pending=True,
+            observation="Suspendido",
+        )
+        plan = results.build_result_plan([row], [fixture], 3)
+        self.assertTrue(plan.valid)
+        self.assertEqual(len(plan.entries), 1)
+        entry = plan.entries[0]
+        self.assertEqual(entry.target_id, 501)
+        self.assertEqual(entry.values["estado"], "suspendido")
+        self.assertIsNone(entry.values["hora"])
+
+    def test_plans_rescheduled_date_for_juegan_note(self) -> None:
+        fixture = results.FixtureRecord(
+            id=502,
+            tournament_id=3,
+            category_id=1,
+            local_id=8,
+            visitor_id=2,
+            round_id=1,
+            date="2026-09-20",
+            state="programado",
+            local_goals=None,
+            visitor_goals=None,
+            hora="14:35:00",
+        )
+        row = results.OfficialResult(
+            source_row=2,
+            category_raw="primera",
+            category_key="primera",
+            category_id=1,
+            round_id=1,
+            date="2026-09-20",
+            local="EL LINQUEÑO",
+            local_id=8,
+            visitor="ATL. PASTEUR",
+            visitor_id=2,
+            local_goals=None,
+            visitor_goals=None,
+            score_raw="-",
+            pending=True,
+            observation="Juegan 22-9-26",
+        )
+        plan = results.build_result_plan([row], [fixture], 3)
+        self.assertTrue(plan.valid)
+        self.assertEqual(len(plan.entries), 1)
+        entry = plan.entries[0]
+        self.assertEqual(entry.target_id, 502)
+        self.assertEqual(entry.values["estado"], "Juegan 22-9-26")
+        self.assertEqual(entry.values["dia"], "2026-09-22")
+        self.assertIsNone(entry.values["hora"])
+
+    def test_already_suspended_fixture_is_idempotent_no_op(self) -> None:
+        fixture = results.FixtureRecord(
+            id=501,
+            tournament_id=3,
+            category_id=1,
+            local_id=1,
+            visitor_id=4,
+            round_id=1,
+            date="2026-09-20",
+            state="suspendido",
+            local_goals=None,
+            visitor_goals=None,
+            hora=None,
+        )
+        row = results.OfficialResult(
+            source_row=1,
+            category_raw="primera",
+            category_key="primera",
+            category_id=1,
+            round_id=1,
+            date="2026-09-20",
+            local="ARGENTINO",
+            local_id=1,
+            visitor="CA. PINTENSE",
+            visitor_id=4,
+            local_goals=None,
+            visitor_goals=None,
+            score_raw="-",
+            pending=True,
+            observation="Suspendido",
+        )
+        plan = results.build_result_plan([row], [fixture], 3)
+        self.assertTrue(plan.valid)
+        self.assertEqual(len(plan.entries), 0)
+
+    def test_overlay_planned_results_preserves_non_played_for_standings(self) -> None:
+        fixture = results.FixtureRecord(
+            id=501,
+            tournament_id=3,
+            category_id=1,
+            local_id=1,
+            visitor_id=4,
+            round_id=1,
+            date="2026-09-20",
+            state="programado",
+            local_goals=None,
+            visitor_goals=None,
+            hora="14:25:00",
+        )
+        row = results.OfficialResult(
+            source_row=1,
+            category_raw="primera",
+            category_key="primera",
+            category_id=1,
+            round_id=1,
+            date="2026-09-20",
+            local="ARGENTINO",
+            local_id=1,
+            visitor="CA. PINTENSE",
+            visitor_id=4,
+            local_goals=None,
+            visitor_goals=None,
+            score_raw="-",
+            pending=True,
+            observation="Suspendido",
+        )
+        plan = results.build_result_plan([row], [fixture], 3)
+        projected = results.overlay_planned_results([fixture], plan)
+        self.assertEqual(len(projected), 1)
+        self.assertEqual(projected[0].state, "suspendido")
+        self.assertIsNone(projected[0].local_goals)
+        self.assertIsNone(projected[0].visitor_goals)
+
+
 if __name__ == "__main__":
     unittest.main()
+

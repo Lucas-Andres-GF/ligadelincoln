@@ -95,9 +95,23 @@ function formatearHora(hora) {
 
 const diaPartido = formatearDia(partido.dia)
 const horaPartido = formatearHora(partido.hora)
-const seJugo = partido.estado === 'jugado' || (partido.goles_local !== null && partido.goles_visitante !== null)
-const estadoHorarioLabel = seJugo ? 'JUGADO' : horaPartido
-const fechaHoraLabel = [diaPartido, estadoHorarioLabel].filter(Boolean).join(' - ')
+const estadoNormalizado = String(partido.estado || '').trim().toLowerCase()
+const seJugo = estadoNormalizado === 'jugado' || (partido.goles_local !== null && partido.goles_visitante !== null)
+const esSuspendido = estadoNormalizado === 'suspendido'
+const tieneObservacion = Boolean(partido.estado && !['programado', 'jugado', 'libre'].includes(estadoNormalizado))
+
+let estadoHorarioLabel = horaPartido
+if (seJugo) {
+  estadoHorarioLabel = 'JUGADO'
+} else if (esSuspendido) {
+  estadoHorarioLabel = 'SUSPENDIDO'
+} else if (tieneObservacion) {
+  estadoHorarioLabel = partido.estado
+}
+
+const fechaHoraLabel = (esSuspendido || tieneObservacion)
+  ? estadoHorarioLabel
+  : [diaPartido, estadoHorarioLabel].filter(Boolean).join(' - ')
 
 const pageTitle = `${nombreLocal} ${partido.goles_local ?? 0}-${partido.goles_visitante ?? 0} ${nombreVisita} - Liga De Lincoln`
 const pageDescription = `Resultado, alineaciones, titulares, suplentes y datos del partido ${nombreLocal} vs ${nombreVisita} del torneo ${partido.torneo_id} de la Liga Amateur de Deportes de Lincoln.`
