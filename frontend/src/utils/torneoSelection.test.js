@@ -84,6 +84,7 @@ test('withTorneoParam leaves external, hash-only, protocol, and excluded links u
     '#tabla',
     'mailto:club@example.com',
     'tel:+541234',
+    '/',
     '/admin',
     '/admin/partidos?categoria=1',
     '/login',
@@ -117,4 +118,11 @@ test('canScopeTorneoHref excludes category navigation paths so they always load 
   assert.equal(canScopeTorneoHref('/octava', { baseHref }), false)
   assert.equal(canScopeTorneoHref('/novena', { baseHref }), false)
   assert.equal(canScopeTorneoHref('/decima', { baseHref }), false)
+})
+
+test('canScopeTorneoHref excludes home/logo path so it returns to the active tournament', () => {
+  const baseHref = 'https://ligadelincoln.com/octava?torneo=2#fixture'
+
+  assert.equal(canScopeTorneoHref('/', { baseHref }), false)
+  assert.equal(withTorneoParam('/', 2, baseHref), '/')
 })

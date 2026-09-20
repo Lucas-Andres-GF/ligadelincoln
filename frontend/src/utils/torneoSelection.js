@@ -54,6 +54,7 @@ export function isCategoryPath(pathname) {
 
 function isExcludedPath(pathname) {
   return (
+    pathname === '/' ||
     pathname === '/admin' ||
     pathname.startsWith('/admin/') ||
     pathname === '/login' ||
