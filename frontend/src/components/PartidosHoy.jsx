@@ -249,7 +249,43 @@ export default function PartidosHoy() {
         setMatches([])
         setError('No se pudieron cargar los partidos de esta fecha.')
       } else {
-        setMatches(data || [])
+        let goleadoresMap = {}
+        if (data?.length) {
+          const partidoIds = data.map((partido) => partido.id)
+          const { data: aliData, error: alineacionesError } = await supabase
+            .from('alineaciones')
+            .select('partido_id, equipo_id, nombre, goleo')
+            .in('partido_id', partidoIds)
+            .gt('goleo', 0)
+
+          if (cancelled) return
+          if (alineacionesError) {
+            console.error('Error fetching alineaciones:', alineacionesError)
+          } else {
+            for (const alineacion of aliData || []) {
+              if (!goleadoresMap[alineacion.partido_id]) goleadoresMap[alineacion.partido_id] = {}
+              const equipoId = String(alineacion.equipo_id)
+              if (!goleadoresMap[alineacion.partido_id][equipoId]) {
+                goleadoresMap[alineacion.partido_id][equipoId] = []
+              }
+              const abbreviated = alineacion.nombre
+                .split(' ')
+                .map((part, index) => (index === 0 ? part : `${part.charAt(0)}.`))
+                .join(' ')
+              for (let goal = 0; goal < alineacion.goleo; goal += 1) {
+                goleadoresMap[alineacion.partido_id][equipoId].push(`${abbreviated} ⚽`)
+              }
+            }
+          }
+        }
+
+        const matchesWithScorers = (data || []).map((match) => ({
+          ...match,
+          goleadoresLocal: goleadoresMap[match.id]?.[String(match.local_id)] || [],
+          goleadoresVisita: goleadoresMap[match.id]?.[String(match.visitante_id)] || [],
+        }))
+
+        setMatches(matchesWithScorers)
       }
       setIsLoading(false)
     }
@@ -495,6 +531,20 @@ export default function PartidosHoy() {
                           <div className='mt-1 inline-flex w-fit max-w-full items-center gap-1 rounded-full border border-yellow-300/30 bg-yellow-300/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-yellow-200'>
                             <span className='text-yellow-400'>Cancha</span>
                             <span className='truncate'>{match.cancha}</span>
+                          </div>
+                        )}
+                        {seJugo && ((match.goleadoresLocal?.length || 0) > 0 || (match.goleadoresVisita?.length || 0) > 0) && (
+                          <div className='flex mt-1 gap-2'>
+                            <div className='flex-1 text-right text-[9px] sm:text-[10px] text-green-500/80 space-y-0.5 pr-3'>
+                              {match.goleadoresLocal.map((goleador, index) => (
+                                <div key={`l${index}`} className='truncate'>{goleador}</div>
+                              ))}
+                            </div>
+                            <div className='flex-1 text-left text-[9px] sm:text-[10px] text-green-500/80 space-y-0.5 pl-3'>
+                              {match.goleadoresVisita.map((goleador, index) => (
+                                <div key={`v${index}`} className='truncate'>{goleador}</div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </Row>
