@@ -101,7 +101,7 @@ class FixtureRecord:
     tournament_id: int
     category_id: int
     local_id: int
-    visitor_id: int
+    visitor_id: Optional[int]
     round_id: int
     state: str
 
@@ -112,7 +112,7 @@ class FixtureRecord:
             tournament_id=_positive_int(value.get("torneo_id"), "fixture torneo_id"),
             category_id=_positive_int(value.get("categoria_id"), "fixture categoria_id"),
             local_id=_positive_int(value.get("local_id"), "fixture local_id"),
-            visitor_id=_positive_int(value.get("visitante_id"), "fixture visitante_id"),
+            visitor_id=_optional_positive_int(value.get("visitante_id"), "fixture visitante_id"),
             round_id=_positive_int(value.get("fecha_id"), "fixture fecha_id"),
             state=_fixture_state(value.get("estado")),
         )
@@ -149,6 +149,12 @@ def _positive_int(value: Any, label: str) -> int:
     if parsed <= 0:
         raise ValueError(f"{label} must be a positive integer")
     return parsed
+
+
+def _optional_positive_int(value: Any, label: str) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    return _positive_int(value, label)
 
 
 def _fixture_state(value: Any) -> str:
@@ -312,6 +318,9 @@ def _goal_counts(
         score_text = repair_encoding(cells[8].get_text(" ", strip=True)) if len(cells) > 8 else ""
         score_match = SCORE_PATTERN.fullmatch(score_text)
         if scorer and score_match is None:
+            normalized_scorer = identity_text(scorer)
+            if "TIEMPO" in normalized_scorer or "GOLES" in normalized_scorer:
+                continue
             raise LineupParseError(
                 f"Goal event at source row {source_row} has a scorer but no valid cumulative score"
             )
