@@ -1,15 +1,12 @@
 ---
 import Layout from '../layouts/Layout.astro'
-import StandingsTable from '../components/StandingsTable.jsx'
-import FixtureCategoria from '../components/FixtureCategoria'
 import PartidosHoy from '../components/PartidosHoy.jsx'
-import TournamentHeader from '../components/TournamentHeader.jsx'
-import TournamentTabs from '../components/TournamentTabs.jsx'
-import HistoricalChampions from '../components/HistoricalChampions.jsx'
+import TournamentTitle from '../components/TournamentTitle.jsx'
 ---
 
 <Layout>
-  <h1 class='sr-only'>Liga De Lincoln: fixture, posiciones y resultados del fútbol de Lincoln</h1>
+  <h1 class='sr-only'>Liga De Lincoln: próximos partidos</h1>
+  <TournamentTitle divisionLabel='Primera División' client:load hidden />
 
   <section
     class='bg-[#143814] rounded-xl border border-green-900/40 overflow-hidden shadow-2xl mb-6'
@@ -28,55 +25,6 @@ import HistoricalChampions from '../components/HistoricalChampions.jsx'
       <p class='text-xs text-green-700 mt-3'>
         Tocá en tu club para ver toda la info
       </p>
-    </div>
-  </section>
-
-  <div class='mb-5'>
-    <TournamentHeader divisionLabel='Primera División' client:load />
-  </div>
-
-  <TournamentTabs client:load />
-
-  <div class='grid grid-cols-1 md:grid-cols-2 gap-6'>
-    <section
-      id='fixture'
-      class='scroll-mt-24 bg-[#143814] rounded-xl border border-green-900/40 shadow-2xl'
-    >
-      <div class='px-5 py-4 border-b border-green-900/40 bg-green-950/20'>
-        <h2 class='text-sm font-bold uppercase tracking-wider text-green-400'>
-          Fixture
-        </h2>
-      </div>
-      <div class='p-4'>
-        <FixtureCategoria categoria={1} client:load />
-      </div>
-    </section>
-
-    <section
-      id='tabla'
-      class='scroll-mt-24 bg-[#143814] rounded-xl border border-green-900/40 overflow-hidden shadow-2xl'
-    >
-      <div class='px-5 py-4 border-b border-green-900/40 bg-green-950/20'>
-        <h2 class='text-sm font-bold uppercase tracking-wider text-green-400'>
-          Tabla de Posiciones
-        </h2>
-      </div>
-      <div class='p-4'>
-        <StandingsTable categoriaId={1} client:load />
-      </div>
-    </section>
-  </div>
-
-  <section
-    id='historial'
-    class='scroll-mt-24 mt-6 bg-[#143814] rounded-xl border border-green-900/40 overflow-hidden shadow-2xl'
-  >
-    <div class='px-5 py-4 border-b border-green-900/40 bg-green-950/20 flex items-center justify-between gap-3'>
-      <h2 class='text-sm font-bold uppercase tracking-wider text-green-400'>Historial de campeones</h2>
-      <a href='/historial' class='text-[10px] font-bold uppercase tracking-wider text-yellow-300 hover:text-yellow-200'>Ver todo</a>
-    </div>
-    <div class='p-4'>
-      <HistoricalChampions categoriaId={1} client:load />
     </div>
   </section>
 </Layout>

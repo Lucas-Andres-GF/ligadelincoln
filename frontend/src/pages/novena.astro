@@ -2,8 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import StandingsTable from "../components/StandingsTable.jsx";
 import FixtureCategoria from "../components/FixtureCategoria.jsx";
-import TournamentHeader from "../components/TournamentHeader.jsx";
-import TournamentTabs from "../components/TournamentTabs.jsx";
+import TournamentTitle from "../components/TournamentTitle.jsx";
 import HistoricalChampions from "../components/HistoricalChampions.jsx";
 ---
 
@@ -11,10 +10,7 @@ import HistoricalChampions from "../components/HistoricalChampions.jsx";
   title="Novena División - Liga De Lincoln | Fixture y Posiciones 2026"
   description="Fixture completo y tabla de posiciones de la Novena División de la Liga Amateur de Lincoln. Seguimiento de todos los partidos del torneo seleccionado 2026."
 >
-  <div class='py-6'>
-    <TournamentHeader divisionLabel='Novena División' client:load />
-  </div>
-  <TournamentTabs client:load />
+  <TournamentTitle divisionLabel='Novena División' client:load />
   <div class='grid grid-cols-1 md:grid-cols-2 gap-6'>
     <section
       id='fixture'

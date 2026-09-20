@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase, getEscudoPath } from '../utils/supabase'
+import { parseTorneoId } from '../utils/torneoSelection'
+
+function sortTorneos(torneos) {
+  return [...torneos].sort((a, b) => {
+    if (a.activo !== b.activo) return a.activo ? -1 : 1
+    return parseTorneoId(b.id) - parseTorneoId(a.id)
+  })
+}
 
 const CATEGORIES = [
   { id: 1, label: 'Primera', path: '/primera' },
@@ -57,7 +65,7 @@ export default function HistoricalChampions({ categoriaId }) {
         return
       }
 
-      setTorneos(torneosResult.data || [])
+      setTorneos(sortTorneos(torneosResult.data || []))
       setPalmares(palmaresResult.data || [])
       setStatus('ready')
     }
