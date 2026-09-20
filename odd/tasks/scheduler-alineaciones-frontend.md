@@ -14,7 +14,8 @@ Reconfigure the results scheduler (15:00-22:00 ARG, every 5 min, Sat/Sun, system
 - [x] SCH-002 Automate alineaciones: determine current fecha, graceful no-op when not published, 5-min systemd timer.
 - [x] SCH-003 Verify scheduler locally and document Mint install steps.
   - Mint: repo fast-forwarded to 0a0c0fe, .env synced (service-role + ACTIVE_TORNEO_ID=2 + LIGA_PYTHON=/usr/bin/python3), runner/installer chmod +x, timer syntax validated. Remaining: run `sudo ./scripts/install_scraper_systemd.sh` on Mint (needs sudo password).
-- [ ] FR-001 Reorganize the frontend UI (fix errors, improve button/link organization).
+- [x] FR-001 Reorganize the frontend UI (fix errors, improve button/link organization).
+  - Home (`/`) shows only Próximos Partidos; removed tournament-selector card and tabs; category pages now render a simple tournament title + fixture left + standings right + chronological champions history (active first, then Clausura, then Apertura). Commit 7cf14e9.
 
 ## Constraints
 - `torneo_id=2` explicit; no silent fallback.
