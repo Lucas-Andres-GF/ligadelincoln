@@ -19,7 +19,7 @@ const torneoId = parseInt(match[1], 10)
 const partidoId = parseInt(match[2], 10)
 
 if (!Number.isSafeInteger(torneoId) || !Number.isSafeInteger(partidoId)) {
-  return new Response(null, { status: 404, statusText: 'Not Found' })
+  return new Response('Not Found', { status: 404, statusText: 'Not Found' })
 }
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
@@ -34,7 +34,7 @@ const { data: partido, error: partidoError } = await supabase
   .maybeSingle()
 
 if (partidoError || !partido || partido.estado !== 'jugado') {
-  return new Response(null, { status: 404, statusText: 'Not Found' })
+  return new Response('Not Found', { status: 404, statusText: 'Not Found' })
 }
 
 const { data: clubes, error: clubesError } = await supabase
@@ -43,7 +43,7 @@ const { data: clubes, error: clubesError } = await supabase
   .in('id', [partido.local_id, partido.visitante_id])
 
 if (clubesError || !clubes) {
-  return new Response(null, { status: 500, statusText: 'Server Error' })
+  return new Response('Server Error', { status: 500, statusText: 'Server Error' })
 }
 
 const clubMap = Object.fromEntries(clubes.map((c) => [c.id, c.nombre]))
@@ -51,7 +51,7 @@ const nombreLocal = clubMap[partido.local_id]
 const nombreVisita = clubMap[partido.visitante_id]
 
 if (!nombreLocal || !nombreVisita) {
-  return new Response(null, { status: 404, statusText: 'Not Found' })
+  return new Response('Not Found', { status: 404, statusText: 'Not Found' })
 }
 
 // alineaciones has no torneo_id. partido.id is safe here because this
