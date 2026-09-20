@@ -337,15 +337,21 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
     
     const golesLocal = partido.goles_local === "" || partido.goles_local === null ? null : Number(partido.goles_local);
     const golesVisitante = partido.goles_visitante === "" || partido.goles_visitante === null ? null : Number(partido.goles_visitante);
+    const isSuspendido = String(partido.estado || "").trim().toLowerCase() === "suspendido";
+    const finalGolesLocal = isSuspendido ? null : golesLocal;
+    const finalGolesVisitante = isSuspendido ? null : golesVisitante;
+    const finalHora = isSuspendido ? null : (partido.hora === "" || partido.hora === null ? null : partido.hora);
 
     const updates = {
       dia: partido.dia,
-      hora: partido.hora === "" || partido.hora === null ? null : partido.hora,
+      hora: finalHora,
       arbitro: partido.arbitro,
       cancha: partido.cancha,
-      estado: partido.estado === "programado" && golesLocal !== null && golesVisitante !== null ? "jugado" : partido.estado,
-      goles_local: golesLocal,
-      goles_visitante: golesVisitante,
+      estado: isSuspendido
+        ? "suspendido"
+        : (partido.estado === "programado" && finalGolesLocal !== null && finalGolesVisitante !== null ? "jugado" : partido.estado),
+      goles_local: finalGolesLocal,
+      goles_visitante: finalGolesVisitante,
     };
 
     const { error } = await supabase
@@ -593,6 +599,10 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
                         <span className="font-bold text-green-400">JUGADO</span>
                       )}
                     </span>
+                  ) : match.estado?.toLowerCase() === "suspendido" ? (
+                    <span className="font-bold text-red-400">SUSP</span>
+                  ) : match.estado && !["programado", "libre"].includes(match.estado.toLowerCase()) ? (
+                    <span className="font-bold text-yellow-400 truncate text-[9px]">{match.estado}</span>
                   ) : (match.hora ? `${formatearFecha(match.dia) || "A DEFINIR"} - ${match.hora.slice(0, 5)}hs` : (formatearFecha(match.dia) || <span className="font-bold text-green-400">A DEFINIR</span>))}
                 </span>
                 <a
@@ -704,12 +714,23 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
                 </label>
                 <select
                   value={getEditing(partidoEditando.id)?.estado || partidoEditando.estado || "programado"}
-                  onChange={(e) => handleChange("estado", e.target.value)}
+                  onChange={(e) => {
+                    const nuevoEstado = e.target.value;
+                    handleChange("estado", nuevoEstado);
+                    if (nuevoEstado === "suspendido") {
+                      handleChange("hora", "");
+                      handleChange("goles_local", "");
+                      handleChange("goles_visitante", "");
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-green-950/50 border border-green-800 rounded text-white"
                 >
                   <option value="programado">Programado</option>
                   <option value="jugado">Jugado</option>
                   <option value="suspendido">Suspendido</option>
+                  {partidoEditando.estado && !["programado", "jugado", "suspendido"].includes(String(partidoEditando.estado).toLowerCase()) && (
+                    <option value={partidoEditando.estado}>{partidoEditando.estado}</option>
+                  )}
                 </select>
               </div>
               <div>
