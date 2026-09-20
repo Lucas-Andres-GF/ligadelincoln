@@ -261,6 +261,32 @@ class LineupParsingTests(unittest.TestCase):
         with self.assertRaisesRegex(lineups.LineupParseError, "did not match one player"):
             lineups.parse_lineups_html(html)
 
+    def test_nested_wrapper_tables_and_unplayed_blocks_are_handled(self) -> None:
+        html = f"""
+        <h1>PRIMERA - FECHA: OCTAVA</h1>
+        <table width="90%">
+          <tr>
+            <td>
+              <table>
+                <tr><td>ARGENTINO</td><td>2</td><td>1</td><td>EL LINQUEÑO</td></tr>
+                <tr><td>1</td><td>CARLOS LÓPEZ</td><td></td><td>1</td><td>JOSÉ GÓMEZ</td><td></td></tr>
+                <tr><td>9</td><td>JUAN PÉREZ</td><td></td><td>4</td><td>PABLO MUÑOZ</td><td></td></tr>
+                <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>JUAN PÉREZ</td><td>1-0</td></tr>
+                <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>JOSÉ GÓMEZ</td><td>1-1</td></tr>
+                <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>JUAN PÉREZ</td><td>2-1</td></tr>
+                <tr><td>ATL. PASTEUR</td><td></td><td></td><td>CA. PINTENSE</td></tr>
+                <tr><td>1</td><td>TOMÁS SILVA</td><td></td><td>1</td><td>MARTÍN LUNA</td><td></td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        """
+        matches = lineups.parse_lineups_html(html)
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0].local, "ARGENTINO")
+        self.assertEqual(len(matches[0].local_players), 2)
+        self.assertEqual(len(matches[0].visitor_players), 2)
+
 
 class LineupPlanningTests(unittest.TestCase):
     def test_unique_matches_build_complete_replacements_without_result_fields(self) -> None:

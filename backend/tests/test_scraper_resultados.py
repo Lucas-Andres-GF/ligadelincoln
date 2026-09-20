@@ -236,13 +236,34 @@ class ResultParsingTests(unittest.TestCase):
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0].local, "ATL. PASTEUR")
 
-    def test_blank_score_without_juegan_note_still_blocks(self) -> None:
+    def test_blank_scores_and_unplayed_notes_are_pending_not_blocking(self) -> None:
         html = """
         <table>
           <tr><td colspan="5">ÚLTIMOS ENCUENTROS</td></tr>
           <tr><td colspan="5">FECHA 3 - 12/04/2026</td></tr>
           <tr><th>LOCAL</th><th>L</th><th>V</th><th>VISITANTE</th><th>OBSERVACIONES</th></tr>
+          <tr><td>Argentino</td><td>2</td><td>1</td><td>El Linqueño</td><td></td></tr>
           <tr><td>Atl. Pasteur</td><td></td><td></td><td>CA. Pintense</td><td></td></tr>
+          <tr><td>Dep Gral Pinto</td><td>-</td><td>-</td><td>Juventud Unida</td><td>Suspendido</td></tr>
+        </table>
+        """
+
+        rows = results.parse_results_html(html, "primera")
+        plan = results.build_result_plan(rows, fixture_records(), 2)
+
+        self.assertTrue(plan.valid)
+        self.assertEqual([entry.target_id for entry in plan.entries], [101])
+        pending = [row for row in rows if row.pending]
+        self.assertEqual(len(pending), 2)
+        self.assertEqual({row.local for row in pending}, {"ATL. PASTEUR", "DEP GRAL PINTO"})
+
+    def test_partial_or_non_numeric_scores_still_block(self) -> None:
+        html = """
+        <table>
+          <tr><td colspan="5">ÚLTIMOS ENCUENTROS</td></tr>
+          <tr><td colspan="5">FECHA 3 - 12/04/2026</td></tr>
+          <tr><th>LOCAL</th><th>L</th><th>V</th><th>VISITANTE</th><th>OBSERVACIONES</th></tr>
+          <tr><td>Atl. Pasteur</td><td>2</td><td></td><td>CA. Pintense</td><td></td></tr>
         </table>
         """
 
@@ -251,6 +272,22 @@ class ResultParsingTests(unittest.TestCase):
 
         self.assertFalse(plan.valid)
         self.assertTrue(any("Malformed score" in issue for issue in plan.issues))
+
+    def test_fixture_matches_by_round_even_if_date_differs(self) -> None:
+        html = """
+        <table>
+          <tr><td colspan="5">ÚLTIMOS ENCUENTROS</td></tr>
+          <tr><td colspan="5">FECHA 3 - 11/04/2026</td></tr>
+          <tr><th>LOCAL</th><th>L</th><th>V</th><th>VISITANTE</th><th>OBSERVACIONES</th></tr>
+          <tr><td>Argentino</td><td>2</td><td>1</td><td>El Linqueño</td><td></td></tr>
+        </table>
+        """
+
+        rows = results.parse_results_html(html, "primera")
+        # In fixture_records, fixture 101 has dia="2026-04-12", but row parsed "2026-04-11"
+        plan = results.build_result_plan(rows, fixture_records(), 2)
+        self.assertTrue(plan.valid)
+        self.assertEqual([entry.target_id for entry in plan.entries], [101])
 
     def test_score_validation_rejects_signed_decimal_and_mixed_values(self) -> None:
         self.assertEqual(results.parse_score(" 12 "), 12)

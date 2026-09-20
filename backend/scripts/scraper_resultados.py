@@ -409,8 +409,18 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
         if "LIBRE" in _identity_text(local) or "LIBRE" in _identity_text(visitor):
             continue
 
+        local_cell = cells[1].strip()
+        visitor_cell = cells[2].strip()
         observation = cells[4].strip() if len(cells) >= 5 else ""
-        pending = "JUEGAN" in _identity_text(observation)
+        norm_obs = _identity_text(observation)
+        has_blank_scores = (not local_cell or local_cell in {"-", "–", "—"}) and (
+            not visitor_cell or visitor_cell in {"-", "–", "—"}
+        )
+        has_pending_note = any(
+            kw in norm_obs
+            for kw in ("JUEGAN", "SUSPENDIDO", "POSTERGADO", "A CONFIRMAR")
+        )
+        pending = has_pending_note or has_blank_scores
 
         results.append(
             OfficialResult(
@@ -586,15 +596,22 @@ def build_result_plan(
         if id(row) in conflicting_rows:
             continue
 
-        matches = [
+        round_matches = [
             fixture
             for fixture in scoped_fixtures
             if fixture.category_id == row.category_id
             and fixture.local_id == row.local_id
             and fixture.visitor_id == row.visitor_id
             and (row.round_id is None or fixture.round_id == row.round_id)
-            and (row.date is None or fixture.date == row.date)
         ]
+        if len(round_matches) == 1:
+            matches = round_matches
+        else:
+            matches = [
+                fixture
+                for fixture in round_matches
+                if row.date is None or fixture.date == row.date
+            ]
         if not matches:
             issues.append(f"Missing fixture target for {label}")
             continue

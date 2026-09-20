@@ -479,13 +479,20 @@ def parse_lineups_html(html: str) -> list[OfficialMatch]:
     round_id = _parse_round(soup.get_text(" ", strip=True))
     candidate_tables: list[tuple[Tag, list[tuple[int, Sequence[Tag]]], list[int]]] = []
     for table in soup.find_all("table"):
+        if table.find("table"):
+            continue
         rows: list[tuple[int, Sequence[Tag]]] = []
         starts: list[int] = []
         for source_row, row in enumerate(table.find_all("tr"), start=1):
+            if row.find_parent("table") is not table:
+                continue
             cells = row.find_all("td", recursive=False)
             rows.append((source_row, cells))
-            if _match_header(cells) is not None:
-                starts.append(len(rows) - 1)
+            if len(cells) >= 4:
+                local = _cell_text(cells[0])
+                visitor = _cell_text(cells[3])
+                if resolve_club_id(local) is not None and resolve_club_id(visitor) is not None:
+                    starts.append(len(rows) - 1)
         if starts:
             candidate_tables.append((table, rows, starts))
     if not candidate_tables:
@@ -500,7 +507,13 @@ def parse_lineups_html(html: str) -> list[OfficialMatch]:
     matches: list[OfficialMatch] = []
     for position, start in enumerate(starts):
         end = starts[position + 1] if position + 1 < len(starts) else len(rows)
-        matches.append(_parse_match_block(rows[start:end], round_id, class_styles))
+        block_rows = rows[start:end]
+        header = _match_header(block_rows[0][1])
+        if header is None:
+            continue
+        matches.append(_parse_match_block(block_rows, round_id, class_styles))
+    if not matches:
+        raise LineupNotPublished("No alineaciones publicadas para la fecha actual")
     return matches
 
 
