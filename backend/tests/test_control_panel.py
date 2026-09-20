@@ -434,15 +434,15 @@ class SystemdContractTests(unittest.TestCase):
         self.assertIn("Type=oneshot", self.service)
         self.assertIn("User=gallardo", self.service)
         self.assertIn("Group=gallardo", self.service)
-        self.assertIn("WorkingDirectory=%h/Documentos/ligadelincoln", self.service)
+        self.assertIn("WorkingDirectory=/home/gallardo/Documentos/ligadelincoln", self.service)
         self.assertIn(
-            "ExecStart=/bin/bash %h/Documentos/ligadelincoln/scripts/run_scraper_resultados.sh",
+            "ExecStart=/bin/bash /home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_resultados.sh",
             self.service,
         )
         self.assertNotIn("run_scraper_wrapper.sh", self.service)
         self.assertNotIn("PYTHONPATH", self.service)
         self.assertNotIn("site-packages", self.service)
-        self.assertNotIn("/home/gallardo", self.service)
+        self.assertNotIn("%h", self.service)
 
     def test_compatibility_wrapper_has_no_pythonpath_or_hard_coded_home(self):
         self.assertNotIn("PYTHONPATH", self.wrapper)

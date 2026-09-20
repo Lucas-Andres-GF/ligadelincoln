@@ -5,5 +5,5 @@ Description=Scraper de alineaciones - Liga de Lincoln
 Type=oneshot
 User=gallardo
 Group=gallardo
-WorkingDirectory=%h/Documentos/ligadelincoln
-ExecStart=/bin/bash %h/Documentos/ligadelincoln/scripts/run_scraper_alineaciones.sh
+WorkingDirectory=/home/gallardo/Documentos/ligadelincoln
+ExecStart=/bin/bash /home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_alineaciones.sh
