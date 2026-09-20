@@ -411,7 +411,8 @@ class ShellRunnerContractTests(unittest.TestCase):
         self.assertIn('DAY="$(date +%w)"', self.resultados)
         self.assertIn('HOUR="$(date +%H)"', self.resultados)
         self.assertIn('"$DAY" != "6" && "$DAY" != "0"', self.resultados)
-        self.assertIn('"$HOUR" -lt 13 || "$HOUR" -ge 23', self.resultados)
+        self.assertIn('"$HOUR" -lt 15 || "$HOUR" -ge 22', self.resultados)
+        self.assertIn('LIGA_FORCE', self.resultados)
         self.assertIn('SCRAPER_LOG_DIR:-/home/gallardo/logs', self.resultados)
         self.assertIn('mkdir -p -- "$LOG_DIR"', self.resultados)
         self.assertIn('scraper_resultados.log', self.resultados)
@@ -459,10 +460,15 @@ class SystemdContractTests(unittest.TestCase):
     def test_installer_uses_checked_in_system_units_without_user_mode(self):
         self.assertIn('"$SCRIPT_DIR/scraper-resultados.service"', self.installer)
         self.assertIn('"$SCRIPT_DIR/scraper-resultados.timer"', self.installer)
+        self.assertIn('"$SCRIPT_DIR/scraper-alineaciones.service"', self.installer)
+        self.assertIn('"$SCRIPT_DIR/scraper-alineaciones.timer"', self.installer)
         self.assertIn("/etc/systemd/system/scraper-resultados.service", self.installer)
         self.assertIn("/etc/systemd/system/scraper-resultados.timer", self.installer)
+        self.assertIn("/etc/systemd/system/scraper-alineaciones.service", self.installer)
+        self.assertIn("/etc/systemd/system/scraper-alineaciones.timer", self.installer)
         self.assertIn("systemctl daemon-reload", self.installer)
         self.assertIn("systemctl enable --now scraper-resultados.timer", self.installer)
+        self.assertIn("systemctl enable --now scraper-alineaciones.timer", self.installer)
         self.assertNotIn("--user", self.installer)
 
 

@@ -164,7 +164,7 @@ class LineupParsingTests(unittest.TestCase):
         self.assertEqual((matches[1].local_id, matches[1].visitor_id), (2, 4))
 
     def test_missing_table_incomplete_blocks_and_malformed_players_fail_closed(self) -> None:
-        with self.assertRaisesRegex(lineups.LineupParseError, "one official lineup table"):
+        with self.assertRaisesRegex(lineups.LineupNotPublished, "No alineaciones"):
             lineups.parse_lineups_html("<h1>FECHA 8</h1><table><tr><td>none</td></tr></table>")
 
         incomplete = """
@@ -428,6 +428,34 @@ class ExecutionSafetyTests(unittest.TestCase):
         self.assertEqual(client.mutation_attempts, 0)
         self.assertIn("Dry run only", output.getvalue())
         self.assertIn("non-transactional", output.getvalue())
+
+    def test_no_published_lineups_is_a_no_op_without_database_access(self) -> None:
+        client_factory = mock.Mock()
+        output = io.StringIO()
+
+        exit_code = lineups.main(
+            ["--torneo-id", "2", "--fecha", "8"],
+            client_factory=client_factory,
+            source_loader=lambda source, timeout: "<h1>FECHA 8</h1>",
+            stdout=output,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("No alineaciones publicadas", output.getvalue())
+        client_factory.assert_not_called()
+
+    def test_fecha_defaults_to_page_round_when_omitted(self) -> None:
+        client = FakeClient()
+        output = io.StringIO()
+
+        exit_code = lineups.main(
+            ["--torneo-id", "2", "--source", str(FIXTURE_PATH)],
+            client_factory=lambda: client,
+            stdout=output,
+        )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Selected round: 8", output.getvalue())
 
     def test_execute_uses_narrow_deletes_updates_and_validated_inserts(self) -> None:
         client = FakeClient()

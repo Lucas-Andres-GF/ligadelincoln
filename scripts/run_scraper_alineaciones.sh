@@ -1,12 +1,12 @@
 #!/bin/bash
-# Scheduled mutation runner for tournament result updates.
+# Scheduled mutation runner for tournament Primera lineup updates.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="${SCRAPER_LOG_DIR:-/home/gallardo/logs}"
-LOG_FILE="$LOG_DIR/scraper_resultados.log"
+LOG_FILE="$LOG_DIR/scraper_alineaciones.log"
 
 if [[ -f "$PROJECT_DIR/backend/.env" ]]; then
     set -a
@@ -69,13 +69,13 @@ if [[ "${LIGA_FORCE:-}" != "1" ]]; then
     fi
 fi
 
-echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Ejecutando scraper de resultados para torneo $ACTIVE_TORNEO_ID" >> "$LOG_FILE" 2>&1
-if "$PYTHON_BIN" "$PROJECT_DIR/backend/scripts/scraper_resultados.py" \
+echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Ejecutando scraper de alineaciones para torneo $ACTIVE_TORNEO_ID" >> "$LOG_FILE" 2>&1
+if "$PYTHON_BIN" "$PROJECT_DIR/backend/scripts/scraper_alineaciones.py" \
     --torneo-id "$ACTIVE_TORNEO_ID" \
     --execute >> "$LOG_FILE" 2>&1; then
-    echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Scraper de resultados completado" >> "$LOG_FILE" 2>&1
+    echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Scraper de alineaciones completado" >> "$LOG_FILE" 2>&1
 else
     status=$?
-    echo "=== $(date '+%Y-%m-%d %H:%M:%S') === ERROR: scraper de resultados falló con código $status" >> "$LOG_FILE" 2>&1
+    echo "=== $(date '+%Y-%m-%d %H:%M:%S') === ERROR: scraper de alineaciones falló con código $status" >> "$LOG_FILE" 2>&1
     exit "$status"
 fi

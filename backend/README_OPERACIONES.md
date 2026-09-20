@@ -440,32 +440,41 @@ El importador puede continuar después de una falla de categoría y dejar el tor
 4. Solo cuando el alcance sea reemplazable y esté respaldado, previsualizá `--replace-existing` por una categoría y ejecutá ese mismo plan.
 5. Después, reiniciá el flujo normal desde verificación de fixture; no actives hasta completar posiciones.
 
-## Scheduler de resultados: systemd de sistema
+## Scheduler de resultados y alineaciones: systemd de sistema
 
-El único scheduler de resultados es `scraper-resultados.timer` instalado a nivel sistema. `scripts/crontab` conserva solamente automatización de medios y **no debe** invocar el runner de resultados.
+Los únicos schedulers de ingesta son `scraper-resultados.timer` y `scraper-alineaciones.timer`, ambos a nivel sistema. `scripts/crontab` conserva solamente automatización de medios y **no debe** invocar los runners de ingesta.
 
-El timer dispara cada 5 minutos los sábados y domingos de 13:00 a 22:55, según la zona horaria local del host. El runner vuelve a validar `13 <= hora < 23` y sábado/domingo antes de ejecutar. El unit no fija `Timezone=`: verificá la zona del host con `timedatectl` antes de confiar en el horario.
+Ambos timers disparan cada 5 minutos los sábados y domingos de 15:00 a 21:55 (ventana 15-22 hs Argentina), según la zona horaria local del host. Cada runner vuelve a validar `15 <= hora < 22` y sábado/domingo antes de ejecutar. El unit no fija `Timezone=`: verificá la zona del host con `timedatectl` antes de confiar en el horario.
+
+Para excepciones entre semana (partidos reprogramados), forzá una corrida manual ignorando día/hora con `LIGA_FORCE=1`:
+
+```bash
+LIGA_FORCE=1 /home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_resultados.sh
+LIGA_FORCE=1 /home/gallardo/Documentos/ligadelincoln/scripts/run_scraper_alineaciones.sh
+```
+
+El scraper de alineaciones no exige `--fecha`: toma la fecha actual desde la propia página oficial, y si todavía no publicaron alineaciones termina como no-op sin error.
 
 ```bash
 # Estado e inventario
-systemctl status scraper-resultados.timer
-systemctl status scraper-resultados.service
+systemctl status scraper-resultados.timer scraper-alineaciones.timer
 systemctl list-timers --all
 
 # Logs del unit y del runner
 journalctl -u scraper-resultados.service --no-pager -r
-journalctl -u scraper-resultados.service --no-pager | grep -E "Started|Finished|Failed"
+journalctl -u scraper-alineaciones.service --no-pager -r
 tail -f "<SCRAPER_LOG_DIR>/scraper_resultados.log"
+tail -f "<SCRAPER_LOG_DIR>/scraper_alineaciones.log"
 
-# Recargar unidades revisadas y reiniciar el timer
+# Recargar unidades revisadas y reiniciar los timers
 sudo systemctl daemon-reload
-sudo systemctl restart scraper-resultados.timer
+sudo systemctl restart scraper-resultados.timer scraper-alineaciones.timer
 
-# Instalar las unidades versionadas y habilitar el timer
+# Instalar las unidades versionadas y habilitar los timers
 sudo ./scripts/install_scraper_systemd.sh
 ```
 
-La instalación versionada copia `scripts/scraper-resultados.service` y `scripts/scraper-resultados.timer` a `/etc/systemd/system/`, ejecuta `systemctl daemon-reload` y `systemctl enable --now scraper-resultados.timer`. No agregues un segundo cron, timer de usuario o scheduler externo para resultados.
+La instalación versionada copia `scraper-resultados.{service,timer}` y `scraper-alineaciones.{service,timer}` a `/etc/systemd/system/`, ejecuta `systemctl daemon-reload` y `systemctl enable --now` para ambos timers. No agregues un segundo cron, timer de usuario o scheduler externo para resultados ni alineaciones.
 
 ## Panel local
 

@@ -1,0 +1,9 @@
+[Unit]
+Description=Scraper de alineaciones - Liga de Lincoln
+
+[Service]
+Type=oneshot
+User=gallardo
+Group=gallardo
+WorkingDirectory=%h/Documentos/ligadelincoln
+ExecStart=/bin/bash %h/Documentos/ligadelincoln/scripts/run_scraper_alineaciones.sh

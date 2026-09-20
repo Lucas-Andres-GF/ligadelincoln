@@ -65,6 +65,10 @@ class LineupParseError(ValueError):
     """Raised when the supported official Primera lineup structure is incomplete."""
 
 
+class LineupNotPublished(ValueError):
+    """Raised when the official page has no lineup table for the current fecha."""
+
+
 @dataclass(frozen=True)
 class OfficialPlayer:
     team_id: Optional[int]
@@ -475,6 +479,8 @@ def parse_lineups_html(html: str) -> list[OfficialMatch]:
                 starts.append(len(rows) - 1)
         if starts:
             candidate_tables.append((table, rows, starts))
+    if not candidate_tables:
+        raise LineupNotPublished("No alineaciones publicadas para la fecha actual")
     if len(candidate_tables) != 1:
         raise LineupParseError(
             f"Expected one official lineup table, found {len(candidate_tables)}"
@@ -791,8 +797,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--fecha",
         type=_round_argument,
-        required=True,
-        help="Positive round ID to replace; required explicitly.",
+        required=False,
+        default=None,
+        help="Positive round ID to replace; defaults to the round parsed from the official page.",
     )
     parser.add_argument(
         "--source",
@@ -831,20 +838,30 @@ def main(
         load_backend_environment()
         context = operation_context_from_args(args)
         html = (source_loader or load_lineup_source)(args.source, args.timeout)
-        matches = parse_lineups_html(html)
+        try:
+            matches = parse_lineups_html(html)
+        except LineupNotPublished as exc:
+            print(f"No alineaciones publicadas: {exc}", file=output)
+            return 0
         _, category_id = _identity_configuration()
+        fecha = args.fecha
+        if fecha is None:
+            fecha = matches[0].round_id if matches else None
+        if fecha is None:
+            print("No se pudo determinar la fecha de alineaciones.", file=error_output)
+            return 2
         client = (client_factory or _database_client)()
         fixtures = read_fixture_inventory(
             client,
             context.tournament_id,
-            args.fecha,
+            fecha,
             category_id,
         )
         plan = build_replacement_plan(
             matches,
             fixtures,
             context.tournament_id,
-            args.fecha,
+            fecha,
             category_id,
         )
         print(render_report(context, plan), file=output)

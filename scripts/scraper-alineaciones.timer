@@ -1,5 +1,5 @@
 [Unit]
-Description=Scraper resultados - Sab/Dom 15-22hs Argentina
+Description=Scraper alineaciones - Sab/Dom 15-22hs Argentina
 
 [Timer]
 # Sábados y domingos cada 5 minutos de 15:00 a 21:55 hora local.
