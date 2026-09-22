@@ -78,6 +78,7 @@ class ScheduleRow:
     inherited_time: bool
     venue: str
     calculated_time: Optional[str] = None
+    is_reprogramar: bool = False
 
 
 @dataclass(frozen=True)
@@ -88,6 +89,7 @@ class FixtureRecord:
     local_id: int
     visitor_id: Optional[int]
     round_id: Optional[int]
+    estado: Optional[str] = None
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "FixtureRecord":
@@ -102,6 +104,7 @@ class FixtureRecord:
                 else None
             ),
             round_id=(int(value["fecha_id"]) if value.get("fecha_id") is not None else None),
+            estado=str(value["estado"]) if value.get("estado") is not None else None,
         )
 
 
@@ -256,6 +259,7 @@ def parse_schedule_html(html: str) -> list[ScheduleRow]:
     last_time: Optional[str] = None
     last_venue = ""
     ignore_postponed_block = False
+    is_reprogramar_block = False
 
     for source_row, cells in enumerate(table, start=1):
         text = " ".join(cells)
@@ -267,17 +271,29 @@ def parse_schedule_html(html: str) -> list[ScheduleRow]:
             is_postponed = "postergado" in normalized_text
             current_round = int(round_match.group(1)) if round_match else None
             ignore_postponed_block = is_postponed and current_round is None
+            is_reprogramar_block = False
             last_time = None
             last_venue = ""
             continue
 
         if "postergado" in normalized_text and len(cells) < 3:
             ignore_postponed_block = True
+            is_reprogramar_block = False
             current_date = None
             current_round = None
             last_time = None
             last_venue = ""
             continue
+
+        if any(term in normalized_text for term in ("reprogramar", "a definir")) and len(cells) < 4:
+            is_reprogramar_block = True
+            ignore_postponed_block = False
+            current_date = None
+            current_round = None
+            last_time = None
+            last_venue = ""
+            continue
+
         if ignore_postponed_block or len(cells) < 4:
             continue
         if len(cells) < 3 or cells[2].strip().lower() not in {"vs", "vs."}:
@@ -291,9 +307,9 @@ def parse_schedule_html(html: str) -> list[ScheduleRow]:
         category_raw = cells[0].strip()
         category_key, category_id = resolve_category(category_raw)
         explicit_time = _parse_time(cells[4].replace(".", ":")) if len(cells) >= 5 else None
-        inherited_time = explicit_time is None and last_time is not None
-        scheduled_time = explicit_time or last_time
-        if explicit_time is not None:
+        inherited_time = explicit_time is None and last_time is not None and not is_reprogramar_block
+        scheduled_time = explicit_time or (last_time if not is_reprogramar_block else None)
+        if explicit_time is not None and not is_reprogramar_block:
             last_time = explicit_time
         if len(cells) >= 6 and cells[5].strip():
             last_venue = cells[5].strip()
@@ -313,6 +329,7 @@ def parse_schedule_html(html: str) -> list[ScheduleRow]:
                 scheduled_time=scheduled_time,
                 inherited_time=inherited_time,
                 venue=last_venue,
+                is_reprogramar=is_reprogramar_block,
             )
         )
 
@@ -350,6 +367,9 @@ def calculate_schedule_times(rows: Iterable[ScheduleRow]) -> list[ScheduleRow]:
         current_time: Optional[str] = None
         previous_category: Optional[str] = None
         for row in group:
+            if row.is_reprogramar:
+                calculated.append(replace(row, calculated_time=None))
+                continue
             if row.inherited_time and current_time is not None:
                 duration = DURATION_MINUTES.get(previous_category or "", 80)
                 current_time = _add_minutes(current_time, duration)
@@ -380,7 +400,7 @@ def read_fixture_inventory(client: Any, tournament_id: int) -> list[FixtureRecor
     tournament_id = validate_positive_tournament_id(tournament_id)
     response = (
         client.table("partidos")
-        .select("id,torneo_id,categoria_id,local_id,visitante_id,fecha_id")
+        .select("id,torneo_id,categoria_id,local_id,visitante_id,fecha_id,estado")
         .eq("torneo_id", tournament_id)
         .limit(INVENTORY_LIMIT)
         .execute()
@@ -422,10 +442,11 @@ def build_update_plan(
             row_issues.append(f"Unknown local club at {label}")
         if row.visitor_id is None:
             row_issues.append(f"Unknown visiting club at {label}")
-        if row.date is None:
-            row_issues.append(f"Missing date at {label}")
-        if row.calculated_time is None:
-            row_issues.append(f"Missing kickoff time at {label}")
+        if not row.is_reprogramar:
+            if row.date is None:
+                row_issues.append(f"Missing date at {label}")
+            if row.calculated_time is None:
+                row_issues.append(f"Missing kickoff time at {label}")
         if row_issues:
             issues.extend(row_issues)
             continue
@@ -450,6 +471,7 @@ def build_update_plan(
             issues.append(f"Fixture target {target.id} was matched more than once ({label})")
             continue
         claimed_targets.add(target.id)
+        next_status = target.estado if target.estado == "jugado" else "programado"
         entries.append(
             UpdatePlanEntry(
                 target_id=target.id,
@@ -458,6 +480,7 @@ def build_update_plan(
                     "dia": row.date,
                     "hora": row.calculated_time,
                     "cancha": row.venue or None,
+                    "estado": next_status,
                 },
             )
         )
@@ -477,9 +500,15 @@ def render_report(context: OperationContext, plan: UpdatePlan) -> str:
     ]
     for entry in plan.entries:
         row = entry.row
+        time_display = (
+            f"{row.date} {row.calculated_time}"
+            if row.date and row.calculated_time
+            else "A DEFINIR"
+        )
+        status_suffix = " (A reprogramar)" if row.is_reprogramar else ""
         lines.append(
-            f"  TARGET {entry.target_id}: {row.date} {row.calculated_time} | "
-            f"{row.category_raw} | {row.local} vs {row.visitor} | {row.venue or '-'}"
+            f"  TARGET {entry.target_id}: {time_display} | "
+            f"{row.category_raw} | {row.local} vs {row.visitor} | {row.venue or '-'}{status_suffix}"
         )
     if plan.issues:
         lines.append(f"Blocking issues: {len(plan.issues)}")

@@ -374,5 +374,74 @@ class ScheduleCliSafetyTests(unittest.TestCase):
         client_factory.assert_not_called()
 
 
+class ScheduleReprogramarTests(unittest.TestCase):
+    def test_differentiates_day_end_and_reprogramar_section(self) -> None:
+        html = """
+            <table>
+              <tr><th>CRONOGRAMA</th></tr>
+              <tr><th>Jueves 24 de Septiembre de 2026</th></tr>
+              <tr><td>Octava</td><td>Argentino</td><td>vs</td><td>C A Pintense</td><td>19:00</td><td>El Linqueño</td></tr>
+              <tr><td>Primera</td><td>Argentino</td><td>vs</td><td>C A Pintense</td><td></td><td></td></tr>
+              <tr><th>A reprogramar</th></tr>
+              <tr><td>Décima</td><td>El Linqueño</td><td>vs</td><td>Atl Pasteur</td><td></td><td>El Linqueño</td></tr>
+              <tr><td>Octava</td><td>El Linqueño</td><td>vs</td><td>Atl Pasteur</td><td></td><td></td></tr>
+            </table>
+        """
+        rows = schedule.calculate_schedule_times(schedule.parse_schedule_html(html))
+        self.assertEqual(len(rows), 4)
+
+        # Scheduled Thursday matches
+        self.assertEqual(rows[0].date, "2026-09-24")
+        self.assertEqual(rows[0].calculated_time, "19:00")
+        self.assertFalse(rows[0].is_reprogramar)
+
+        self.assertEqual(rows[1].date, "2026-09-24")
+        self.assertEqual(rows[1].calculated_time, "20:25")
+        self.assertFalse(rows[1].is_reprogramar)
+
+        # Reprogramar matches (day context ended)
+        self.assertIsNone(rows[2].date)
+        self.assertIsNone(rows[2].calculated_time)
+        self.assertTrue(rows[2].is_reprogramar)
+
+        self.assertIsNone(rows[3].date)
+        self.assertIsNone(rows[3].calculated_time)
+        self.assertTrue(rows[3].is_reprogramar)
+
+        inventory = [
+            schedule.FixtureRecord(id=201, tournament_id=3, category_id=3, local_id=1, visitor_id=4, round_id=1),
+            schedule.FixtureRecord(id=202, tournament_id=3, category_id=1, local_id=1, visitor_id=4, round_id=1),
+            schedule.FixtureRecord(id=203, tournament_id=3, category_id=5, local_id=8, visitor_id=2, round_id=1, estado="suspendido"),
+            schedule.FixtureRecord(id=204, tournament_id=3, category_id=3, local_id=8, visitor_id=2, round_id=1, estado="A reprogramar"),
+        ]
+        plan = schedule.build_update_plan(rows, inventory, 3)
+        self.assertTrue(plan.valid)
+        self.assertEqual(len(plan.entries), 4)
+
+        # Entry 201: Octava Argentino vs Pintense
+        self.assertEqual(plan.entries[0].values["dia"], "2026-09-24")
+        self.assertEqual(plan.entries[0].values["hora"], "19:00")
+        self.assertEqual(plan.entries[0].values["estado"], "programado")
+
+        # Entry 202: Primera Argentino vs Pintense
+        self.assertEqual(plan.entries[1].values["dia"], "2026-09-24")
+        self.assertEqual(plan.entries[1].values["hora"], "20:25")
+        self.assertEqual(plan.entries[1].values["estado"], "programado")
+
+        # Entry 203: Décima El Linqueño vs Atl Pasteur (previously suspendido, now A DEFINIR)
+        self.assertIsNone(plan.entries[2].values["dia"])
+        self.assertIsNone(plan.entries[2].values["hora"])
+        self.assertEqual(plan.entries[2].values["estado"], "programado")
+
+        # Entry 204: Octava El Linqueño vs Atl Pasteur (previously A reprogramar, now A DEFINIR)
+        self.assertIsNone(plan.entries[3].values["dia"])
+        self.assertIsNone(plan.entries[3].values["hora"])
+        self.assertEqual(plan.entries[3].values["estado"], "programado")
+
+        report = schedule.render_report(schedule.OperationContext(tournament_id=3), plan)
+        self.assertIn("A DEFINIR | Décima | EL LINQUEÑO vs ATL PASTEUR | El Linqueño (A reprogramar)", report)
+        self.assertIn("A DEFINIR | Octava | EL LINQUEÑO vs ATL PASTEUR | El Linqueño (A reprogramar)", report)
+
+
 if __name__ == "__main__":
     unittest.main()
