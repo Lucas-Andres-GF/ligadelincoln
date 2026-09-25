@@ -411,7 +411,7 @@ class ShellRunnerContractTests(unittest.TestCase):
         self.assertIn('DAY="$(date +%w)"', self.resultados)
         self.assertIn('HOUR="$(date +%H)"', self.resultados)
         self.assertIn('"$DAY" != "6" && "$DAY" != "0"', self.resultados)
-        self.assertIn('"$HOUR" -lt 15 || "$HOUR" -ge 22', self.resultados)
+        self.assertIn('"$HOUR" -lt 13 || "$HOUR" -ge 22', self.resultados)
         self.assertIn('LIGA_FORCE', self.resultados)
         self.assertIn('SCRAPER_LOG_DIR:-/home/gallardo/logs', self.resultados)
         self.assertIn('mkdir -p -- "$LOG_DIR"', self.resultados)

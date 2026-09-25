@@ -63,8 +63,8 @@ if [[ "${LIGA_FORCE:-}" != "1" ]]; then
         exit 0
     fi
 
-    if [[ "$HOUR" -lt 15 || "$HOUR" -ge 22 ]]; then
-        echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Fuera de horario (15-22hs ARG), omitiendo" >> "$LOG_FILE" 2>&1
+    if [[ "$HOUR" -lt 13 || "$HOUR" -ge 22 ]]; then
+        echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Fuera de horario (13-22hs ARG), omitiendo" >> "$LOG_FILE" 2>&1
         exit 0
     fi
 fi

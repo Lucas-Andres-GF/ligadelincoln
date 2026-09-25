@@ -444,7 +444,7 @@ El importador puede continuar después de una falla de categoría y dejar el tor
 
 Los únicos schedulers de ingesta son `scraper-resultados.timer` y `scraper-alineaciones.timer`, ambos a nivel sistema. `scripts/crontab` conserva solamente automatización de medios y **no debe** invocar los runners de ingesta.
 
-Ambos timers disparan cada 5 minutos los sábados y domingos de 15:00 a 21:55 (ventana 15-22 hs Argentina), según la zona horaria local del host. Cada runner vuelve a validar `15 <= hora < 22` y sábado/domingo antes de ejecutar. El unit no fija `Timezone=`: verificá la zona del host con `timedatectl` antes de confiar en el horario.
+Ambos timers disparan cada 5 minutos los sábados y domingos de 13:00 a 21:55 (ventana 13-22 hs Argentina), según la zona horaria local del host. Cada runner vuelve a validar `13 <= hora < 22` y sábado/domingo antes de ejecutar. El unit no fija `Timezone=`: verificá la zona del host con `timedatectl` antes de confiar en el horario.
 
 Para excepciones entre semana (partidos reprogramados), forzá una corrida manual ignorando día/hora con `LIGA_FORCE=1`:
 

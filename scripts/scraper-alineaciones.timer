@@ -1,10 +1,10 @@
 [Unit]
-Description=Scraper alineaciones - Sab/Dom 15-22hs Argentina
+Description=Scraper alineaciones - Sab/Dom 13-22hs Argentina
 
 [Timer]
-# Sábados y domingos cada 5 minutos de 15:00 a 21:55 hora local.
-OnCalendar=Sat *-*-* 15..21:0/5:00
-OnCalendar=Sun *-*-* 15..21:0/5:00
+# Sábados y domingos cada 5 minutos de 13:00 a 21:55 hora local.
+OnCalendar=Sat *-*-* 13..21:0/5:00
+OnCalendar=Sun *-*-* 13..21:0/5:00
 Persistent=true
 
 [Install]
