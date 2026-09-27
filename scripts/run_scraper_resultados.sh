@@ -70,12 +70,30 @@ if [[ "${LIGA_FORCE:-}" != "1" ]]; then
 fi
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Ejecutando scraper de resultados para torneo $ACTIVE_TORNEO_ID" >> "$LOG_FILE" 2>&1
-if "$PYTHON_BIN" "$PROJECT_DIR/backend/scripts/scraper_resultados.py" \
-    --torneo-id "$ACTIVE_TORNEO_ID" \
-    --execute >> "$LOG_FILE" 2>&1; then
+
+categories=(primera septima octava novena decima)
+overall_status=0
+
+for category in "${categories[@]}"; do
+    echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Ejecutando categoría $category" >> "$LOG_FILE" 2>&1
+    if "$PYTHON_BIN" "$PROJECT_DIR/backend/scripts/scraper_resultados.py" \
+        --torneo-id "$ACTIVE_TORNEO_ID" \
+        --category "$category" \
+        --execute >> "$LOG_FILE" 2>&1; then
+        echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Categoría $category completada" >> "$LOG_FILE" 2>&1
+    else
+        category_status=$?
+        echo "=== $(date '+%Y-%m-%d %H:%M:%S') === ERROR: categoría $category falló con código $category_status" >> "$LOG_FILE" 2>&1
+        if [[ "$overall_status" -eq 0 ]]; then
+            overall_status=$category_status
+        fi
+    fi
+done
+
+if [[ "$overall_status" -eq 0 ]]; then
     echo "=== $(date '+%Y-%m-%d %H:%M:%S') === Scraper de resultados completado" >> "$LOG_FILE" 2>&1
 else
-    status=$?
-    echo "=== $(date '+%Y-%m-%d %H:%M:%S') === ERROR: scraper de resultados falló con código $status" >> "$LOG_FILE" 2>&1
-    exit "$status"
+    echo "=== $(date '+%Y-%m-%d %H:%M:%S') === ERROR: scraper de resultados completado con fallas" >> "$LOG_FILE" 2>&1
 fi
+
+exit "$overall_status"

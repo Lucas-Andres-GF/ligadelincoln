@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -419,6 +422,123 @@ class ShellRunnerContractTests(unittest.TestCase):
         validation = 'if [[ ! "$ACTIVE_TORNEO_ID" =~ ^[0-9]+$'
         self.assertLess(self.resultados.index(validation), self.resultados.index('HOUR="$(date +%H)"'))
         self.assertLess(self.resultados.index(validation), self.resultados.index('DAY="$(date +%w)"'))
+
+
+class ResultsRunnerExecutionTests(unittest.TestCase):
+    CATEGORIES = ("primera", "septima", "octava", "novena", "decima")
+    BASH = shutil.which("bash") or "bash"
+
+    @staticmethod
+    def shell_path(path):
+        return Path(path).as_posix()
+
+    def run_isolated_runner(self, failing_category=None):
+        with tempfile.TemporaryDirectory(dir=PROJECT_DIR) as temporary_directory:
+            project = Path(temporary_directory) / "project"
+            scripts = project / "scripts"
+            scripts.mkdir(parents=True)
+            runner = scripts / RUNNER_RESULTADOS.name
+            runner.write_text(
+                RUNNER_RESULTADOS.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            runner.chmod(0o755)
+
+            call_log = project / "calls.log"
+            scraper_log_dir = project / "logs"
+            fake_python = project / "fake-python"
+            fake_python.write_text(
+                """#!/bin/bash
+printf 'CALL' >> "$RUNNER_CALL_LOG"
+for argument in "$@"; do
+    printf '\\t%s' "$argument" >> "$RUNNER_CALL_LOG"
+done
+printf '\\n' >> "$RUNNER_CALL_LOG"
+category=''
+while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "--category" ]]; then
+        category="$2"
+        break
+    fi
+    shift
+done
+if [[ -n "${FAIL_CATEGORY:-}" && "$category" == "$FAIL_CATEGORY" ]]; then
+    exit 17
+fi
+""",
+                encoding="utf-8",
+            )
+            fake_python.chmod(0o755)
+
+            environment = {
+                "PATH": os.environ.get("PATH", ""),
+                "ACTIVE_TORNEO_ID": "23",
+                "LIGA_FORCE": "1",
+                "LIGA_PYTHON": self.shell_path(fake_python),
+                "RUNNER_CALL_LOG": self.shell_path(call_log),
+                "SCRAPER_LOG_DIR": self.shell_path(scraper_log_dir),
+            }
+            if os.environ.get("SYSTEMROOT"):
+                environment["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+            if failing_category is not None:
+                environment["FAIL_CATEGORY"] = failing_category
+
+            completed = subprocess.run(
+                [self.BASH, self.shell_path(runner)],
+                cwd=PROJECT_DIR,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            self.assertTrue(
+                call_log.is_file(),
+                f"runner did not invoke the stub: stdout={completed.stdout!r}, stderr={completed.stderr!r}",
+            )
+            calls = [
+                line.split("\t")[1:]
+                for line in call_log.read_text(encoding="utf-8").splitlines()
+            ]
+            log = (scraper_log_dir / "scraper_resultados.log").read_text(
+                encoding="utf-8"
+            )
+            return completed, calls, log
+
+    def assert_category_calls(self, calls):
+        self.assertEqual(len(calls), len(self.CATEGORIES))
+        for call, category in zip(calls, self.CATEGORIES):
+            with self.subTest(category=category):
+                self.assertTrue(call[0].endswith("/backend/scripts/scraper_resultados.py"))
+                self.assertEqual(
+                    call[1:],
+                    [
+                        "--torneo-id",
+                        "23",
+                        "--category",
+                        category,
+                        "--execute",
+                    ],
+                )
+
+    def test_category_failure_does_not_stop_later_categories_and_returns_nonzero(self):
+        completed, calls, log = self.run_isolated_runner("septima")
+
+        self.assertEqual(completed.returncode, 17)
+        self.assert_category_calls(calls)
+        self.assertIn("Categoría primera completada", log)
+        self.assertIn("ERROR: categoría septima falló con código 17", log)
+        for category in ("octava", "novena", "decima"):
+            self.assertIn(f"Categoría {category} completada", log)
+
+    def test_runner_returns_zero_only_when_every_category_succeeds(self):
+        completed, calls, log = self.run_isolated_runner()
+
+        self.assertEqual(completed.returncode, 0)
+        self.assert_category_calls(calls)
+        for category in self.CATEGORIES:
+            self.assertIn(f"Categoría {category} completada", log)
+        self.assertNotIn("ERROR: categoría", log)
 
 
 class SystemdContractTests(unittest.TestCase):
