@@ -3,6 +3,7 @@ export const prerender = false
 
 import Layout from '../../layouts/Layout.astro'
 import { createClient } from '@supabase/supabase-js'
+import { hasCompleteScore, isMatchPlayed } from '../../utils/matchState'
 
 const { slug } = Astro.params
 if (!slug) {
@@ -33,7 +34,7 @@ const { data: partido, error: partidoError } = await supabase
   .eq('torneo_id', torneoId)
   .maybeSingle()
 
-if (partidoError || !partido || partido.estado !== 'jugado') {
+if (partidoError || !partido || !isMatchPlayed(partido)) {
   return new Response('Not Found', { status: 404, statusText: 'Not Found' })
 }
 
@@ -96,7 +97,11 @@ function formatearHora(hora) {
 const diaPartido = formatearDia(partido.dia)
 const horaPartido = formatearHora(partido.hora)
 const estadoNormalizado = String(partido.estado || '').trim().toLowerCase()
-const seJugo = estadoNormalizado === 'jugado' || (partido.goles_local !== null && partido.goles_visitante !== null)
+const seJugo = isMatchPlayed(partido)
+const tieneResultadoCompleto = hasCompleteScore(partido)
+const resultadoLabel = tieneResultadoCompleto
+  ? `${partido.goles_local}-${partido.goles_visitante}`
+  : null
 const esSuspendido = estadoNormalizado === 'suspendido'
 const tieneObservacion = Boolean(partido.estado && !['programado', 'jugado', 'libre'].includes(estadoNormalizado))
 
@@ -113,7 +118,9 @@ const fechaHoraLabel = (esSuspendido || tieneObservacion)
   ? estadoHorarioLabel
   : [diaPartido, estadoHorarioLabel].filter(Boolean).join(' - ')
 
-const pageTitle = `${nombreLocal} ${partido.goles_local ?? 0}-${partido.goles_visitante ?? 0} ${nombreVisita} - Liga De Lincoln`
+const pageTitle = resultadoLabel
+  ? `${nombreLocal} ${resultadoLabel} ${nombreVisita} - Liga De Lincoln`
+  : `${nombreLocal} vs ${nombreVisita} - Liga De Lincoln`
 const pageDescription = `Resultado, alineaciones, titulares, suplentes y datos del partido ${nombreLocal} vs ${nombreVisita} del torneo ${partido.torneo_id} de la Liga Amateur de Deportes de Lincoln.`
 const matchStructuredData = {
   '@context': 'https://schema.org',
@@ -163,7 +170,7 @@ if (partido.dia) {
       
       <div class="flex items-center gap-3">
         <span class="text-4xl font-black text-green-400">
-          {partido.goles_local ?? 0}-{partido.goles_visitante ?? 0}
+          {resultadoLabel || 'Resultado no disponible'}
         </span>
       </div>
       
