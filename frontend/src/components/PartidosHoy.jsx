@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { slugify } from '../utils/slugify'
 import { getSelectedTorneoId, listenToTorneoChange, parseTorneoId, withTorneoParam } from '../utils/torneoSelection'
+import { isMatchPlayed } from '../utils/matchState'
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
@@ -464,7 +465,7 @@ export default function PartidosHoy() {
                 <div className='space-y-1'>
                   {groupedByCategory[categoriaId].map((match, i) => {
                     const isLibre = match.visitante_id === null
-                    const seJugo = match.estado === 'jugado' || (match.goles_local !== null && match.goles_visitante !== null)
+                    const seJugo = isMatchPlayed(match)
                     const estadoNormalizado = String(match.estado || '').trim().toLowerCase()
                     const esSuspendido = estadoNormalizado === 'suspendido'
                     const tieneObservacion = Boolean(match.estado && !['programado', 'jugado', 'libre'].includes(estadoNormalizado))

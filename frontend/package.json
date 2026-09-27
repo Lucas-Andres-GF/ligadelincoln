@@ -2,13 +2,16 @@
   "name": "frontend",
   "type": "module",
   "version": "0.0.1",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "astro dev --host",
     "build": "astro build",
     "deploy": "pnpm run build && vercel .. --prod",
     "preview": "astro preview",
     "astro": "astro",
-    "test": "node --test src/utils/torneoSelection.test.js"
+    "test": "node --test src/utils/torneoSelection.test.js src/utils/matchState.test.js"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",

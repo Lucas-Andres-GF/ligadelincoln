@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { cachedQuery } from '../utils/supabaseCached'
 import { slugify } from '../utils/slugify'
+import { isMatchPlayed } from '../utils/matchState'
 import {
   getSelectedTorneoId,
   listenToTorneoChange,
@@ -335,7 +336,7 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
         <div className='space-y-2'>
           {matches.map((match) => {
             const isLibre = match.visitante_id === null
-            const seJugo = match.estado === 'jugado' || (match.goles_local !== null && match.goles_visitante !== null)
+            const seJugo = isMatchPlayed(match)
             const estadoNormalizado = String(match.estado || '').trim().toLowerCase()
             const esSuspendido = estadoNormalizado === 'suspendido'
             const tieneObservacion = Boolean(match.estado && !['programado', 'jugado', 'libre'].includes(estadoNormalizado))

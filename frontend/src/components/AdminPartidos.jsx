@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { slugify } from "../utils/slugify";
 import { ACTIVE_TORNEO_ID } from "../config/torneo";
 import { withTorneoParam } from "../utils/torneoSelection";
+import { buildMatchStateUpdate, hasCompleteScore, isMatchPlayed } from "../utils/matchState";
 
 const CATEGORIAS = [
   { id: 1, nombre: "primera" },
@@ -268,9 +269,7 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
       asegurarClub(partido.local_id);
       asegurarClub(partido.visitante_id);
 
-      const seJugo = (partido.estado === "jugado" || (partido.goles_local !== null && partido.goles_visitante !== null))
-        && partido.goles_local !== null
-        && partido.goles_visitante !== null;
+      const seJugo = isMatchPlayed(partido) && hasCompleteScore(partido);
       if (!seJugo || !partido.local_id || !partido.visitante_id) continue;
 
       const local = tabla.get(partido.local_id);
@@ -334,24 +333,20 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
     }
     setGuardando(true);
     const partido = getEditing(id);
-    
-    const golesLocal = partido.goles_local === "" || partido.goles_local === null ? null : Number(partido.goles_local);
-    const golesVisitante = partido.goles_visitante === "" || partido.goles_visitante === null ? null : Number(partido.goles_visitante);
-    const isSuspendido = String(partido.estado || "").trim().toLowerCase() === "suspendido";
-    const finalGolesLocal = isSuspendido ? null : golesLocal;
-    const finalGolesVisitante = isSuspendido ? null : golesVisitante;
-    const finalHora = isSuspendido ? null : (partido.hora === "" || partido.hora === null ? null : partido.hora);
+    let matchStateUpdate;
+    try {
+      matchStateUpdate = buildMatchStateUpdate(partido);
+    } catch (e) {
+      alert("No se puede guardar: " + e.message);
+      setGuardando(false);
+      return;
+    }
 
     const updates = {
       dia: partido.dia,
-      hora: finalHora,
       arbitro: partido.arbitro,
       cancha: partido.cancha,
-      estado: isSuspendido
-        ? "suspendido"
-        : (partido.estado === "programado" && finalGolesLocal !== null && finalGolesVisitante !== null ? "jugado" : partido.estado),
-      goles_local: finalGolesLocal,
-      goles_visitante: finalGolesVisitante,
+      ...matchStateUpdate,
     };
 
     const { error } = await supabase
@@ -553,7 +548,7 @@ export default function AdminPartidos({ supabaseUrl, supabaseKey }) {
         <div className="space-y-2">
           {matches.map((match, i) => {
             const isLibre = match.visitante_id === null;
-            const seJugo = match.estado === "jugado" || (match.goles_local !== null && match.goles_visitante !== null);
+            const seJugo = isMatchPlayed(match);
 
             if (isLibre) {
               return (
