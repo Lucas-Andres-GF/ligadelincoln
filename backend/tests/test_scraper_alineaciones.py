@@ -244,6 +244,88 @@ class LineupParsingTests(unittest.TestCase):
             {player.number: player.goals for player in match.visitor_players},
             {1: 1, 4: 0},
         )
+        self.assertTrue(
+            all(player.own_goals == 0 for player in (*match.local_players, *match.visitor_players))
+        )
+
+    def test_local_own_goal_is_attributed_to_local_actor_not_normal_goals(self) -> None:
+        match = lineups.parse_lineups_html(
+            single_match_html((0, 1), (("JUAN PÉREZ (E/C)", "0-1"),))
+        )[0]
+
+        local_actor = next(player for player in match.local_players if player.number == 9)
+        self.assertEqual((local_actor.goals, local_actor.own_goals), (0, 1))
+        self.assertEqual(sum(player.goals for player in match.visitor_players), 0)
+
+    def test_visitor_own_goal_is_attributed_to_visitor_actor_not_normal_goals(self) -> None:
+        match = lineups.parse_lineups_html(
+            single_match_html((1, 0), (("JOSÉ GÓMEZ (E/C)", "1-0"),))
+        )[0]
+
+        visitor_actor = next(player for player in match.visitor_players if player.number == 1)
+        self.assertEqual((visitor_actor.goals, visitor_actor.own_goals), (0, 1))
+        self.assertEqual(sum(player.goals for player in match.local_players), 0)
+
+    def test_mixed_normal_and_own_goals_reconcile_the_final_score(self) -> None:
+        match = lineups.parse_lineups_html(
+            single_match_html(
+                (2, 1),
+                (
+                    ("JUAN PÉREZ", "1-0"),
+                    ("JUAN PÉREZ (E/C)", "1-1"),
+                    ("JOSÉ GÓMEZ (E/C)", "2-1"),
+                ),
+            )
+        )[0]
+
+        local_actor = next(player for player in match.local_players if player.number == 9)
+        visitor_actor = next(player for player in match.visitor_players if player.number == 1)
+        self.assertEqual((local_actor.goals, local_actor.own_goals), (1, 1))
+        self.assertEqual((visitor_actor.goals, visitor_actor.own_goals), (0, 1))
+
+    def test_own_goal_unknown_and_ambiguous_actors_fail_closed(self) -> None:
+        unknown = single_match_html((1, 0), (("UNKNOWN ACTOR (E/C)", "1-0"),))
+        ambiguous = single_match_html((1, 0), (("JOSÉ GÓMEZ (E/C)", "1-0"),)).replace(
+            "PABLO MUÑOZ", "JOSÉ GÓMEZ EXTRA"
+        )
+
+        for label, html in (("unknown", unknown), ("ambiguous", ambiguous)):
+            with self.subTest(label=label), self.assertRaisesRegex(
+                lineups.LineupParseError,
+                "did not match one player",
+            ):
+                lineups.parse_lineups_html(html)
+
+    def test_malformed_or_nonterminal_own_goal_marker_fails_closed(self) -> None:
+        malformed_scorers = (
+            "JOSÉ GÓMEZ (E-C)",
+            "JOSÉ GÓMEZ (E/C) EXTRA",
+        )
+
+        for scorer in malformed_scorers:
+            with self.subTest(scorer=scorer), self.assertRaises(lineups.LineupParseError):
+                lineups.parse_lineups_html(single_match_html((1, 0), ((scorer, "1-0"),)))
+
+    def test_reversed_erik_eric_name_matches_only_by_final_c_k_variant(self) -> None:
+        html = single_match_html((1, 0), (("ERIK SMITH", "1-0"),)).replace(
+            "JUAN PÉREZ", "SMITH ERIC"
+        )
+
+        match = lineups.parse_lineups_html(html)[0]
+
+        actor = next(player for player in match.local_players if player.number == 9)
+        self.assertEqual((actor.goals, actor.own_goals), (1, 0))
+
+    def test_name_matching_does_not_use_broad_edit_distance(self) -> None:
+        for scorer in ("ERIK SMYTH", "ERIKA SMITH"):
+            html = single_match_html((1, 0), ((scorer, "1-0"),)).replace(
+                "JUAN PÉREZ", "SMITH ERIC"
+            )
+            with self.subTest(scorer=scorer), self.assertRaisesRegex(
+                lineups.LineupParseError,
+                "did not match one player",
+            ):
+                lineups.parse_lineups_html(html)
 
     def test_goal_scorer_matching_no_lineup_player_fails_closed(self) -> None:
         with self.assertRaisesRegex(lineups.LineupParseError, "did not match one player"):
@@ -289,6 +371,32 @@ class LineupParsingTests(unittest.TestCase):
 
 
 class LineupPlanningTests(unittest.TestCase):
+    def test_own_goals_are_persisted_separately_from_normal_goals(self) -> None:
+        match = lineups.parse_lineups_html(
+            single_match_html(
+                (2, 1),
+                (
+                    ("JUAN PÉREZ", "1-0"),
+                    ("JUAN PÉREZ (E/C)", "1-1"),
+                    ("JOSÉ GÓMEZ (E/C)", "2-1"),
+                ),
+            )
+        )[0]
+        plan = lineups.build_replacement_plan(
+            [match], fixture_records(INVENTORY[:1]), 2, 8, 1
+        )
+
+        self.assertTrue(plan.valid, plan.issues)
+        rows = {
+            (row["equipo_id"], row["numero"]): row
+            for row in plan.entries[0].lineup_rows
+        }
+        self.assertEqual((rows[(1, 9)]["goleo"], rows[(1, 9)]["goles_en_contra"]), (1, 1))
+        self.assertEqual((rows[(8, 1)]["goleo"], rows[(8, 1)]["goles_en_contra"]), (0, 1))
+        self.assertTrue(
+            all("goleo" in row and "goles_en_contra" in row for row in rows.values())
+        )
+
     def test_unique_matches_build_complete_replacements_without_result_fields(self) -> None:
         plan = valid_plan()
 
