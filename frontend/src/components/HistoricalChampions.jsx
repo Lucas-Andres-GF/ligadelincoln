@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase, getEscudoPath } from '../utils/supabase'
+import { groupHistoricalChampions } from '../utils/historicalChampions'
 import { parseTorneoId } from '../utils/torneoSelection'
 
 function sortTorneos(torneos) {
@@ -16,10 +17,6 @@ const CATEGORIES = [
   { id: 4, label: 'Novena', path: '/novena' },
   { id: 5, label: 'Décima', path: '/decima' },
 ]
-
-function relationValue(value) {
-  return Array.isArray(value) ? value[0] : value
-}
 
 function torneoHref(path, torneoId) {
   return `${path}?torneo=${encodeURIComponent(torneoId)}#fixture`
@@ -81,14 +78,10 @@ export default function HistoricalChampions({ categoriaId }) {
     return CATEGORIES.filter((category) => category.id === normalizedCategoriaId)
   }, [normalizedCategoriaId])
 
-  const championsByKey = useMemo(() => {
-    const result = new Map()
-    for (const row of palmares) {
-      const key = `${row.torneo_id}:${row.categoria_id}`
-      if (!result.has(key)) result.set(key, row)
-    }
-    return result
-  }, [palmares])
+  const championsByKey = useMemo(
+    () => groupHistoricalChampions(palmares),
+    [palmares],
+  )
 
   if (status === 'loading') {
     return (
@@ -135,35 +128,55 @@ export default function HistoricalChampions({ categoriaId }) {
 
           <div className='divide-y divide-green-400/10'>
             {torneos.map((torneo) => {
-              const champion = championsByKey.get(`${torneo.id}:${category.id}`)
-              const club = relationValue(champion?.club)
-              const clubName = club?.nombre
+              const championGroup = championsByKey.get(`${torneo.id}:${category.id}`)
+              const champions = championGroup?.champions || []
+              const isSharedChampionship = champions.length > 1
 
               return (
                 <article key={`${torneo.id}:${category.id}`} className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-green-400/[0.04] sm:grid-cols-[minmax(150px,0.75fr)_minmax(180px,1fr)_auto]'>
                   <div className='min-w-0'>
                     <p className='truncate text-xs font-black uppercase text-green-50'>{torneo.nombre}</p>
                     <p className='mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-600'>
-                      {champion?.temporada || torneo.temporada || 'Temporada sin informar'}
+                      {championGroup?.season || torneo.temporada || 'Temporada sin informar'}
                     </p>
                   </div>
 
                   <div className='col-span-2 flex min-w-0 items-center gap-2 sm:col-span-1 sm:row-auto'>
-                    {clubName ? (
+                    {champions.length === 1 ? (
                       <>
                         <img
-                          src={getEscudoPath(clubName)}
-                          alt={`Escudo de ${clubName}`}
+                          src={getEscudoPath(champions[0].clubName)}
+                          alt={`Escudo de ${champions[0].clubName}`}
                           className='h-7 w-7 shrink-0 object-contain'
                           loading='lazy'
                         />
                         <div className='min-w-0'>
-                          <p className='truncate text-xs font-bold text-green-100'>{clubName}</p>
-                          {champion?.nombre && (
-                            <p className='truncate text-[9px] font-bold uppercase tracking-wide text-yellow-300/80'>{champion.nombre}</p>
+                          <p className='truncate text-xs font-bold text-green-100'>{champions[0].clubName}</p>
+                          {championGroup.title && (
+                            <p className='truncate text-[9px] font-bold uppercase tracking-wide text-yellow-300/80'>{championGroup.title}</p>
                           )}
                         </div>
                       </>
+                    ) : isSharedChampionship ? (
+                      <div className='min-w-0'>
+                        <p className='text-[9px] font-bold uppercase tracking-wide text-yellow-300/80'>Campeonato compartido</p>
+                        <ul
+                          className='mt-1.5 flex flex-wrap gap-x-4 gap-y-2'
+                          aria-label={`Campeones compartidos de ${torneo.nombre} en ${category.label}`}
+                        >
+                          {champions.map((champion) => (
+                            <li key={champion.clubId} className='flex min-w-0 items-center gap-2'>
+                              <img
+                                src={getEscudoPath(champion.clubName)}
+                                alt={`Escudo de ${champion.clubName}`}
+                                className='h-7 w-7 shrink-0 object-contain'
+                                loading='lazy'
+                              />
+                              <span className='truncate text-xs font-bold text-green-100'>{champion.clubName}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     ) : (
                       <p className='text-[10px] font-semibold uppercase tracking-wide text-green-700'>Sin campeón cargado</p>
                     )}
