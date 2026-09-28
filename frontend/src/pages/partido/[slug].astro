@@ -59,7 +59,7 @@ if (!nombreLocal || !nombreVisita) {
 // record was resolved from exact torneo_id + partido.id.
 const { data: aliData, error: alineacionesError } = await supabase
   .from('alineaciones')
-  .select('partido_id, equipo_id, numero, nombre, es_titular, goleo, roja')
+  .select('partido_id, equipo_id, numero, nombre, es_titular, goleo, goles_en_contra, roja')
   .eq('partido_id', partido.id)
   .order('equipo_id')
   .order('numero')
@@ -92,6 +92,17 @@ function formatearDia(dia) {
 function formatearHora(hora) {
   if (!hora) return null
   return `${hora.slice(0, 5)}hs`
+}
+
+function normalizeGoalCount(value) {
+  const count = Number(value)
+  return Number.isSafeInteger(count) && count > 0 ? count : 0
+}
+
+function getPlayerGoalMarkers(player) {
+  const normalGoals = Array(normalizeGoalCount(player?.goleo)).fill('⚽')
+  const ownGoals = Array(normalizeGoalCount(player?.goles_en_contra)).fill('(E/C) ⚽')
+  return [...normalGoals, ...ownGoals].join(' ')
 }
 
 const diaPartido = formatearDia(partido.dia)
@@ -231,7 +242,7 @@ if (partido.dia) {
                     </span>
                     <span class="text-green-300">
                       {j.nombre}
-                      {j.goleo > 0 ? ' ⚽'.repeat(j.goleo) : ''}
+                      {getPlayerGoalMarkers(j) ? ` ${getPlayerGoalMarkers(j)}` : ''}
                       {j.roja ? ' 🟥' : ''}
                     </span>
                   </div>
@@ -248,7 +259,7 @@ if (partido.dia) {
                     </span>
                     <span class="text-green-300">
                       {j.nombre}
-                      {j.goleo > 0 ? ' ⚽'.repeat(j.goleo) : ''}
+                      {getPlayerGoalMarkers(j) ? ` ${getPlayerGoalMarkers(j)}` : ''}
                       {j.roja ? ' 🟥' : ''}
                     </span>
                   </div>
@@ -275,7 +286,7 @@ if (partido.dia) {
                     </span>
                     <span class="text-green-300">
                       {j.nombre}
-                      {j.goleo > 0 ? ' ⚽'.repeat(j.goleo) : ''}
+                      {getPlayerGoalMarkers(j) ? ` ${getPlayerGoalMarkers(j)}` : ''}
                       {j.roja ? ' 🟥' : ''}
                     </span>
                   </div>
@@ -292,7 +303,7 @@ if (partido.dia) {
                     </span>
                     <span class="text-green-300">
                       {j.nombre}
-                      {j.goleo > 0 ? ' ⚽'.repeat(j.goleo) : ''}
+                      {getPlayerGoalMarkers(j) ? ` ${getPlayerGoalMarkers(j)}` : ''}
                       {j.roja ? ' 🟥' : ''}
                     </span>
                   </div>
