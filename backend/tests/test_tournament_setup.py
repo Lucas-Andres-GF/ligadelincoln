@@ -435,18 +435,26 @@ class PalmaresTests(unittest.TestCase):
         "season": "2026",
     }
 
-    def plan(self, client: FakeClient, *, replace: bool = False) -> palmares.PalmaresPlan:
+    def plan(
+        self,
+        client: FakeClient,
+        *,
+        replace: bool = False,
+        co_champion: bool = False,
+    ) -> palmares.PalmaresPlan:
         return palmares.build_plan(
             client,
             OperationContext(7),
             replace_existing=replace,
+            co_champion=co_champion,
             **self.ARGS,
         )
 
-    def test_insert_and_exact_same_record_noop(self) -> None:
+    def test_first_champion_insert_reads_full_inventory(self) -> None:
         client = palmares_client()
         plan = self.plan(client)
         self.assertEqual(plan.action, "insert")
+        self.assertEqual(plan.existing_inventory, ())
         self.assertEqual(
             {read[0] for read in client.reads},
             {"torneos", "categorias", "clubes", "palmares"},
@@ -455,35 +463,120 @@ class PalmaresTests(unittest.TestCase):
         palmares.execute_plan(client, plan)
         self.assertEqual(client.mutations[0][0:2], ("palmares", "insert"))
 
-        same = palmares_client(existing=[champion()])
-        noop = self.plan(same)
-        self.assertTrue(noop.noop)
-        self.assertEqual(palmares.execute_plan(same, noop), [])
-        self.assertEqual(same.write_attempts, 0)
+        co_champion_without_first = self.plan(palmares_client(), co_champion=True)
+        self.assertFalse(co_champion_without_first.valid)
+        self.assertIn("first insert", "\n".join(co_champion_without_first.issues))
 
-    def test_conflict_blocks_unless_explicit_replacement_is_narrow(self) -> None:
+    def test_explicit_co_champion_inserts_second_distinct_club(self) -> None:
+        existing = champion(club_id=2)
+        client = palmares_client(existing=[existing])
+        plan = self.plan(client, co_champion=True)
+        self.assertEqual(plan.action, "insert")
+        self.assertEqual(plan.existing_inventory, (existing,))
+        report = palmares.render_report(OperationContext(7), plan)
+        self.assertEqual(report["validated_existing_inventory"], [existing])
+        palmares.execute_plan(client, plan)
+        self.assertEqual(client.mutations[0][0:2], ("palmares", "insert"))
+
+    def test_second_distinct_club_requires_co_champion_flag(self) -> None:
         client = palmares_client(existing=[champion(club_id=2)])
-        blocked = self.plan(client)
-        self.assertFalse(blocked.valid)
+        plan = self.plan(client)
+        self.assertFalse(plan.valid)
+        self.assertIn("--co-champion", "\n".join(plan.issues))
         with self.assertRaises(ValueError):
-            palmares.execute_plan(client, blocked)
+            palmares.execute_plan(client, plan)
 
-        replace_client = palmares_client(existing=[champion(club_id=2)])
-        replacement = self.plan(replace_client, replace=True)
-        self.assertEqual(replacement.action, "update")
-        palmares.execute_plan(replace_client, replacement)
-        mutation = replace_client.mutations[0]
+    def test_exact_rerun_is_noop_with_two_champions(self) -> None:
+        existing = [champion(id=20, club_id=2), champion(id=21)]
+        client = palmares_client(existing=existing)
+        plan = self.plan(client)
+        self.assertTrue(plan.noop)
+        self.assertEqual(plan.existing_inventory, tuple(existing))
+        self.assertEqual(palmares.execute_plan(client, plan), [])
+        self.assertEqual(client.write_attempts, 0)
+
+    def test_two_existing_distinct_clubs_block_third(self) -> None:
+        client = palmares_client(
+            existing=[champion(id=20, club_id=2), champion(id=21, club_id=4)]
+        )
+        plan = self.plan(client, co_champion=True)
+        self.assertFalse(plan.valid)
+        self.assertIn("two", "\n".join(plan.issues).lower())
+        self.assertEqual(client.write_attempts, 0)
+
+        replace_plan = self.plan(
+            palmares_client(existing=client.inventory["palmares"]),
+            replace=True,
+        )
+        self.assertFalse(replace_plan.valid)
+        with self.assertRaisesRegex(Exception, "exceeds safety maximum 2"):
+            self.plan(
+                palmares_client(
+                    existing=client.inventory["palmares"] + [champion(id=22, club_id=5)]
+                ),
+                co_champion=True,
+            )
+
+    def test_duplicate_existing_club_fails_closed(self) -> None:
+        client = palmares_client(
+            existing=[champion(id=20, club_id=2), champion(id=21, club_id=2)]
+        )
+        with self.assertRaisesRegex(Exception, "Duplicate palmares club"):
+            self.plan(client)
+        self.assertEqual(client.write_attempts, 0)
+
+    def test_exact_club_metadata_update_requires_replace_and_targets_only_that_row(self) -> None:
+        existing = [
+            champion(id=20, club_id=2),
+            champion(id=21, nombre="Old champion name"),
+        ]
+        blocked = self.plan(palmares_client(existing=existing))
+        self.assertFalse(blocked.valid)
+        self.assertIn("--replace-existing", "\n".join(blocked.issues))
+
+        client = palmares_client(existing=existing)
+        plan = self.plan(client, replace=True)
+        self.assertEqual(plan.action, "update")
+        palmares.execute_plan(client, plan)
+        mutation = client.mutations[0]
         self.assertEqual(mutation[0:2], ("palmares", "update"))
         self.assertEqual(
             mutation[3],
+            (("id", 21), ("torneo_id", 7), ("categoria_id", 1)),
+        )
+
+    def test_single_different_club_replace_retains_narrow_replacement(self) -> None:
+        client = palmares_client(existing=[champion(id=20, club_id=2)])
+        plan = self.plan(client, replace=True)
+        self.assertEqual(plan.action, "update")
+        palmares.execute_plan(client, plan)
+        self.assertEqual(
+            client.mutations[0][3],
             (("id", 20), ("torneo_id", 7), ("categoria_id", 1)),
         )
 
-    def test_duplicate_existing_and_malformed_references_block(self) -> None:
-        with self.assertRaisesRegex(Exception, "Duplicate palmares"):
-            self.plan(palmares_client(existing=[champion(), champion(id=21)]))
-        with self.assertRaisesRegex(Exception, "malformed nombre"):
-            self.plan(palmares_client(clubes=[{"id": 3, "nombre": ""}]))
+    def test_co_champion_and_replace_existing_are_mutually_exclusive(self) -> None:
+        parser = palmares.build_parser()
+        required = [
+            "--torneo-id", "7",
+            "--categoria-id", "1",
+            "--club-id", "3",
+            "--nombre", "Champion 2026",
+            "--temporada", "2026",
+        ]
+        with self.assertRaises(SystemExit):
+            parser.parse_args(required + ["--co-champion", "--replace-existing"])
+
+    def test_malformed_and_out_of_scope_inventory_fails_closed(self) -> None:
+        with self.assertRaisesRegex(Exception, "nombre is malformed"):
+            self.plan(palmares_client(existing=[champion(nombre="")]))
+        with self.assertRaisesRegex(Exception, "out-of-scope"):
+            self.plan(
+                palmares_client(
+                    existing=[champion(torneo_id=99)],
+                    ignore_filters=True,
+                )
+            )
 
     def test_missing_and_out_of_scope_references_block_independently(self) -> None:
         with self.assertRaisesRegex(Exception, "Missing club reference"):
@@ -510,7 +603,7 @@ class PalmaresTests(unittest.TestCase):
                         "--temporada", "2026",
                     ]
                 )
-        client = palmares_client()
+        client = palmares_client(existing=[champion(club_id=2)])
         output = io.StringIO()
         code = palmares.main(
             [
@@ -519,6 +612,7 @@ class PalmaresTests(unittest.TestCase):
                 "--club-id", "3",
                 "--nombre", "Champion 2026",
                 "--temporada", "2026",
+                "--co-champion",
             ],
             client_factory=lambda: client,
             stdout=output,

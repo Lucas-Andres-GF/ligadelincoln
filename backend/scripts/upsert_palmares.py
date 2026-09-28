@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Preview or safely write one explicit official champion record."""
+"""Preview or safely write one official champion or explicit co-champion record."""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ class PalmaresPlan:
     category_id: int
     payload: Mapping[str, Any]
     references: Mapping[str, Mapping[str, Any]]
+    existing_inventory: tuple[Mapping[str, Any], ...]
     existing: Optional[Mapping[str, Any]]
     action: str
     issues: tuple[str, ...]
@@ -113,7 +114,11 @@ def require_reference(client: Any, table: str, row_id: int, label: str) -> Mappi
     return row
 
 
-def find_existing(client: Any, tournament_id: int, category_id: int) -> Optional[Mapping[str, Any]]:
+def find_existing(
+    client: Any,
+    tournament_id: int,
+    category_id: int,
+) -> tuple[Mapping[str, Any], ...]:
     rows = _read_exact(
         client,
         table="palmares",
@@ -124,24 +129,24 @@ def find_existing(client: Any, tournament_id: int, category_id: int) -> Optional
             "categoria_id", category_id
         ),
     )
-    if len(rows) > 1:
-        raise PalmaresError(
-            "Duplicate palmares records for the requested tournament/category"
-        )
-    if not rows:
-        return None
-    row = rows[0]
-    _positive(row.get("id"), "palmares row id")
-    if _positive(row.get("torneo_id"), "palmares torneo_id") != tournament_id:
-        raise PalmaresError("Palmares inventory returned an out-of-scope tournament")
-    if _positive(row.get("categoria_id"), "palmares categoria_id") != category_id:
-        raise PalmaresError("Palmares inventory returned an out-of-scope category")
-    _positive(row.get("club_id"), "palmares club_id")
-    for field in ("nombre", "temporada"):
-        value = row.get(field)
-        if not isinstance(value, str) or not value.strip():
-            raise PalmaresError(f"Existing palmares {field} is malformed")
-    return row
+    club_ids: set[int] = set()
+    for row in rows:
+        _positive(row.get("id"), "palmares row id")
+        if _positive(row.get("torneo_id"), "palmares torneo_id") != tournament_id:
+            raise PalmaresError("Palmares inventory returned an out-of-scope tournament")
+        if _positive(row.get("categoria_id"), "palmares categoria_id") != category_id:
+            raise PalmaresError("Palmares inventory returned an out-of-scope category")
+        existing_club_id = _positive(row.get("club_id"), "palmares club_id")
+        if existing_club_id in club_ids:
+            raise PalmaresError(
+                f"Duplicate palmares club id={existing_club_id} in validated inventory"
+            )
+        club_ids.add(existing_club_id)
+        for field in ("nombre", "temporada"):
+            value = row.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise PalmaresError(f"Existing palmares {field} is malformed")
+    return tuple(rows)
 
 
 def build_plan(
@@ -152,8 +157,13 @@ def build_plan(
     club_id: int,
     name: str,
     season: str,
-    replace_existing: bool,
+    replace_existing: bool = False,
+    co_champion: bool = False,
 ) -> PalmaresPlan:
+    if replace_existing and co_champion:
+        raise PalmaresError(
+            "--co-champion and --replace-existing are mutually exclusive"
+        )
     tournament_id = validate_positive_tournament_id(context.tournament_id)
     category_id = validate_positive_tournament_id(category_id, source="--categoria-id")
     club_id = validate_positive_tournament_id(club_id, source="--club-id")
@@ -169,27 +179,63 @@ def build_plan(
         "categoria": require_reference(client, "categorias", category_id, "category"),
         "club": require_reference(client, "clubes", club_id, "club"),
     }
-    existing = find_existing(client, tournament_id, category_id)
-    if existing is None:
-        action = "insert"
-        issues: tuple[str, ...] = ()
-    elif all(existing.get(key) == value for key, value in payload.items()):
-        action = "noop"
-        issues = ()
-    elif replace_existing:
-        action = "update"
-        issues = ()
+    existing_inventory = find_existing(client, tournament_id, category_id)
+    exact_club = next(
+        (row for row in existing_inventory if row.get("club_id") == club_id),
+        None,
+    )
+    existing: Optional[Mapping[str, Any]] = exact_club
+
+    if exact_club is not None:
+        if all(exact_club.get(key) == value for key, value in payload.items()):
+            action = "noop"
+            issues: tuple[str, ...] = ()
+        elif replace_existing:
+            action = "update"
+            issues = ()
+        else:
+            action = "blocked"
+            issues = (
+                "Existing metadata for this club conflicts with the explicit request; "
+                "use --replace-existing to permit one narrow update",
+            )
+    elif not existing_inventory:
+        if co_champion:
+            action = "blocked"
+            issues = (
+                "--co-champion requires one validated existing champion; "
+                "omit it for the first insert",
+            )
+        else:
+            action = "insert"
+            issues = ()
+    elif len(existing_inventory) == 1:
+        if co_champion:
+            action = "insert"
+            issues = ()
+        elif replace_existing:
+            existing = existing_inventory[0]
+            action = "update"
+            issues = ()
+        else:
+            action = "blocked"
+            issues = (
+                "A different champion already exists; use --co-champion to add "
+                "the explicit second champion or --replace-existing for one narrow update",
+            )
     else:
         action = "blocked"
         issues = (
-            "Existing champion or metadata conflicts with the explicit request; "
-            "use --replace-existing to permit one narrow update",
+            "Two distinct champions already exist for this tournament/category; "
+            "refusing to add or replace a third club",
         )
+
     return PalmaresPlan(
         tournament_id=tournament_id,
         category_id=category_id,
         payload=payload,
         references=references,
+        existing_inventory=existing_inventory,
         existing=existing,
         action=action,
         issues=issues,
@@ -234,7 +280,10 @@ def render_report(context: OperationContext, plan: PalmaresPlan) -> dict[str, An
         "validated_references": {
             key: dict(value) for key, value in plan.references.items()
         },
-        "existing": dict(plan.existing) if plan.existing else None,
+        "validated_existing_inventory": [
+            dict(row) for row in plan.existing_inventory
+        ],
+        "update_target": dict(plan.existing) if plan.action == "update" else None,
         "values": dict(plan.payload),
         "issues": list(plan.issues),
     }
@@ -251,6 +300,11 @@ def print_human_report(report: Mapping[str, Any], output: TextIO = sys.stdout) -
         file=output,
     )
     print(
+        "Validated existing inventory: "
+        f"{json.dumps(report['validated_existing_inventory'], ensure_ascii=False, sort_keys=True)}",
+        file=output,
+    )
+    print(
         f"Values: {json.dumps(report['values'], ensure_ascii=False, sort_keys=True)}",
         file=output,
     )
@@ -262,17 +316,26 @@ def print_human_report(report: Mapping[str, Any], output: TextIO = sys.stdout) -
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Preview or safely write one explicitly supplied official champion."
+        description=(
+            "Preview or safely write one explicitly supplied official champion, "
+            "including an explicit second co-champion."
+        )
     )
     add_operation_arguments(parser, tournament_required=True)
     parser.add_argument("--categoria-id", required=True, type=lambda value: _cli_id(value, "--categoria-id"))
     parser.add_argument("--club-id", required=True, type=lambda value: _cli_id(value, "--club-id"))
     parser.add_argument("--nombre", required=True, type=non_empty_string)
     parser.add_argument("--temporada", required=True, type=non_empty_string)
-    parser.add_argument(
+    change_mode = parser.add_mutually_exclusive_group()
+    change_mode.add_argument(
         "--replace-existing",
         action="store_true",
-        help="Permit one narrow update when the existing record conflicts.",
+        help="Permit one narrow update when the matching or sole existing record conflicts.",
+    )
+    change_mode.add_argument(
+        "--co-champion",
+        action="store_true",
+        help="Permit inserting one distinct second champion after validating the full inventory.",
     )
     parser.add_argument("--json", action="store_true", help="Emit the plan as JSON.")
     return parser
@@ -317,6 +380,7 @@ def main(
             name=args.nombre,
             season=args.temporada,
             replace_existing=args.replace_existing,
+            co_champion=args.co_champion,
         )
         report = render_report(context, plan)
         if args.json:
