@@ -7,6 +7,7 @@ import argparse
 import re
 import sys
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence, TextIO
@@ -59,6 +60,8 @@ ROUND_PATTERNS = (
     re.compile(rf"\b({ROUND_TOKEN})\s+FECHA\b", re.IGNORECASE),
 )
 SCORE_PATTERN = re.compile(r"^\s*(\d+)\s*-\s*(\d+)\s*$")
+OWN_GOAL_MARKER_PATTERN = re.compile(r"\s*\(E/C\)\s*$", re.IGNORECASE)
+OWN_GOAL_MARKER_LIKE_PATTERN = re.compile(r"\(\s*E\s*[/\\-]\s*C\s*\)", re.IGNORECASE)
 
 
 class LineupParseError(ValueError):
@@ -76,6 +79,7 @@ class OfficialPlayer:
     name: str
     goals: int = 0
     red_card: bool = False
+    own_goals: int = 0
 
 
 @dataclass(frozen=True)
@@ -285,6 +289,12 @@ def _match_header(cells: Sequence[Tag]) -> Optional[tuple[str, int, int, str]]:
     return local, int(local_score), int(visitor_score), visitor
 
 
+def _identity_word(word: str) -> str:
+    if len(word) >= 3 and word[-1] in {"C", "K"}:
+        return f"{word[:-1]}[CK]"
+    return word
+
+
 def _player_matches(scorer_name: str, player_name: str) -> bool:
     scorer = identity_text(scorer_name)
     player = identity_text(player_name)
@@ -292,14 +302,30 @@ def _player_matches(scorer_name: str, player_name: str) -> bool:
         return False
     if scorer == player:
         return True
-    scorer_words = [word for word in scorer.split() if len(word) >= 3]
-    player_words = [word for word in player.split() if len(word) >= 3]
-    matches = sum(
-        1
-        for scorer_word in scorer_words
-        if any(scorer_word in player_word or player_word in scorer_word for player_word in player_words)
-    )
-    return len(scorer_words) >= 2 and matches >= 2
+
+    scorer_words = [_identity_word(word) for word in scorer.split() if len(word) >= 3]
+    player_words = [_identity_word(word) for word in player.split() if len(word) >= 3]
+    if len(scorer_words) < 2:
+        return False
+    scorer_counts = Counter(scorer_words)
+    player_counts = Counter(player_words)
+    return all(player_counts[word] >= count for word, count in scorer_counts.items())
+
+
+def _parse_goal_actor(scorer: str, source_row: int) -> tuple[str, bool]:
+    marker = OWN_GOAL_MARKER_PATTERN.search(scorer)
+    if marker is not None:
+        actor = scorer[: marker.start()].strip()
+        if not actor:
+            raise LineupParseError(
+                f"Own-goal event at source row {source_row} has no actor before (E/C)"
+            )
+        return actor, True
+    if OWN_GOAL_MARKER_LIKE_PATTERN.search(scorer):
+        raise LineupParseError(
+            f"Own-goal event at source row {source_row} has a malformed or nonterminal marker"
+        )
+    return scorer, False
 
 
 def _goal_counts(
@@ -307,9 +333,11 @@ def _goal_counts(
     local_players: Sequence[OfficialPlayer],
     visitor_players: Sequence[OfficialPlayer],
     final_score: tuple[int, int],
-) -> tuple[dict[int, int], dict[int, int]]:
+) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
     local_goals: dict[int, int] = {}
     visitor_goals: dict[int, int] = {}
+    local_own_goals: dict[int, int] = {}
+    visitor_own_goals: dict[int, int] = {}
     previous = (0, 0)
     for source_row, cells in rows:
         if len(cells) <= 7:
@@ -343,27 +371,38 @@ def _goal_counts(
         visitor_delta = current[1] - previous[1]
         if (local_delta, visitor_delta) not in {(1, 0), (0, 1)}:
             raise LineupParseError(f"Malformed scoring sequence at source row {source_row}")
-        scoring_players, target = (
-            (local_players, local_goals)
-            if local_delta == 1
-            else (visitor_players, visitor_goals)
-        )
-        matches = [player for player in scoring_players if _player_matches(scorer, player.name)]
+        actor, is_own_goal = _parse_goal_actor(scorer, source_row)
+        if local_delta == 1:
+            actor_players, target = (
+                (visitor_players, visitor_own_goals)
+                if is_own_goal
+                else (local_players, local_goals)
+            )
+        else:
+            actor_players, target = (
+                (local_players, local_own_goals)
+                if is_own_goal
+                else (visitor_players, visitor_goals)
+            )
+        matches = [player for player in actor_players if _player_matches(actor, player.name)]
         if len(matches) != 1:
             raise LineupParseError(
-                f"Goal scorer {scorer!r} at source row {source_row} did not match one player"
+                f"Goal scorer {actor!r} at source row {source_row} did not match one player"
             )
         target[matches[0].number] = target.get(matches[0].number, 0) + 1
         previous = current
 
-    attributed_score = (sum(local_goals.values()), sum(visitor_goals.values()))
+    attributed_score = (
+        sum(local_goals.values()) + sum(visitor_own_goals.values()),
+        sum(visitor_goals.values()) + sum(local_own_goals.values()),
+    )
     if previous != final_score or attributed_score != final_score:
         raise LineupParseError(
             "Final score/event mismatch: "
             f"header={final_score[0]}-{final_score[1]} "
             f"events={attributed_score[0]}-{attributed_score[1]}"
         )
-    return local_goals, visitor_goals
+    return local_goals, visitor_goals, local_own_goals, visitor_own_goals
 
 
 def _parse_match_block(
@@ -430,7 +469,7 @@ def _parse_match_block(
             f"Incomplete match block at source row {source_row}: both teams require players"
         )
 
-    local_goals, visitor_goals = _goal_counts(
+    local_goals, visitor_goals, local_own_goals, visitor_own_goals = _goal_counts(
         rows,
         local_players,
         visitor_players,
@@ -443,6 +482,7 @@ def _parse_match_block(
             name=player.name,
             goals=local_goals.get(player.number, 0),
             red_card=player.red_card,
+            own_goals=local_own_goals.get(player.number, 0),
         )
         for player in local_players
     ]
@@ -453,6 +493,7 @@ def _parse_match_block(
             name=player.name,
             goals=visitor_goals.get(player.number, 0),
             red_card=player.red_card,
+            own_goals=visitor_own_goals.get(player.number, 0),
         )
         for player in visitor_players
     ]
@@ -603,6 +644,12 @@ def _validate_player(player: OfficialPlayer, expected_team_id: Optional[int], la
         issues.append(f"Malformed player name for {label}")
     if isinstance(player.goals, bool) or not isinstance(player.goals, int) or player.goals < 0:
         issues.append(f"Malformed goal marker for {label}")
+    if (
+        isinstance(player.own_goals, bool)
+        or not isinstance(player.own_goals, int)
+        or player.own_goals < 0
+    ):
+        issues.append(f"Malformed own-goal marker for {label}")
     if not isinstance(player.red_card, bool):
         issues.append(f"Malformed red-card marker for {label}")
     return issues
@@ -699,6 +746,7 @@ def build_replacement_plan(
                     "es_titular": player.number <= 11,
                     "tiempo": "PT",
                     "goleo": player.goals,
+                    "goles_en_contra": player.own_goals,
                     "roja": player.red_card,
                     "fecha_id": round_id,
                 }

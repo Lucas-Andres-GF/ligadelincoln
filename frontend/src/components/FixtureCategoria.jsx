@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cachedQuery } from '../utils/supabaseCached'
 import { slugify } from '../utils/slugify'
 import { isMatchPlayed } from '../utils/matchState'
+import { buildLineupScorerLabels } from '../utils/lineupScorers'
 import {
   getSelectedTorneoId,
   listenToTorneoChange,
@@ -188,29 +189,16 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
         // every partido ID came from the tournament-scoped partidos query above.
         const { data: aliData, error: alineacionesError } = await supabase
           .from('alineaciones')
-          .select('partido_id, equipo_id, nombre, goleo')
+          .select('partido_id, equipo_id, nombre, goleo, goles_en_contra')
           .in('partido_id', partidoIds)
-          .gt('goleo', 0)
+          .or('goleo.gt.0,goles_en_contra.gt.0')
 
         if (cancelled) return
         if (alineacionesError) {
           console.error('Error fetching alineaciones:', alineacionesError)
           setError('Se cargó el fixture, pero no se pudieron cargar los goleadores.')
         } else {
-          for (const alineacion of aliData || []) {
-            if (!goleadoresMap[alineacion.partido_id]) goleadoresMap[alineacion.partido_id] = {}
-            const equipoId = String(alineacion.equipo_id)
-            if (!goleadoresMap[alineacion.partido_id][equipoId]) {
-              goleadoresMap[alineacion.partido_id][equipoId] = []
-            }
-            const abbreviated = alineacion.nombre
-              .split(' ')
-              .map((part, index) => (index === 0 ? part : `${part.charAt(0)}.`))
-              .join(' ')
-            for (let goal = 0; goal < alineacion.goleo; goal += 1) {
-              goleadoresMap[alineacion.partido_id][equipoId].push(`${abbreviated} ⚽`)
-            }
-          }
+          goleadoresMap = buildLineupScorerLabels(data, aliData)
         }
       }
 
@@ -218,8 +206,8 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
       for (const match of data || []) {
         const withScorers = {
           ...match,
-          goleadoresLocal: goleadoresMap[match.id]?.[String(match.local_id)] || [],
-          goleadoresVisita: goleadoresMap[match.id]?.[String(match.visitante_id)] || [],
+          goleadoresLocal: goleadoresMap[match.id]?.local || [],
+          goleadoresVisita: goleadoresMap[match.id]?.visitor || [],
         }
         if (!grouped[match.fecha_id]) grouped[match.fecha_id] = []
         grouped[match.fecha_id].push(withScorers)
