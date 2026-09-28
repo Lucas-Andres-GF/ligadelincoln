@@ -31,6 +31,9 @@ Publish the approved Apertura and Clausura 2026 champions for every category, in
   - Production-state dry-run: 9 inserts, 1 exact no-op (Clausura Primera/Arenaza), and 1 expected staged block for the second Clausura Décima co-champion because the first candidate was intentionally not persisted. Zero mutations attempted.
   - Commit: recorded in the ODD evidence work unit.
 - [ ] CHAMP-004 Apply only the confirmed palmarés changes after explicit production authorization, verify readback/public display, then prepare delivery.
+  - Production evidence: user authorized 10 missing inserts. Nine independent inserts succeeded, intermediate readback confirmed 10 total records, the second Décima co-champion then passed dry-run and inserted successfully.
+  - Final readback: 11 rows across 10 tournament/category titles; Clausura Décima contains Argentino and Atl. Pasteur with identical shared-title metadata; active tournament has zero champions.
+  - Delivery pending: push/merge frontend support before public display can be verified.
 
 ## Constraints
 - `palmares` remains the only champion authority; standings provide review evidence only.
@@ -38,4 +41,4 @@ Publish the approved Apertura and Clausura 2026 champions for every category, in
 - Primera ties require explicit final evidence; existing Dep. Arenaza palmarés is retained.
 - Lower-division first-place ties produce co-champions.
 - A second champion requires an explicit co-champion flag and at most two distinct clubs per tournament/category.
-- Every operation remains dry-run-first; no production writes, push, or merge without explicit authorization.
+- Every operation remains dry-run-first. Production palmarés writes and local commits were explicitly authorized; push and merge remain separate decisions.
