@@ -4,6 +4,7 @@ import { cachedQuery } from '../utils/supabaseCached'
 import { slugify } from '../utils/slugify'
 import { isMatchPlayed } from '../utils/matchState'
 import { buildLineupScorerLabels } from '../utils/lineupScorers'
+import TournamentDeciderSeries from './TournamentDeciderSeries'
 import {
   getSelectedTorneoId,
   listenToTorneoChange,
@@ -254,15 +255,30 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
   }
 
   if (isLoading) {
-    return <div className='text-center py-8 text-green-700 animate-pulse text-xs uppercase tracking-widest'>Cargando fixture…</div>
+    return (
+      <div className='p-2 md:p-4 pb-16'>
+        <div className='text-center py-8 text-green-700 animate-pulse text-xs uppercase tracking-widest'>Cargando fixture…</div>
+        <TournamentDeciderSeries categoria={categoria} torneoId={selectedTorneoId} />
+      </div>
+    )
   }
 
   if (error && availableFechas.length === 0) {
-    return <div className='text-center py-8 text-red-300 text-xs font-semibold' role='alert'>{error}</div>
+    return (
+      <div className='p-2 md:p-4 pb-16'>
+        <div className='text-center py-8 text-red-300 text-xs font-semibold' role='alert'>{error}</div>
+        <TournamentDeciderSeries categoria={categoria} torneoId={selectedTorneoId} />
+      </div>
+    )
   }
 
   if (availableFechas.length === 0) {
-    return <div className='text-center py-8 text-green-700 text-xs uppercase tracking-widest'>No hay partidos cargados para este torneo.</div>
+    return (
+      <div className='p-2 md:p-4 pb-16'>
+        <div className='text-center py-8 text-green-700 text-xs uppercase tracking-widest'>No hay partidos cargados para este torneo.</div>
+        <TournamentDeciderSeries categoria={categoria} torneoId={selectedTorneoId} />
+      </div>
+    )
   }
 
   return (
@@ -389,6 +405,8 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
           })}
         </div>
       )}
+
+      <TournamentDeciderSeries categoria={categoria} torneoId={selectedTorneoId} />
     </div>
   )
 }
