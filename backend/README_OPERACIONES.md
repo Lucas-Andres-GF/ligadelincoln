@@ -15,6 +15,125 @@ Esta es la **fuente canónica** para importar, verificar y actualizar datos del 
 7. **La ingesta no despliega el frontend ni publica contenido.** Deploy, placas, medios y redes sociales son operaciones separadas.
 8. **RLS no se administra desde estas CLI.** Todo cambio de políticas o permisos SQL se realiza manualmente en SQL Editor, con revisión independiente.
 
+## Hardening de ACL de producción (SEC-ACL-001/002)
+
+La migración [`sql/rls_acl_hardening_v2.sql`](sql/rls_acl_hardening_v2.sql) alinea los permisos directos con el modelo existente de lectura pública y escritura de administrador. Es transaccional e idempotente, no cambia políticas RLS ni datos, y siempre cierra los objetos futuros del owner `postgres`. Los defaults de `supabase_admin` se cierran en la misma transacción solamente cuando `pg_has_role(current_user, 'supabase_admin', 'MEMBER')` lo permite; si no, la migración emite un `WARNING`, conserva los otros cambios y exige revisar el drift residual.
+
+> **No ejecutes estos archivos desde una CLI de ingesta ni mediante MCP.** La identidad SQL configurada en MCP es de solo lectura. Toda aplicación en producción debe realizarse manualmente en Supabase SQL Editor con una identidad autorizada para los ACL actuales y los defaults de `postgres`. Probá primero en un ambiente no productivo y conservá el resultado de cada readback.
+
+Orden operativo obligatorio:
+
+1. **Preflight:** confirmá que existen los 13 objetos de aplicación esperados, los roles `anon`, `authenticated`, `postgres` y `supabase_admin`, y la función `public.is_liga_admin()` sin argumentos. Verificá también que el email configurado siga siendo `gallardolucas003@gmail.com` y registrá el resultado de `select current_user, pg_catalog.pg_has_role(current_user, 'supabase_admin', 'MEMBER');`.
+2. **Apply:** ejecutá completo `backend/sql/rls_acl_hardening_v2.sql`. No extraigas sentencias: el `begin`/`commit` hace atómica la actualización de ACL existentes y defaults de `postgres`; los tres cambios de defaults de `supabase_admin` se ejecutan juntos dentro de la guarda de membresía o se omiten con un `WARNING` explícito.
+3. **Readback:** ejecutá todas las consultas siguientes y guardá la salida, incluso si no hubo errores. No continúes si aparece un grant inesperado, falta un owner o el readback específico revela drift residual de defaults de `supabase_admin`.
+4. **Verificación funcional:** comprobá lectura como `anon`, lectura y escritura del administrador autenticado con IDs generados, y rechazo de escritura para un usuario autenticado que no sea administrador. Confirmá que los procesos con `service_role` siguen funcionando.
+5. **Rollback:** no lo uses como paso rutinario. Si una incompatibilidad crítica exige volver temporalmente a ACL amplias, revisá y ejecutá completo `backend/sql/rls_acl_hardening_v2_rollback.sql`, y repetí el mismo readback. Abrí de inmediato una reparación de grants explícitos para poder reaplicar v2.
+
+Readback de ACL actuales:
+
+```sql
+select relation.relname as table_name,
+       case acl.grantee
+         when 0 then 'PUBLIC'
+         else pg_catalog.pg_get_userbyid(acl.grantee)
+       end as grantee,
+       acl.privilege_type
+from pg_catalog.pg_class as relation
+join pg_catalog.pg_namespace as namespace on namespace.oid = relation.relnamespace
+cross join lateral pg_catalog.aclexplode(
+  coalesce(relation.relacl, pg_catalog.acldefault('r', relation.relowner))
+) as acl
+where namespace.nspname = 'public'
+  and relation.relkind in ('r', 'p')
+  and relation.relname in (
+    'alineaciones', 'categorias', 'clubes', 'fechas', 'goleadores',
+    'goleadores_partido', 'jugadores', 'palmares', 'participaciones',
+    'partidos', 'posiciones', 'sanciones', 'torneos'
+  )
+order by relation.relname, grantee, acl.privilege_type;
+
+select sequence.relname as sequence_name,
+       case acl.grantee
+         when 0 then 'PUBLIC'
+         else pg_catalog.pg_get_userbyid(acl.grantee)
+       end as grantee,
+       acl.privilege_type
+from pg_catalog.pg_class as sequence
+join pg_catalog.pg_namespace as namespace on namespace.oid = sequence.relnamespace
+cross join lateral pg_catalog.aclexplode(
+  coalesce(sequence.relacl, pg_catalog.acldefault('S', sequence.relowner))
+) as acl
+where namespace.nspname = 'public'
+  and sequence.relkind = 'S'
+order by sequence.relname, grantee, acl.privilege_type;
+
+select p.proname,
+       p.prosecdef as security_definer,
+       p.provolatile,
+       p.proconfig,
+       p.proacl
+from pg_catalog.pg_proc as p
+join pg_catalog.pg_namespace as n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'is_liga_admin'
+  and p.pronargs = 0;
+```
+
+Readback de privilegios por defecto (una fila persistida por owner/tipo configurado):
+
+```sql
+select owner.rolname as owner,
+       defaults.defaclobjtype,
+       defaults.defaclacl
+from pg_catalog.pg_default_acl as defaults
+join pg_catalog.pg_roles as owner on owner.oid = defaults.defaclrole
+join pg_catalog.pg_namespace as namespace on namespace.oid = defaults.defaclnamespace
+where namespace.nspname = 'public'
+  and owner.rolname in ('postgres', 'supabase_admin')
+order by owner.rolname, defaults.defaclobjtype;
+```
+
+Readback obligatorio de drift residual de defaults de `supabase_admin`. Esta consulta también expande defaults implícitos cuando no existe una fila en `pg_default_acl`; después del hardening debe devolver **cero filas**. Cualquier fila indica que objetos futuros todavía pueden heredar un grant para `PUBLIC`, `anon` o `authenticated` y bloquea el cierre operativo:
+
+```sql
+with object_types(code, object_type) as (
+  values
+    ('r'::"char", 'tables'),
+    ('S'::"char", 'sequences'),
+    ('f'::"char", 'functions')
+)
+select owner.rolname as owner,
+       object_types.object_type,
+       case acl.grantee
+         when 0 then 'PUBLIC'
+         else pg_catalog.pg_get_userbyid(acl.grantee)
+       end as grantee,
+       acl.privilege_type
+from pg_catalog.pg_roles as owner
+cross join object_types
+join pg_catalog.pg_namespace as namespace on namespace.nspname = 'public'
+left join pg_catalog.pg_default_acl as defaults
+  on defaults.defaclrole = owner.oid
+ and defaults.defaclnamespace = namespace.oid
+ and defaults.defaclobjtype = object_types.code
+cross join lateral pg_catalog.aclexplode(
+  coalesce(
+    defaults.defaclacl,
+    pg_catalog.acldefault(object_types.code, owner.oid)
+  )
+) as acl
+where owner.rolname = 'supabase_admin'
+  and (
+    acl.grantee = 0
+    or pg_catalog.pg_get_userbyid(acl.grantee) in ('anon', 'authenticated')
+  )
+order by object_types.object_type, grantee, acl.privilege_type;
+```
+
+El rollback es **peligroso y solo para emergencias**: debilita la frontera de seguridad al devolver privilegios amplios de tablas y secuencias a `anon`/`authenticated`, ejecución de la función a `PUBLIC`, y defaults amplios para `postgres`; los defaults amplios de `supabase_admin` se restauran solo cuando la guarda de membresía lo permite. Su límite exacto son ACL actuales y futuras; no revierte políticas, estado RLS, atributos/código de la función, ownership ni datos. Después de un rollback, repetí los readbacks y tratá el `WARNING` de `supabase_admin` como una omisión explícita, no como confirmación de que esos defaults cambiaron. La alternativa segura preferida es identificar el objeto incompatible y agregar solamente su grant explícito en una migración revisada.
+
+**Auth Leaked Password Protection es un control separado** de Supabase Auth. Esta migración no lo habilita ni lo verifica; gestionarlo en la configuración de Auth no reemplaza este hardening de ACL, y viceversa.
+
 ## Camino rápido
 
 ### Torneo actual nuevo

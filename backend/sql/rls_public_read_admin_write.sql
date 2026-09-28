@@ -8,7 +8,7 @@
 
 begin;
 
--- Keep the admin decision in one place.
+-- Keep the admin decision in one place and restrict direct invocation.
 create or replace function public.is_liga_admin()
 returns boolean
 language sql
@@ -19,9 +19,14 @@ as $$
   select coalesce(auth.jwt() ->> 'email', '') = 'gallardolucas003@gmail.com';
 $$;
 
--- Make table privileges match the intended access model.
--- Revoke inherited PUBLIC access first so role-specific grants cannot be bypassed.
-revoke insert, update, delete on table
+revoke all privileges on function public.is_liga_admin()
+from public, anon, authenticated;
+grant execute on function public.is_liga_admin() to authenticated;
+
+-- Make direct table privileges match the intended RLS access model. Resetting
+-- all privileges also removes TRUNCATE, REFERENCES, TRIGGER, and MAINTAIN where
+-- the PostgreSQL version supports them.
+revoke all privileges on table
   public.alineaciones,
   public.categorias,
   public.clubes,
@@ -35,7 +40,7 @@ revoke insert, update, delete on table
   public.posiciones,
   public.sanciones,
   public.torneos
-from public;
+from public, anon, authenticated;
 
 grant select on table
   public.alineaciones,
@@ -53,22 +58,6 @@ grant select on table
   public.torneos
 to anon, authenticated;
 
-revoke insert, update, delete on table
-  public.alineaciones,
-  public.categorias,
-  public.clubes,
-  public.fechas,
-  public.goleadores,
-  public.goleadores_partido,
-  public.jugadores,
-  public.palmares,
-  public.participaciones,
-  public.partidos,
-  public.posiciones,
-  public.sanciones,
-  public.torneos
-from anon;
-
 grant insert, update, delete on table
   public.alineaciones,
   public.categorias,
@@ -85,11 +74,35 @@ grant insert, update, delete on table
   public.torneos
 to authenticated;
 
--- Sequences do not support RLS. Keep them unavailable to public JWT roles so a
--- non-admin authenticated user cannot call nextval() or inspect sequence state.
--- Inserts that need generated IDs must use the trusted service-role backend.
--- An authenticated admin may still insert a row when supplying an explicit ID.
-revoke all privileges on all sequences in schema public from public, anon, authenticated;
+-- Sequences do not support RLS. Authenticated inserts need nextval() for
+-- generated IDs, but no JWT role needs to inspect or mutate sequence state.
+revoke all privileges on all sequences in schema public
+from public, anon, authenticated;
+grant usage on all sequences in schema public to authenticated;
+
+-- Fail closed for objects created later by either Supabase application owner.
+-- postgres defaults are always hardened in this transaction. supabase_admin
+-- defaults are hardened only when the SQL Editor identity is a member of that
+-- role; otherwise the warning requires residual-drift review after commit.
+-- Future migrations must grant every intended table, sequence, and function ACL.
+alter default privileges for role postgres in schema public
+  revoke all privileges on tables from public, anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke all privileges on sequences from public, anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke all privileges on functions from public, anon, authenticated;
+
+do $$
+begin
+  if pg_catalog.pg_has_role(current_user, 'supabase_admin', 'MEMBER') then
+    execute 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM public, anon, authenticated';
+    execute 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON SEQUENCES FROM public, anon, authenticated';
+    execute 'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON FUNCTIONS FROM public, anon, authenticated';
+    raise notice 'Applied supabase_admin default ACL hardening.';
+  else
+    raise warning 'Skipped supabase_admin default ACL hardening: current user % is not a member of supabase_admin; existing-object ACLs and postgres defaults will still commit.', current_user;
+  end if;
+end $$;
 
 -- Remove every existing policy on the application tables before recreating the
 -- complete intended set. This prevents an unknown permissive policy surviving a rerun.
