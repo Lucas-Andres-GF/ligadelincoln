@@ -26,6 +26,10 @@ Import official championship-decider matches without altering regular standings,
   - Isolation evidence: DECIDER-001 independent review confirmed migrations touch only `partidos_definicion`; importer tests reject any table other than `partidos_definicion`.
   - Commit: recorded in the ODD evidence work unit.
 - [ ] DECIDER-005 Apply production DDL/data only after explicit authorization, verify public read/UI, then prepare delivery.
+  - Production evidence: user applied the migration; readback confirmed schema, constraints, exact ACLs, RLS, and four policies. Authorized importer dry-run returned `insert` with zero issues and writes; atomic execution inserted two rows.
+  - Data readback: Pintense 0–1 Arenaza (2026-09-06) and Arenaza 2–0 Pintense (2026-09-12), champion Arenaza; public REST returned both legs with HTTP 200.
+  - Isolation readback: regular Clausura Primera remains 66 fixtures/55 played; Arenaza and Pintense remain tied on 23 points with 10 matches. Repeated importer dry-run returns exact no-op.
+  - Delivery pending: push/merge frontend support and verify Vercel public rendering.
 
 ## Constraints
 - Tournament scope: Clausura `torneo_id=2`, Primera `categoria_id=1` for the initial import.
@@ -33,4 +37,4 @@ Import official championship-decider matches without altering regular standings,
 - Existing `partidos` and `posiciones` data must remain unchanged.
 - Writes require `--execute`; default is dry-run.
 - Source structure or aggregate/champion mismatch fails closed.
-- No production DDL/data, push, or merge without explicit authorization.
+- Production DDL/data and local work-unit commits were explicitly authorized; push and merge remain separate decisions.
