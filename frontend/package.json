@@ -11,7 +11,7 @@
     "deploy": "pnpm run build && vercel .. --prod",
     "preview": "astro preview",
     "astro": "astro",
-    "test": "node --test src/utils/torneoSelection.test.js src/utils/matchState.test.js src/utils/lineupScorers.test.js"
+    "test": "node --test src/utils/torneoSelection.test.js src/utils/matchState.test.js src/utils/lineupScorers.test.js src/utils/historicalChampions.test.js"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
