@@ -30,6 +30,7 @@ Import official championship-decider matches without altering regular standings,
   - Data readback: Pintense 0–1 Arenaza (2026-09-06) and Arenaza 2–0 Pintense (2026-09-12), champion Arenaza; public REST returned both legs with HTTP 200.
   - Isolation readback: regular Clausura Primera remains 66 fixtures/55 played; Arenaza and Pintense remain tied on 23 points with 10 matches. Repeated importer dry-run returns exact no-op.
   - Delivery pending: push/merge frontend support and verify Vercel public rendering.
+  - Review strategy: user explicitly accepted one cohesive PR with `size:exception` (approximately 2,128 changed lines); importer code/tests cannot be split below the normal 400-line budget without separating behavior from its verification.
 
 ## Constraints
 - Tournament scope: Clausura `torneo_id=2`, Primera `categoria_id=1` for the initial import.
