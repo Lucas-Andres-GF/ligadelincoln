@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getEscudoPath, supabase } from '../utils/supabase'
 import { cachedQuery } from '../utils/supabaseCached'
-import { parseTorneoId } from '../utils/torneoSelection'
+import { ACTIVE_TORNEO_ID } from '../config/torneo'
+import { getSelectedTorneoId, listenToTorneoChange, parseTorneoId } from '../utils/torneoSelection'
 import { buildTournamentDeciderSeries } from '../utils/tournamentDecider'
 
 const LEG_LABELS = {
@@ -17,13 +18,13 @@ function formatDate(date) {
 
 function Team({ club, align = 'left' }) {
   return (
-    <div className={`flex min-w-0 flex-1 items-center gap-2 ${align === 'right' ? 'justify-end text-right' : ''}`}>
-      {align === 'left' && (
-        <img src={getEscudoPath(club.name)} alt='' className='h-7 w-7 shrink-0 object-contain sm:h-8 sm:w-8' />
-      )}
-      <span className='min-w-0 text-xs font-bold leading-tight text-green-50 sm:text-sm'>{club.name}</span>
+    <div className={`flex min-w-0 items-center gap-2 ${align === 'right' ? 'justify-end text-right' : ''}`}>
       {align === 'right' && (
-        <img src={getEscudoPath(club.name)} alt='' className='h-7 w-7 shrink-0 object-contain sm:h-8 sm:w-8' />
+        <img src={getEscudoPath(club.name)} alt='' className='order-2 h-7 w-7 shrink-0 object-contain sm:h-9 sm:w-9' />
+      )}
+      <span className='min-w-0 text-[11px] font-extrabold leading-tight text-green-50 sm:text-sm'>{club.name}</span>
+      {align === 'left' && (
+        <img src={getEscudoPath(club.name)} alt='' className='h-7 w-7 shrink-0 object-contain sm:h-9 sm:w-9' />
       )}
     </div>
   )
@@ -32,6 +33,12 @@ function Team({ club, align = 'left' }) {
 export default function TournamentDeciderSeries({ categoria, torneoId }) {
   const [series, setSeries] = useState([])
   const [error, setError] = useState(null)
+  const [urlTorneoId, setUrlTorneoId] = useState(() =>
+    getSelectedTorneoId(ACTIVE_TORNEO_ID),
+  )
+  const selectedTorneoId = parseTorneoId(torneoId) ?? urlTorneoId
+
+  useEffect(() => listenToTorneoChange(setUrlTorneoId), [])
 
   useEffect(() => {
     let cancelled = false
@@ -40,7 +47,7 @@ export default function TournamentDeciderSeries({ categoria, torneoId }) {
       setSeries([])
       setError(null)
 
-      const scopedTournamentId = parseTorneoId(torneoId)
+      const scopedTournamentId = parseTorneoId(selectedTorneoId)
       const scopedCategoryId = Number(categoria)
       if (scopedTournamentId === null || !Number.isInteger(scopedCategoryId) || scopedCategoryId <= 0) return
 
@@ -81,7 +88,7 @@ export default function TournamentDeciderSeries({ categoria, torneoId }) {
     return () => {
       cancelled = true
     }
-  }, [categoria, torneoId])
+  }, [categoria, selectedTorneoId])
 
   if (error) {
     return (
@@ -93,77 +100,72 @@ export default function TournamentDeciderSeries({ categoria, torneoId }) {
 
   if (series.length === 0) return null
 
-  const headingId = `tournament-decider-${torneoId}-${categoria}`
+  const headingId = `tournament-decider-${selectedTorneoId}-${categoria}`
 
   return (
-    <section aria-labelledby={headingId} className='relative mx-1 mt-8 overflow-hidden rounded-xl border border-yellow-300/30 bg-[#09290f] shadow-[0_18px_45px_rgba(0,0,0,0.28)]'>
-      <div className='absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-yellow-300 to-transparent' aria-hidden='true' />
-      <header className='border-b border-yellow-300/15 bg-[linear-gradient(115deg,rgba(250,204,21,0.12),transparent_58%)] px-4 py-4 sm:px-5'>
-        <p className='mb-1 text-[9px] font-black uppercase tracking-[0.3em] text-yellow-300/70'>Serie decisiva</p>
-        <h2 id={headingId} className='font-serif text-lg font-black tracking-tight text-yellow-100 sm:text-xl'>
-          Definición del campeonato
-        </h2>
+    <section aria-labelledby={headingId} className='mt-6 overflow-hidden rounded-xl border border-green-800/70 bg-[#0b2e1a] shadow-2xl'>
+      <header className='flex items-center gap-3 border-b border-green-700/60 bg-[#0a2817] px-4 py-3 sm:px-5'>
+        <span className='grid h-7 w-7 place-items-center rounded-full border border-yellow-300/35 bg-yellow-300/10 text-sm text-yellow-300' aria-hidden='true'>★</span>
+        <div>
+          <p className='text-[9px] font-black uppercase tracking-[0.24em] text-green-500'>Instancia decisiva</p>
+          <h2 id={headingId} className='text-sm font-black uppercase tracking-wide text-green-50 sm:text-base'>Definición del campeonato</h2>
+        </div>
       </header>
 
-      <div className='divide-y divide-yellow-300/15'>
+      <div className='divide-y divide-green-700/60'>
         {series.map((item) => {
           const firstClub = item.clubs[0]
           const secondClub = item.clubs[1]
 
           return (
-            <article key={item.id} className='px-3 py-5 sm:px-5'>
-              <div className='mb-4 flex items-center gap-3'>
-                <span className='h-px flex-1 bg-yellow-300/20' aria-hidden='true' />
-                <h3 className='text-center text-[10px] font-black uppercase tracking-[0.22em] text-yellow-200'>{item.name}</h3>
-                <span className='h-px flex-1 bg-yellow-300/20' aria-hidden='true' />
+            <article key={item.id}>
+              <div className='flex items-center justify-between gap-3 border-b border-green-800/70 bg-green-950/20 px-4 py-2.5 sm:px-5'>
+                <h3 className='text-[10px] font-black uppercase tracking-[0.18em] text-green-300'>{item.name}</h3>
+                <div className='flex items-center gap-2 text-right'>
+                  <span className='hidden text-[9px] font-bold uppercase tracking-[0.14em] text-yellow-300/70 sm:inline'>Campeón</span>
+                  <img src={getEscudoPath(item.champion.name)} alt='' className='h-6 w-6 object-contain' />
+                  <span className='text-[10px] font-black text-yellow-100 sm:text-xs'>{item.champion.name}</span>
+                </div>
               </div>
 
-              <div className='space-y-2'>
+              <div className='divide-y divide-green-800/55'>
                 {item.legs.map((leg) => {
                   const local = { id: Number(leg.local_id), name: Array.isArray(leg.local) ? leg.local[0].nombre : leg.local.nombre }
                   const visitor = { id: Number(leg.visitante_id), name: Array.isArray(leg.visitante) ? leg.visitante[0].nombre : leg.visitante.nombre }
 
                   return (
-                    <div key={leg.id} className='rounded-lg border border-green-700/40 bg-green-950/45 px-3 py-3'>
-                      <div className='mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[9px] font-bold uppercase tracking-[0.14em]'>
-                        <span className='rounded-sm bg-yellow-300 px-1.5 py-0.5 text-[#0a2b10]'>{LEG_LABELS[leg.instancia]}</span>
-                        <span className='text-green-400'>{formatDate(leg.dia)}</span>
+                    <div key={leg.id} className='grid min-h-[72px] grid-cols-[58px_minmax(0,1fr)] items-stretch bg-[#0d351e] transition-colors hover:bg-[#103d23] sm:grid-cols-[96px_minmax(0,1fr)_150px]'>
+                      <div className='flex flex-col items-center justify-center border-r border-green-700/60 px-2 text-center'>
+                        <span className='text-[10px] font-black uppercase tracking-[0.12em] text-green-200'>{LEG_LABELS[leg.instancia]}</span>
+                        <span className='mt-1 text-[9px] font-semibold tabular-nums text-green-500'>{formatDate(leg.dia)}</span>
                       </div>
-                      <div className='flex items-center gap-2'>
+                      <div className='grid grid-cols-[minmax(0,1fr)_54px_minmax(0,1fr)] items-center gap-2 px-3 py-3 sm:grid-cols-[minmax(0,1fr)_74px_minmax(0,1fr)] sm:px-6'>
                         <Team club={local} align='right' />
-                        <div className='flex min-w-[66px] items-center justify-center gap-2 font-serif text-xl font-black tabular-nums text-yellow-100' aria-label={`${local.name} ${leg.goles_local}, ${visitor.name} ${leg.goles_visitante}`}>
+                        <div className='flex items-center justify-center gap-1.5 text-xl font-black tabular-nums text-white sm:text-2xl' aria-label={`${local.name} ${leg.goles_local}, ${visitor.name} ${leg.goles_visitante}`}>
                           <span>{leg.goles_local}</span>
-                          <span className='text-yellow-300/35' aria-hidden='true'>—</span>
+                          <span className='text-green-600' aria-hidden='true'>–</span>
                           <span>{leg.goles_visitante}</span>
                         </div>
                         <Team club={visitor} />
                       </div>
-                      <p className='mt-2 text-center text-[9px] font-semibold uppercase tracking-wide text-green-500'>
-                        <span className='text-green-600'>Cancha · </span>{leg.cancha}
-                      </p>
+                      <div className='col-span-2 flex items-center justify-center border-t border-green-800/50 bg-green-950/20 px-3 py-1.5 text-center sm:col-span-1 sm:border-l sm:border-t-0'>
+                        <p className='text-[9px] font-semibold uppercase tracking-wide text-green-500'>
+                          <span className='text-green-600'>Cancha · </span>{leg.cancha}
+                        </p>
+                      </div>
                     </div>
                   )
                 })}
               </div>
 
-              <div className='mt-4 grid gap-3 rounded-lg border border-yellow-300/25 bg-yellow-300/[0.06] p-3 sm:grid-cols-[1fr_auto] sm:items-center'>
-                <div>
-                  <p className='mb-1 text-[9px] font-black uppercase tracking-[0.2em] text-yellow-300/65'>Resultado global</p>
-                  <div className='flex items-center gap-2 text-sm font-bold text-green-50'>
-                    <span>{firstClub.name}</span>
-                    <span className='font-serif text-xl font-black tabular-nums text-yellow-100'>{firstClub.goals} — {secondClub.goals}</span>
-                    <span>{secondClub.name}</span>
-                  </div>
-                </div>
-                <div className='flex items-center gap-2 border-t border-yellow-300/15 pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0'>
-                  <img src={getEscudoPath(item.champion.name)} alt='' className='h-9 w-9 shrink-0 object-contain' />
-                  <div>
-                    <p className='text-[9px] font-black uppercase tracking-[0.18em] text-yellow-300/65'>Campeón</p>
-                    <p className='text-sm font-black text-yellow-100'>{item.champion.name}</p>
-                  </div>
+              <div className='flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-yellow-300/20 bg-yellow-300/[0.07] px-4 py-2.5 text-center'>
+                <span className='text-[9px] font-black uppercase tracking-[0.18em] text-yellow-300/65'>Resultado global</span>
+                <div className='flex items-center gap-2 text-xs font-bold text-green-50 sm:text-sm'>
+                  <span>{firstClub.name}</span>
+                  <span className='text-base font-black tabular-nums text-yellow-100 sm:text-lg'>{firstClub.goals} – {secondClub.goals}</span>
+                  <span>{secondClub.name}</span>
                 </div>
               </div>
-
             </article>
           )
         })}

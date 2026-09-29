@@ -125,15 +125,25 @@ export default function TournamentTitle({ divisionLabel = 'Primera División', h
   if (hidden) return null
 
   return (
-    <header className='mb-6'>
-      <h1 className='text-3xl font-black uppercase tracking-tight text-green-50'>
-        {divisionLabel}
-      </h1>
-      <p className='mt-1 text-sm font-bold uppercase tracking-wide text-green-400'>
-        {isLoading ? 'Cargando torneo…' : selectedTorneo?.nombre || 'Sin torneo seleccionado'}
-      </p>
+    <header className='relative mb-5 overflow-hidden rounded-2xl border border-green-700/50 bg-[linear-gradient(110deg,#0d3b21_0%,#0a2b18_58%,#102a18_100%)] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)] sm:px-7 sm:py-6'>
+      <div className='pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full border-[34px] border-green-400/[0.035]' aria-hidden='true' />
+      <div className='pointer-events-none absolute bottom-0 right-[18%] h-full w-px bg-green-300/[0.06]' aria-hidden='true' />
+      <div className='relative flex flex-wrap items-end justify-between gap-4'>
+        <div>
+          <p className='mb-1 font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.28em] text-green-500'>Liga de Lincoln · Competencia</p>
+          <h1 className='font-[var(--font-display)] text-4xl font-black uppercase leading-none tracking-[0.01em] text-green-50 sm:text-5xl'>
+            {divisionLabel}
+          </h1>
+        </div>
+        <div className='min-w-[150px] rounded-xl border border-green-400/15 bg-black/10 px-3.5 py-2.5 text-left sm:text-right'>
+          <span className='block text-[9px] font-extrabold uppercase tracking-[0.18em] text-green-600'>Torneo seleccionado</span>
+          <strong className='mt-0.5 block font-[var(--font-display)] text-lg font-black uppercase tracking-wide text-yellow-200'>
+            {isLoading ? 'Cargando…' : selectedTorneo?.nombre || 'Sin seleccionar'}
+          </strong>
+        </div>
+      </div>
       {error && (
-        <p className='mt-2 text-xs font-semibold text-red-300' role='alert'>
+        <p className='relative mt-3 rounded-lg border border-red-300/20 bg-red-950/20 px-3 py-2 text-xs font-semibold text-red-200' role='alert'>
           {error}
         </p>
       )}

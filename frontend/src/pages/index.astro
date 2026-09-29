@@ -9,22 +9,19 @@ import TournamentTitle from '../components/TournamentTitle.jsx'
   <TournamentTitle divisionLabel='Primera División' client:load hidden />
 
   <section
-    class='bg-[#143814] rounded-xl border border-green-900/40 overflow-hidden shadow-2xl mb-6'
+    class='mb-6 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/95 shadow-[0_24px_60px_rgba(0,0,0,0.24)]'
   >
     <div
-      class='px-5 py-4 border-b border-green-900/40 bg-green-950/20 flex items-center justify-between'
+      class='flex items-center justify-between gap-4 border-b border-green-800/60 bg-[#092716] px-4 py-3.5 sm:px-5'
     >
-      <h2 class='text-sm font-bold uppercase tracking-wider text-green-400'>
-        Próximos Partidos
-      </h2>
+      <div>
+        <p class='font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.24em] text-green-600'>Agenda de la liga</p>
+        <h2 class='font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-50'>Próximos partidos</h2>
+      </div>
+      <span class='hidden rounded-full border border-green-500/20 bg-green-500/[0.07] px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.14em] text-green-400 sm:block'>Todas las divisiones</span>
     </div>
-    <div class='p-4'>
+    <div class='p-3 sm:p-4'>
       <PartidosHoy client:load />
-    </div>
-    <div class='text-center py-6'>
-      <p class='text-xs text-green-700 mt-3'>
-        Tocá en tu club para ver toda la info
-      </p>
     </div>
   </section>
 </Layout>

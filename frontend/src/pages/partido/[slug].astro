@@ -153,13 +153,15 @@ if (partido.dia) {
 ---
 
 <Layout title={pageTitle} description={pageDescription} structuredData={matchStructuredData}>
-  <div class="max-w-4xl mx-auto px-4 py-6">
-    <div class="text-center mb-8">
+  <div class="mx-auto w-full max-w-6xl">
+    <section class="relative mb-6 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0a2b19] px-4 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.24)] sm:px-8 sm:py-8">
+      <div class="absolute inset-y-0 left-1/2 w-px bg-green-400/[0.04]" aria-hidden="true"></div>
+    <div class="relative mb-7 text-center">
       <div class="mt-2 flex flex-wrap items-center justify-center gap-2">
-        <p class="inline-block px-3 py-0.5 text-[14px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20">
+        <p class="inline-block rounded-full border border-green-400/20 bg-green-400/[0.06] px-3 py-1 font-[var(--font-display)] text-sm font-black uppercase tracking-widest text-green-400">
           Fecha {partido.fecha_id}
         </p>
-        <p class="inline-block px-3 py-0.5 text-[11px] font-bold uppercase tracking-widest text-yellow-200 border border-yellow-300/30 rounded-full bg-yellow-300/10">
+        <p class="inline-block rounded-full border border-yellow-300/30 bg-yellow-300/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-yellow-200">
           Torneo {partido.torneo_id}
         </p>
       </div>
@@ -173,47 +175,48 @@ if (partido.dia) {
       <h1 class="sr-only">{nombreLocal} vs {nombreVisita}: resultado y alineaciones</h1>
     </div>
 
-    <div class="flex items-center justify-center gap-4 mb-8">
-      <div class="flex flex-col items-center gap-2">
-        <img src={escudos[partido.local_id]} alt={nombreLocal} class="w-16 h-16 object-contain" />
-        <span class="text-green-100 font-bold text-sm text-center">{nombreLocal}</span>
+    <div class="relative mx-auto mb-8 grid max-w-4xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-8">
+      <div class="flex min-w-0 flex-col items-center gap-3">
+        <img src={escudos[partido.local_id]} alt={nombreLocal} class="h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.38)] sm:h-28 sm:w-28" />
+        <span class="text-center font-[var(--font-display)] text-base font-black uppercase leading-tight tracking-wide text-green-100 sm:text-2xl">{nombreLocal}</span>
       </div>
       
-      <div class="flex items-center gap-3">
-        <span class="text-4xl font-black text-green-400">
+      <div class="flex items-center gap-3 rounded-2xl border border-yellow-300/15 bg-black/10 px-3 py-3 sm:px-6">
+        <span class="font-[var(--font-display)] text-4xl font-black tabular-nums text-yellow-200 sm:text-6xl">
           {resultadoLabel || 'Resultado no disponible'}
         </span>
       </div>
       
-      <div class="flex flex-col items-center gap-2">
-        <img src={escudos[partido.visitante_id]} alt={nombreVisita} class="w-16 h-16 object-contain" />
-        <span class="text-green-100 font-bold text-sm text-center">{nombreVisita}</span>
+      <div class="flex min-w-0 flex-col items-center gap-3">
+        <img src={escudos[partido.visitante_id]} alt={nombreVisita} class="h-20 w-20 object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.38)] sm:h-28 sm:w-28" />
+        <span class="text-center font-[var(--font-display)] text-base font-black uppercase leading-tight tracking-wide text-green-100 sm:text-2xl">{nombreVisita}</span>
       </div>
     </div>
 
     {/* Staff: DT y Árbitro */}
     {(partido.dt_local || partido.dt_visitante || partido.arbitro) && (
-      <div class="flex justify-center gap-8 mb-6 text-sm">
+      <div class="relative mx-auto mb-1 grid max-w-3xl grid-cols-1 gap-3 rounded-xl border border-green-800/50 bg-green-950/20 px-4 py-3 text-sm sm:grid-cols-3 sm:gap-8">
         {partido.dt_local && (
           <div class="text-center">
-            <span class="text-green-500 text-xs uppercase">D.T. Local</span>
-            <div class="text-green-300">{partido.dt_local}</div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-green-600">D.T. Local</span>
+            <div class="font-semibold text-green-200">{partido.dt_local}</div>
           </div>
         )}
         {partido.arbitro && (
           <div class="text-center">
-            <span class="text-green-500 text-xs uppercase">Árbitro</span>
-            <div class="text-green-300">{partido.arbitro}</div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-green-600">Árbitro</span>
+            <div class="font-semibold text-green-200">{partido.arbitro}</div>
           </div>
         )}
         {partido.dt_visitante && (
           <div class="text-center">
-            <span class="text-green-500 text-xs uppercase">D.T. Visita</span>
-            <div class="text-green-300">{partido.dt_visitante}</div>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-green-600">D.T. Visita</span>
+            <div class="font-semibold text-green-200">{partido.dt_visitante}</div>
           </div>
         )}
       </div>
     )}
+    </section>
 
     {alineacionesError ? (
       <div class="text-center py-8 text-red-300" role="alert">
@@ -224,20 +227,20 @@ if (partido.dia) {
         No hay alineaciones disponibles para este partido.
       </div>
     ) : (
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-[#143814] rounded-xl border border-green-900/40 p-4">
-          <div class="flex items-center gap-2 mb-4">
-            <img src={escudos[partido.local_id]} alt="" class="w-8 h-8 object-contain" />
-            <span class="text-green-400 font-bold">{nombreLocal}</span>
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <section class="overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/95 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.2)] sm:p-6">
+          <div class="mb-5 flex items-center gap-3 border-b border-green-800/50 pb-4">
+            <img src={escudos[partido.local_id]} alt="" class="h-10 w-10 object-contain" />
+            <span class="font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-100">{nombreLocal}</span>
           </div>
 
           <div class="space-y-3">
             <div>
-              <span class="text-xs text-green-500 uppercase block mb-2">Titulares</span>
+              <span class="mb-3 block text-[9px] font-black uppercase tracking-[0.2em] text-green-600">Titulares</span>
               <div class="space-y-1">
                 {aliLocal.filter(a => a.es_titular && a.nombre && a.nombre !== '0').map(j => (
                   <div key={j.numero} class="flex items-center gap-2 text-xs">
-                    <span class="w-6 h-6 bg-green-500/20 text-green-400 rounded flex items-center justify-center font-bold text-center">
+                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-green-400/15 text-center font-bold text-green-400">
                       {j.numero}
                     </span>
                     <span class="text-green-300">
@@ -250,7 +253,7 @@ if (partido.dia) {
               </div>
             </div>
             <div>
-              <span class="text-xs text-green-500 uppercase block mb-2">Suplentes</span>
+              <span class="mb-3 block text-[9px] font-black uppercase tracking-[0.2em] text-green-600">Suplentes</span>
               <div class="space-y-1">
                 {aliLocal.filter(a => !a.es_titular && a.nombre && a.nombre !== '0').map(j => (
                   <div key={j.numero} class="flex items-center gap-2 text-xs">
@@ -267,21 +270,21 @@ if (partido.dia) {
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="bg-[#143814] rounded-xl border border-green-900/40 p-4">
-          <div class="flex items-center gap-2 mb-4">
-            <img src={escudos[partido.visitante_id]} alt="" class="w-8 h-8 object-contain" />
-            <span class="text-green-400 font-bold">{nombreVisita}</span>
+        <section class="overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/95 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.2)] sm:p-6">
+          <div class="mb-5 flex items-center gap-3 border-b border-green-800/50 pb-4">
+            <img src={escudos[partido.visitante_id]} alt="" class="h-10 w-10 object-contain" />
+            <span class="font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-100">{nombreVisita}</span>
           </div>
 
           <div class="space-y-3">
             <div>
-              <span class="text-xs text-green-500 uppercase block mb-2">Titulares</span>
+              <span class="mb-3 block text-[9px] font-black uppercase tracking-[0.2em] text-green-600">Titulares</span>
               <div class="space-y-1">
                 {aliVisita.filter(a => a.es_titular && a.nombre && a.nombre !== '0').map(j => (
                   <div key={j.numero} class="flex items-center gap-2 text-xs">
-                    <span class="w-6 h-6 bg-green-500/20 text-green-400 rounded flex items-center justify-center font-bold text-center">
+                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-green-400/15 text-center font-bold text-green-400">
                       {j.numero}
                     </span>
                     <span class="text-green-300">
@@ -294,7 +297,7 @@ if (partido.dia) {
               </div>
             </div>
             <div>
-              <span class="text-xs text-green-500 uppercase block mb-2">Suplentes</span>
+              <span class="mb-3 block text-[9px] font-black uppercase tracking-[0.2em] text-green-600">Suplentes</span>
               <div class="space-y-1">
                 {aliVisita.filter(a => !a.es_titular && a.nombre && a.nombre !== '0').map(j => (
                   <div key={j.numero} class="flex items-center gap-2 text-xs">
@@ -311,7 +314,7 @@ if (partido.dia) {
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     )}
   </div>

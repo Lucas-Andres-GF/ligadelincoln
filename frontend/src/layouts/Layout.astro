@@ -115,7 +115,7 @@ const structuredData = customStructuredData
     <link rel='preconnect' href='https://fonts.googleapis.com' />
     <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
     <link
-      href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap'
+      href='https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,700&family=Manrope:wght@400;500;600;700;800&display=swap'
       rel='stylesheet'
     />
 
@@ -123,42 +123,45 @@ const structuredData = customStructuredData
     <script type='application/ld+json' set:html={JSON.stringify(structuredData)} />
   </head>
 
-  <body class='bg-[#0f2d0f] min-h-screen font-[Inter,sans-serif] text-white'>
+  <body class='min-h-screen font-[var(--font-body)] text-white'>
     <!-- Header -->
     <header
-      class='bg-[#143814] border-b border-green-900/50 sticky top-0 z-[60]'
+      class='sticky top-0 z-[60] border-b border-green-500/10 bg-[#071f12]/95 shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl'
     >
       <div
-        class='max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4'
+        class='mx-auto flex min-h-16 w-full max-w-[1560px] items-center justify-between gap-4 px-4 py-2 sm:px-6 xl:px-8'
       >
         <!-- Logo -->
         <a
           href='/'
-          class='inline-flex items-center gap-2 text-xl font-extrabold tracking-tight hover:opacity-80 transition-opacity uppercase italic shrink-0'
+          class='group inline-flex shrink-0 items-center gap-3 transition-opacity hover:opacity-90'
         >
           <img
             src='/favicon-nobg.png'
             alt=''
-            width='28'
-            height='28'
-            class='w-7 h-7'
+            width='40'
+            height='40'
+            class='h-10 w-10 object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)] transition-transform group-hover:rotate-6'
             loading='eager'
             decoding='async'
           />
-          <span class='text-green-500'>Liga De Lincoln</span>
+          <span class='leading-none'>
+            <span class='block font-[var(--font-display)] text-xl font-black uppercase italic tracking-wide text-green-100'>Liga de Lincoln</span>
+            <span class='mt-1 block text-[8px] font-bold uppercase tracking-[0.22em] text-green-600'>Fútbol local</span>
+          </span>
         </a>
 
         <!-- Nav Desktop -->
         <nav
-          class='hidden md:flex items-center gap-1 text-green-300 font-medium uppercase text-xs'
+          class='hidden items-center gap-1 rounded-xl border border-green-500/10 bg-black/10 p-1 font-[var(--font-display)] text-xs font-bold uppercase tracking-[0.08em] text-green-300 lg:flex'
         >
           <a
             href='/'
             class:list={[
-              'px-3 py-2 rounded-md transition',
+              'px-3 py-2 rounded-lg transition',
               currentPath === '/'
-                ? 'bg-green-500/20 text-green-400'
-                : 'hover:bg-green-900/30 hover:text-green-400',
+                ? 'bg-green-400 text-[#072412] shadow-[0_5px_16px_rgba(74,222,128,0.18)]'
+                : 'hover:bg-green-400/10 hover:text-green-300',
             ]}
           >
             Inicio
@@ -166,10 +169,10 @@ const structuredData = customStructuredData
           <a
             href='/clubes'
             class:list={[
-              'px-3 py-2 rounded-md transition',
-              currentPath === '/clubes'
-                ? 'bg-green-500/20 text-green-400'
-                : 'hover:bg-green-900/30 hover:text-green-400',
+              'px-3 py-2 rounded-lg transition',
+              currentPath === '/clubes' || currentPath.startsWith('/club/')
+                ? 'bg-green-400 text-[#072412] shadow-[0_5px_16px_rgba(74,222,128,0.18)]'
+                : 'hover:bg-green-400/10 hover:text-green-300',
             ]}
           >
             Clubes
@@ -177,60 +180,14 @@ const structuredData = customStructuredData
           <a
             href='/historial'
             class:list={[
-              'px-3 py-2 rounded-md transition',
+              'px-3 py-2 rounded-lg transition',
               currentPath.startsWith('/historial')
-                ? 'bg-green-500/20 text-green-400'
-                : 'hover:bg-green-900/30 hover:text-green-400',
+                ? 'bg-green-400 text-[#072412] shadow-[0_5px_16px_rgba(74,222,128,0.18)]'
+                : 'hover:bg-green-400/10 hover:text-green-300',
             ]}
           >
             Historial
           </a>
-          <div class='h-4 w-px bg-green-800 mx-1'></div>
-          <a
-            href='/primera'
-            class:list={[
-              'px-2 py-2 rounded-md transition',
-              currentPath.startsWith('/primera')
-                ? 'bg-green-500/20 text-green-400'
-                : 'hover:bg-green-900/30 hover:text-green-400',
-            ]}>1ra</a
-          >
-          <a
-            href='/septima'
-            class:list={[
-              'px-2 py-2 rounded-md transition',
-              currentPath.startsWith('/septima')
-                ? 'bg-green-500/20 text-green-400'
-                : 'hover:bg-green-900/30 hover:text-green-400',
-            ]}>7ma</a
-          >
-          <a
-            href='/octava'
-            class:list={[
-              'px-2 py-2 rounded-md transition',
-              currentPath.startsWith('/octava')
-                ? 'bg-green-500/20 text-green-400'
-                : 'hover:bg-green-900/30 hover:text-green-400',
-            ]}>8va</a
-          >
-          <a
-            href='/novena'
-            class:list={[
-              'px-2 py-2 rounded-md transition',
-              currentPath.startsWith('/novena')
-                ? 'bg-green-500/20 text-green-400'
-                : 'hover:bg-green-900/30 hover:text-green-400',
-            ]}>9na</a
-          >
-          <a
-            href='/decima'
-            class:list={[
-              'px-2 py-2 rounded-md transition',
-              currentPath.startsWith('/decima')
-                ? 'bg-green-500/20 text-green-400'
-                : 'hover:bg-green-900/30 hover:text-green-400',
-            ]}>10ma</a
-          >
         </nav>
 
         <!-- Menú Mobile -->
@@ -238,19 +195,51 @@ const structuredData = customStructuredData
       </div>
     </header>
 
-    <!-- Main -->
-    <main class='max-w-6xl mx-auto px-4 py-8'>
-      <slot />
-    </main>
+    <!-- Navegación de divisiones + contenido -->
+    <div class='mx-auto grid min-h-[calc(100svh-4rem)] w-full max-w-[1560px] grid-cols-1 px-3 py-6 sm:px-6 sm:py-8 lg:grid-cols-[210px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:px-8'>
+      <aside class='sticky top-24 hidden min-h-[calc(100svh-8rem)] flex-col overflow-hidden rounded-2xl border border-green-800/55 bg-[#092716]/95 shadow-[0_20px_50px_rgba(0,0,0,0.2)] lg:flex' aria-label='Divisiones de la liga'>
+        <div class='border-b border-green-800/50 px-4 py-4'>
+          <p class='font-[var(--font-display)] text-[9px] font-extrabold uppercase tracking-[0.24em] text-green-600'>Competencia</p>
+          <h2 class='font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-100'>Divisiones</h2>
+        </div>
+        <nav class='flex flex-1 flex-col gap-2 p-2 font-[var(--font-display)]' aria-label='Categorías'>
+          <a href='/primera' class:list={['group flex flex-1 items-center gap-3 rounded-xl border px-2.5 py-3 transition', currentPath.startsWith('/primera') ? 'border-yellow-200/20 bg-yellow-300 text-[#072412]' : 'border-green-800/35 bg-green-950/20 text-green-200 hover:border-green-600/40 hover:bg-green-400/10 hover:text-green-50']}>
+            <span class:list={['grid h-8 w-8 place-items-center rounded-lg border text-sm font-black', currentPath.startsWith('/primera') ? 'border-green-950/15 bg-black/10' : 'border-green-700/50 bg-green-950/40 text-green-400']}>1</span>
+            <span><strong class='block text-sm font-black uppercase tracking-wide'>Primera</strong><small class:list={['block text-[8px] font-bold uppercase tracking-[0.14em]', currentPath.startsWith('/primera') ? 'text-green-950/60' : 'text-green-700']}>División superior</small></span>
+          </a>
+          <a href='/septima' class:list={['group flex flex-1 items-center gap-3 rounded-xl border px-2.5 py-3 transition', currentPath.startsWith('/septima') ? 'border-yellow-200/20 bg-yellow-300 text-[#072412]' : 'border-green-800/35 bg-green-950/20 text-green-200 hover:border-green-600/40 hover:bg-green-400/10 hover:text-green-50']}>
+            <span class:list={['grid h-8 w-8 place-items-center rounded-lg border text-sm font-black', currentPath.startsWith('/septima') ? 'border-green-950/15 bg-black/10' : 'border-green-700/50 bg-green-950/40 text-green-400']}>7</span>
+            <span><strong class='block text-sm font-black uppercase tracking-wide'>Séptima</strong><small class:list={['block text-[8px] font-bold uppercase tracking-[0.14em]', currentPath.startsWith('/septima') ? 'text-green-950/60' : 'text-green-700']}>Formativas</small></span>
+          </a>
+          <a href='/octava' class:list={['group flex flex-1 items-center gap-3 rounded-xl border px-2.5 py-3 transition', currentPath.startsWith('/octava') ? 'border-yellow-200/20 bg-yellow-300 text-[#072412]' : 'border-green-800/35 bg-green-950/20 text-green-200 hover:border-green-600/40 hover:bg-green-400/10 hover:text-green-50']}>
+            <span class:list={['grid h-8 w-8 place-items-center rounded-lg border text-sm font-black', currentPath.startsWith('/octava') ? 'border-green-950/15 bg-black/10' : 'border-green-700/50 bg-green-950/40 text-green-400']}>8</span>
+            <span><strong class='block text-sm font-black uppercase tracking-wide'>Octava</strong><small class:list={['block text-[8px] font-bold uppercase tracking-[0.14em]', currentPath.startsWith('/octava') ? 'text-green-950/60' : 'text-green-700']}>Formativas</small></span>
+          </a>
+          <a href='/novena' class:list={['group flex flex-1 items-center gap-3 rounded-xl border px-2.5 py-3 transition', currentPath.startsWith('/novena') ? 'border-yellow-200/20 bg-yellow-300 text-[#072412]' : 'border-green-800/35 bg-green-950/20 text-green-200 hover:border-green-600/40 hover:bg-green-400/10 hover:text-green-50']}>
+            <span class:list={['grid h-8 w-8 place-items-center rounded-lg border text-sm font-black', currentPath.startsWith('/novena') ? 'border-green-950/15 bg-black/10' : 'border-green-700/50 bg-green-950/40 text-green-400']}>9</span>
+            <span><strong class='block text-sm font-black uppercase tracking-wide'>Novena</strong><small class:list={['block text-[8px] font-bold uppercase tracking-[0.14em]', currentPath.startsWith('/novena') ? 'text-green-950/60' : 'text-green-700']}>Formativas</small></span>
+          </a>
+          <a href='/decima' class:list={['group flex flex-1 items-center gap-3 rounded-xl border px-2.5 py-3 transition', currentPath.startsWith('/decima') ? 'border-yellow-200/20 bg-yellow-300 text-[#072412]' : 'border-green-800/35 bg-green-950/20 text-green-200 hover:border-green-600/40 hover:bg-green-400/10 hover:text-green-50']}>
+            <span class:list={['grid h-8 w-8 place-items-center rounded-lg border text-sm font-black', currentPath.startsWith('/decima') ? 'border-green-950/15 bg-black/10' : 'border-green-700/50 bg-green-950/40 text-green-400']}>10</span>
+            <span><strong class='block text-sm font-black uppercase tracking-wide'>Décima</strong><small class:list={['block text-[8px] font-bold uppercase tracking-[0.14em]', currentPath.startsWith('/decima') ? 'text-green-950/60' : 'text-green-700']}>Formativas</small></span>
+          </a>
+        </nav>
+      </aside>
+
+      <main class='min-w-0'>
+        <slot />
+      </main>
+    </div>
 
     <!-- Footer -->
-    <footer class='border-t border-green-900/50 mt-12'>
+    <footer class='mt-12 border-t border-green-500/10 bg-[#061b10]/75'>
       <div
-        class='max-w-6xl mx-auto px-4 py-6 text-center text-xs text-green-700 space-y-3'
+        class='mx-auto grid w-full max-w-[1560px] gap-6 px-4 py-8 text-xs text-green-700 sm:px-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:text-left xl:px-8'
       >
         <div class='space-y-2'>
-          <p class='text-green-700/60'>Redes de Liga Lincoln</p>
-          <div class='flex items-center justify-center gap-4'>
+          <p class='font-[var(--font-display)] text-sm font-black uppercase tracking-wider text-green-400'>Liga de Lincoln</p>
+          <p class='text-[9px] font-bold uppercase tracking-[0.22em] text-green-800'>Fútbol local, más cerca</p>
+          <div class='flex items-center justify-center gap-4 md:justify-start'>
             <a
               href='https://www.instagram.com/ligadelincoln/'
               target='_blank'
@@ -279,7 +268,7 @@ const structuredData = customStructuredData
             </a>
           </div>
         </div>
-        <p class='text-green-700/70 max-w-lg mx-auto leading-relaxed'>
+        <p class='mx-auto max-w-xl text-center leading-relaxed text-green-700/70'>
           Proyecto personal para facilitar la visualización de los datos la liga
           de Lincoln. No representa una fuente oficial. Datos obtenidos de
           <a
@@ -291,6 +280,7 @@ const structuredData = customStructuredData
             ligaamateurdedeportes.com.ar
           </a>
         </p>
+        <div class='space-y-2 text-center md:text-right'>
         <p class='text-green-700/50'>
           ¿Consultas o sugerencias?
           <a
@@ -300,7 +290,7 @@ const structuredData = customStructuredData
             gallardolucas003@gmail.com
           </a>
         </p>
-        <div class='flex items-center justify-center gap-4'>
+        <div class='flex items-center justify-center gap-4 md:justify-end'>
           <a
             href='https://www.linkedin.com/in/lucas-andr%C3%A9s-gallardo-florido-4b1292234/'
             target='_blank'
@@ -344,6 +334,7 @@ const structuredData = customStructuredData
         <p class='text-green-900/60 text-[10px]'>
           &copy; 2026 Lucas Andrés Gallardo Florido
         </p>
+        </div>
       </div>
     </footer>
     <script>

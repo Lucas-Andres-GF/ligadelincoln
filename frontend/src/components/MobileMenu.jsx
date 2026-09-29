@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   getSelectedTorneoId,
   listenToTorneoChange,
@@ -7,11 +8,14 @@ import {
 
 export default function MobileMenu({ currentPath = '/' }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const [selectedTorneoId, setSelectedTorneoId] = useState(() =>
     getSelectedTorneoId(null),
   )
 
   useEffect(() => listenToTorneoChange(setSelectedTorneoId), [])
+
+  useEffect(() => setIsMounted(true), [])
 
   useEffect(() => {
     setIsOpen(false)
@@ -48,6 +52,7 @@ export default function MobileMenu({ currentPath = '/' }) {
 
   const isActive = (href) => {
     if (href === '/') return currentPath === '/'
+    if (href === '/clubes') return currentPath === '/clubes' || currentPath.startsWith('/club/')
     return currentPath.startsWith(href)
   }
 
@@ -66,89 +71,101 @@ export default function MobileMenu({ currentPath = '/' }) {
   )
 
   return (
-    <div className='md:hidden'>
+    <div className='lg:hidden'>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className='flex flex-col gap-1.5 cursor-pointer p-2 -mr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded'
+        className='-mr-1 flex h-10 w-10 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-green-500/15 bg-green-400/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400'
         aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
         aria-expanded={isOpen}
         aria-controls='mobile-navigation'
       >
-        <span className={`block w-6 h-0.5 bg-green-400 rounded-full transition-transform ${isOpen ? 'rotate-45 translate-y-2' : ''}`} />
-        <span className={`block w-6 h-0.5 bg-green-400 rounded-full transition-opacity ${isOpen ? 'opacity-0' : ''}`} />
-        <span className={`block w-6 h-0.5 bg-green-400 rounded-full transition-transform ${isOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+        <span className={`block h-0.5 w-5 rounded-full bg-green-400 transition-transform ${isOpen ? 'translate-y-2 rotate-45' : ''}`} />
+        <span className={`block h-0.5 w-5 rounded-full bg-green-400 transition-opacity ${isOpen ? 'opacity-0' : ''}`} />
+        <span className={`block h-0.5 w-5 rounded-full bg-green-400 transition-transform ${isOpen ? '-translate-y-2 -rotate-45' : ''}`} />
       </button>
 
-      {isOpen && (
-        <div
-          className='fixed inset-0 bg-black/60 backdrop-blur-sm z-[70]'
-          onClick={() => setIsOpen(false)}
-          aria-hidden='true'
-        />
-      )}
+      {isMounted && createPortal(
+        <>
+          {isOpen && (
+            <div
+              className='fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm'
+              onClick={() => setIsOpen(false)}
+              aria-hidden='true'
+            />
+          )}
 
-      <div
-        id='mobile-navigation'
-        className={`absolute right-0 top-14 z-[80] bg-[#143814] rounded-xl shadow-2xl border border-green-900/40 p-2 w-56 transition-all duration-200 ${
-          isOpen
-            ? 'opacity-100 translate-y-0'
-            : 'opacity-0 -translate-y-2 pointer-events-none'
-        }`}
-      >
-        <div className='flex items-center justify-between px-3 py-2 border-b border-green-900/30 mb-2'>
-          <span className='text-green-400 font-bold text-sm uppercase'>Menú</span>
-          <button
-            onClick={() => setIsOpen(false)}
-            className='text-green-500 hover:text-green-300 cursor-pointer p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 rounded'
-            aria-label='Cerrar menú'
+          <div
+            id='mobile-navigation'
+            className={`fixed inset-y-0 right-0 z-[80] flex w-[min(22rem,calc(100vw-1.25rem))] flex-col overflow-hidden border-l border-green-400/20 bg-[#082416]/[0.99] shadow-[-24px_0_80px_rgba(0,0,0,0.6)] transition-transform duration-300 ${
+              isOpen
+                ? 'translate-x-0'
+                : 'translate-x-full pointer-events-none'
+            }`}
           >
-            <svg className='w-5 h-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
-            </svg>
-          </button>
-        </div>
+            <div className='flex min-h-20 items-center justify-between border-b border-green-400/15 px-5 py-4'>
+              <a href={scopedHref('/')} className='flex items-center gap-3' onClick={() => setIsOpen(false)}>
+                <img src='/favicon-nobg.png' alt='' className='h-10 w-10 object-contain' />
+                <span className='leading-none'>
+                  <span className='block font-[var(--font-display)] text-xl font-black uppercase italic tracking-wide text-green-100'>Liga de Lincoln</span>
+                  <span className='mt-1 block text-[8px] font-bold uppercase tracking-[0.22em] text-green-600'>Fútbol local</span>
+                </span>
+              </a>
+              <button
+                onClick={() => setIsOpen(false)}
+                className='grid h-10 w-10 cursor-pointer place-items-center border-l-2 border-yellow-300 text-green-200 transition hover:text-yellow-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400'
+                aria-label='Cerrar menú'
+              >
+                <svg className='w-5 h-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+                </svg>
+              </button>
+            </div>
 
-        <nav className='flex flex-col gap-1' aria-label='Navegación móvil'>
-          {navItems.map((item) => (
-            <a
-              key={item.href}
-              href={scopedHref(item.href)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm font-medium ${
-                isActive(item.href)
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'text-green-200 hover:bg-green-900/30'
-              }`}
-            >
-              {item.icon === 'home' && <IconHome />}
-              {item.icon === 'users' && <IconUsers />}
-              {item.icon === 'history' && <span className='w-5 h-5 flex items-center justify-center text-xs font-black'>H</span>}
-              {item.label}
-            </a>
-          ))}
+            <nav className='flex-1 overflow-y-auto px-3 py-4' aria-label='Navegación móvil'>
+              <span className='mb-2 block px-3 text-[9px] font-extrabold uppercase tracking-[0.22em] text-green-600'>Principal</span>
+              {navItems.map((item) => (
+                <a
+                  key={item.href}
+                  href={scopedHref(item.href)}
+                  className={`flex items-center gap-3 border-b border-dashed border-green-700/35 px-3 py-3 font-[var(--font-display)] text-sm font-bold uppercase tracking-wide transition ${
+                    isActive(item.href)
+                      ? 'border-transparent bg-green-400 text-[#072412]'
+                      : 'text-green-100 hover:bg-green-400/10'
+                  }`}
+                >
+                  {item.icon === 'home' && <IconHome />}
+                  {item.icon === 'users' && <IconUsers />}
+                  {item.icon === 'history' && <span className='w-5 h-5 flex items-center justify-center text-xs font-black'>H</span>}
+                  {item.label}
+                </a>
+              ))}
 
-          <div className='h-px bg-green-900/40 my-2' />
-          <span className='px-3 py-1 text-xs text-green-600 font-semibold uppercase'>
-            Categorías
-          </span>
-
-          {categorias.map((cat) => (
-            <a
-              key={cat.href}
-              href={cat.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
-                isActive(cat.href)
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'text-green-200 hover:bg-green-900/30'
-              }`}
-            >
-              <span className='w-6 h-6 rounded bg-green-900/50 flex items-center justify-center text-xs font-bold'>
-                {cat.num}
+              <span className='mb-2 mt-6 block px-3 text-[9px] font-extrabold uppercase tracking-[0.22em] text-green-600'>
+                Divisiones
               </span>
-              {cat.label}
-            </a>
-          ))}
-        </nav>
-      </div>
+
+              {categorias.map((cat) => (
+                <a
+                  key={cat.href}
+                  href={cat.href}
+                  className={`flex items-center gap-3 border-b border-dashed border-green-700/35 px-3 py-3 font-[var(--font-display)] text-sm font-bold uppercase tracking-wide transition ${
+                    isActive(cat.href)
+                      ? 'border-transparent bg-yellow-300 text-[#072412]'
+                      : 'text-green-100 hover:bg-green-400/10'
+                  }`}
+                >
+                  <span className='flex h-7 w-7 items-center justify-center rounded-lg border border-current/15 bg-black/10 text-xs font-black'>
+                    {cat.num}
+                  </span>
+                  {cat.label}
+                </a>
+              ))}
+            </nav>
+            <div className='border-t border-green-400/10 px-5 py-4 text-[8px] font-bold uppercase tracking-[0.2em] text-green-800'>Liga Amateur de Deportes de Lincoln</div>
+          </div>
+        </>,
+        document.body,
+      )}
     </div>
   )
 }

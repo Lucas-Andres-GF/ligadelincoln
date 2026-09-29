@@ -171,6 +171,25 @@ class ScheduleParsingTests(unittest.TestCase):
         self.assertEqual(rows[0].scheduled_time, "13:00")
         self.assertEqual(rows[0].venue, "Estadio Central")
 
+    def test_starts_sunday_block_when_official_heading_omits_de_before_month(self) -> None:
+        html = """
+            <table>
+              <tr><th>CRONOGRAMA OFICIAL</th></tr>
+              <tr><th>Sábado 3 de Octubre de 2026</th></tr>
+              <tr><td>Primera</td><td>Argentino</td><td>vs.</td><td>Atl Pasteur</td><td>14:00</td><td>Argentino</td></tr>
+              <tr><th>Domingo 4 Octubre de 2026</th></tr>
+              <tr><td>Primera</td><td>El Linqueño</td><td>vs.</td><td>Villa Francia</td><td>12:30</td><td>El Linqueño</td></tr>
+            </table>
+        """
+
+        rows = schedule.parse_schedule_html(html)
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].date, "2026-10-03")
+        self.assertEqual(rows[1].date, "2026-10-04")
+        self.assertEqual(rows[1].scheduled_time, "12:30")
+        self.assertFalse(rows[1].inherited_time)
+
 
 class SchedulePlanningTests(unittest.TestCase):
     def test_unique_matches_produce_a_complete_tournament_scoped_plan(self) -> None:

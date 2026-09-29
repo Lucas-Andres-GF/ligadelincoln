@@ -391,27 +391,25 @@ export default function PartidosHoy() {
 
   return (
     <div>
-      <div className='flex items-center justify-between mb-4'>
+      <div className='mb-3 flex items-center justify-between rounded-xl border border-green-800/50 bg-green-950/25 p-1.5'>
         <button
           type='button'
           onClick={handlePrevDay}
           disabled={!getPreviousMatchDate()}
           aria-label='Ir al día anterior con partidos'
-          className='p-2 rounded-lg bg-green-900/30 hover:bg-green-900/50 text-green-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed'
+          className='grid h-8 w-8 place-items-center rounded-lg text-lg text-green-400 transition hover:bg-green-400 hover:text-[#082310] disabled:cursor-not-allowed disabled:opacity-25'
         >
-          <svg className='w-5 h-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
-          </svg>
+          ‹
         </button>
         
-        <div className='flex items-center gap-3'>
-          <span className='text-green-400 font-bold text-sm uppercase tracking-wider'>
+        <div className='flex flex-col items-center gap-1 sm:flex-row sm:gap-3'>
+          <span className='font-[var(--font-display)] text-sm font-black uppercase tracking-[0.12em] text-green-100'>
             {getDayName(selectedDate)} {formatDateForDisplay(selectedDate)}
           </span>
           {!isToday && (
             <button
               onClick={handleGoToToday}
-              className='text-xs text-green-600 hover:text-green-400 underline'
+              className='text-[8px] font-extrabold uppercase tracking-[0.12em] text-green-600 hover:text-green-400'
             >
               Ir a hoy
             </button>
@@ -423,11 +421,9 @@ export default function PartidosHoy() {
           onClick={handleNextDay}
           disabled={!getNextMatchDate()}
           aria-label='Ir al día siguiente con partidos'
-          className='p-2 rounded-lg bg-green-900/30 hover:bg-green-900/50 text-green-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed'
+          className='grid h-8 w-8 place-items-center rounded-lg text-lg text-green-400 transition hover:bg-green-400 hover:text-[#082310] disabled:cursor-not-allowed disabled:opacity-25'
         >
-          <svg className='w-5 h-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
-          </svg>
+          ›
         </button>
       </div>
 
@@ -436,22 +432,22 @@ export default function PartidosHoy() {
           No hay partidos programados para esta fecha
         </div>
       ) : (
-        <div className='space-y-4'>
+        <div className='space-y-3'>
           {Object.keys(groupedByCategory)
             .sort((a, b) => b - a)
             .map((categoriaId) => (
-              <div key={categoriaId}>
-                <div className='flex items-center justify-between text-[10px] font-bold text-green-600 uppercase tracking-wider mb-2'>
-                  <span>{CATEGORIAS[categoriaId]}</span>
+              <section key={categoriaId} className='overflow-hidden rounded-xl border border-green-800/60 bg-green-950/20'>
+                <div className='flex items-center justify-between border-b border-green-800/50 bg-[#092716] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-green-600 sm:px-4'>
+                  <span className='font-[var(--font-display)] text-sm font-black tracking-[0.08em] text-green-100'>{CATEGORIAS[categoriaId]}</span>
                   <a
                     href={withTorneoParam(CATEGORIAS_ROUTES[categoriaId], selectedTorneoId)}
-                    className='text-green-500 hover:text-green-400 text-[9px] underline'
+                    className='rounded-full border border-green-400/15 px-2.5 py-1 text-[8px] font-extrabold tracking-[0.14em] text-green-500 transition hover:border-yellow-300/40 hover:text-yellow-300'
                   >
                     Ver más
                   </a>
                 </div>
-                <div className='space-y-1'>
-                  {groupedByCategory[categoriaId].map((match, i) => {
+                <div className='divide-y divide-green-800/45'>
+                  {groupedByCategory[categoriaId].map((match) => {
                     const isLibre = match.visitante_id === null
                     const seJugo = isMatchPlayed(match)
                     const estadoNormalizado = String(match.estado || '').trim().toLowerCase()
@@ -470,11 +466,11 @@ export default function PartidosHoy() {
                       return (
                         <div
                           key={match.id}
-                          className='flex items-center justify-center gap-2 py-1 px-2 rounded-lg bg-green-900/30 border border-green-800/50 text-xs'
+                          className='flex items-center justify-center gap-2 bg-green-950/20 px-3 py-3 text-xs'
                         >
-                          <span className='text-green-100 font-medium text-xs'>{match.local?.nombre}</span>
-                          <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className='w-5 h-5 object-contain shrink-0' />
-                          <span className='text-green-700 font-semibold text-xs'>LIBRE</span>
+                          <span className='text-xs font-medium text-green-100 sm:text-sm'>{match.local?.nombre}</span>
+                          <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className='h-4 w-4 shrink-0 object-contain sm:h-5 sm:w-5' />
+                          <span className='text-xs font-semibold text-green-700 sm:text-sm'>LIBRE</span>
                         </div>
                       )
                     }
@@ -484,36 +480,36 @@ export default function PartidosHoy() {
                       <Row
                         key={match.id}
                         {...(matchUrl ? { href: matchUrl, 'aria-label': `Ver detalle de ${match.local?.nombre} contra ${match.visitante?.nombre}` } : {})}
-                        className={`flex flex-col gap-0 py-1 px-2 rounded-lg bg-green-900/30 hover:bg-green-900/50 transition-colors text-xs border border-green-800/50 ${linkPartido ? 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300' : ''}`}
+                        className={`group flex flex-col gap-0 bg-transparent px-3 py-2.5 text-xs transition-colors hover:bg-green-400/[0.055] ${linkPartido ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-yellow-300' : ''}`}
                       >
-                        <div className='text-[10px] text-green-600 font-medium mb-1'>
+                        <div className='mb-1.5 font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.1em] text-green-600 sm:text-xs'>
                           {seJugo ? (
-                            'JUGADO'
+                            <span>{formatDateForDisplay(selectedDate)} <span className='font-semibold text-green-400'>JUGADO</span></span>
                           ) : esSuspendido ? (
                             <span className='text-red-400 font-bold uppercase tracking-wide'>SUSPENDIDO</span>
                           ) : tieneObservacion ? (
                             <span className='text-yellow-400 font-bold uppercase tracking-wide'>{match.estado}</span>
                           ) : match.hora ? (
-                            match.hora.slice(0, 5) + 'hs'
+                            <span>{formatDateForDisplay(selectedDate)} - {match.hora.slice(0, 5)}hs</span>
                           ) : (
-                            ''
+                            <span>{formatDateForDisplay(selectedDate)} - A DEFINIR</span>
                           )}
                         </div>
-                        <div className='flex items-center gap-1'>
+                        <div className='flex items-center gap-2'>
                           <div className='flex-1 flex items-center gap-1 justify-end min-w-0'>
-                            <span className='text-green-100 font-medium text-xs text-right'>{match.local?.nombre}</span>
-                            {match.local?.nombre && <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className="w-5 h-5 object-contain shrink-0" />}
+                            <span className='text-right text-xs font-extrabold text-green-50 sm:text-sm'>{match.local?.nombre}</span>
+                            {match.local?.nombre && <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className='h-6 w-6 shrink-0 object-contain' />}
                           </div>
-                          <div className='flex items-center shrink-0 min-w-[36px] justify-center'>
+                          <div className='flex min-w-[46px] shrink-0 items-center justify-center rounded-md bg-black/15 px-1.5 py-1'>
                             {seJugo ? (
-                              <><span className='font-bold text-green-300 text-sm'>{match.goles_local}</span><span className='text-green-700 mx-0.5'>–</span><span className='font-bold text-green-300 text-sm'>{match.goles_visitante}</span></>
+                              <><span className='text-base font-black tabular-nums text-white sm:text-lg'>{match.goles_local}</span><span className='mx-1 text-green-700'>–</span><span className='text-base font-black tabular-nums text-white sm:text-lg'>{match.goles_visitante}</span></>
                             ) : (
-                              <span className='text-green-700 font-semibold text-xs'>vs</span>
+                              <span className='font-[var(--font-display)] text-xs font-bold uppercase text-green-600'>vs</span>
                             )}
                           </div>
                           <div className='flex-1 flex items-center gap-1 min-w-0'>
-                            {match.visitante?.nombre && <img src={getEscudoPath(match.visitante.nombre)} alt={match.visitante.nombre} className="w-5 h-5 object-contain shrink-0" />}
-                            <span className='text-green-100 font-medium text-xs'>{match.visitante?.nombre}</span>
+                            {match.visitante?.nombre && <img src={getEscudoPath(match.visitante.nombre)} alt={match.visitante.nombre} className='h-6 w-6 shrink-0 object-contain' />}
+                            <span className='text-xs font-extrabold text-green-50 sm:text-sm'>{match.visitante?.nombre}</span>
                           </div>
                         </div>
                         {mostrarCancha && (
@@ -540,7 +536,7 @@ export default function PartidosHoy() {
                     )
                   })}
                 </div>
-              </div>
+              </section>
             ))}
         </div>
       )}

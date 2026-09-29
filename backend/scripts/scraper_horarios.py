@@ -51,7 +51,7 @@ MONTHS = {
 
 DATE_PATTERN = re.compile(
     r"(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)"
-    r"\s+(\d{1,2})\s+de\s+([A-Za-zÁÉÍÓÚáéíóúÑñ]+)\s+de\s+(\d{4})",
+    r"\s*,?\s+(\d{1,2})\s+(?:de\s+)?([A-Za-zÁÉÍÓÚáéíóúÑñ]+)\s+de\s+(\d{4})",
     re.IGNORECASE,
 )
 ROUND_PATTERN = re.compile(r"fecha\s*(\d+)", re.IGNORECASE)

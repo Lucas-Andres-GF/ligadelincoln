@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+:root {
+  --font-display: "Barlow Condensed", sans-serif;
+  --font-body: "Manrope", sans-serif;
+  --liga-ink: #06180d;
+  --liga-surface: #0b2e1a;
+  --liga-line: rgba(74, 222, 128, 0.16);
+}
+
+html {
+  background: var(--liga-ink);
+}
+
+body {
+  background-color: #082310;
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(34, 197, 94, 0.11), transparent 28rem),
+    radial-gradient(circle at 92% 28%, rgba(250, 204, 21, 0.045), transparent 24rem),
+    linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: auto, auto, 48px 48px, 48px 48px;
+}
+
+::selection {
+  background: rgba(250, 204, 21, 0.85);
+  color: #082310;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

@@ -114,30 +114,35 @@ export default function ClubProfile({ club }) {
   }, [club.id, categoriaId, selectedTorneoId]);
 
   return (
-    <div className='max-w-2xl mx-auto'>
-      <div className='flex items-center gap-5 mb-8'>
+    <div className='mx-auto w-full max-w-6xl'>
+      <header className='relative mb-6 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0a2b19] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.24)] sm:p-8'>
+        <div className='absolute -right-16 -top-20 h-64 w-64 rounded-full border-[38px] border-green-400/[0.035]' aria-hidden='true'></div>
+        <div className='relative flex items-center gap-5 sm:gap-7'>
         {club.nombre && (
           <img
             src={getEscudoPath(club.nombre)}
             alt={club.nombre}
-            className='w-20 h-20 object-contain'
+            className='h-24 w-24 object-contain drop-shadow-[0_12px_22px_rgba(0,0,0,0.38)] sm:h-32 sm:w-32'
           />
         )}
         <div>
-          <h1 className='text-3xl font-extrabold text-white uppercase tracking-tight'>
+          <p className='font-[var(--font-display)] text-[9px] font-bold uppercase tracking-[0.26em] text-green-500'>Perfil institucional</p>
+          <h1 className='mt-1 font-[var(--font-display)] text-4xl font-black uppercase leading-none tracking-wide text-white sm:text-6xl'>
             {club.nombre}
           </h1>
-          <p className='text-green-500 text-sm font-medium mt-1'>
+          <p className='mt-2 text-xs font-semibold text-green-500 sm:text-sm'>
             Liga Amateur de Deportes de Lincoln
           </p>
         </div>
-      </div>
-      <div className='mb-6'>
-        <label className='text-green-400 font-bold mr-2'>Categoría:</label>
+        </div>
+      </header>
+      <div className='mb-4 flex items-center justify-between gap-4 rounded-xl border border-green-800/55 bg-[#092716] px-4 py-3'>
+        <label htmlFor='club-category' className='font-[var(--font-display)] text-xs font-black uppercase tracking-[0.18em] text-green-500'>Categoría</label>
         <select
+          id='club-category'
           value={categoriaId}
           onChange={(e) => setCategoriaId(Number(e.target.value))}
-          className='bg-green-950 text-green-400 border border-green-900 rounded px-2 py-1'
+          className='min-w-36 rounded-lg border border-green-700/60 bg-green-950 px-3 py-2 font-[var(--font-display)] text-sm font-bold uppercase tracking-wide text-green-200 outline-none transition focus:border-yellow-300'
         >
           {CATEGORIAS.map((cat) => (
             <option key={cat.id} value={cat.id}>
@@ -146,13 +151,14 @@ export default function ClubProfile({ club }) {
           ))}
         </select>
       </div>
-      <div className='bg-[#143814] rounded-xl border border-green-900/40 overflow-hidden'>
-        <div className='px-5 py-4 border-b border-green-900/40 bg-green-950/20'>
-          <h2 className='text-sm font-bold uppercase tracking-wider text-green-400'>
+      <div className='overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/95 shadow-[0_24px_60px_rgba(0,0,0,0.2)]'>
+        <div className='border-b border-green-800/60 bg-[#092716] px-5 py-4'>
+          <p className='font-[var(--font-display)] text-[9px] font-bold uppercase tracking-[0.24em] text-green-600'>Partidos del club</p>
+          <h2 className='font-[var(--font-display)] text-2xl font-black uppercase tracking-wide text-green-50'>
             Fixture
           </h2>
         </div>
-        <div className='divide-y divide-green-900/20'>
+        <div className='divide-y divide-green-800/45'>
           {parseTorneoId(selectedTorneoId) === null ? (
             <div className='text-center py-8 text-yellow-200 text-xs uppercase tracking-widest' role='status'>
               Seleccioná un torneo válido para ver el fixture del club.
@@ -178,7 +184,7 @@ export default function ClubProfile({ club }) {
                 return (
                   <div
                     key={i}
-                    className='flex items-center gap-3 px-5 py-3 bg-green-950/10'
+                    className='flex items-center gap-4 bg-green-950/10 px-4 py-4 sm:px-6'
                   >
                     <div className='text-[10px] text-green-700 font-bold uppercase w-14 shrink-0'>
                       <div>Fecha {match.fecha_id}</div>
@@ -217,7 +223,7 @@ export default function ClubProfile({ club }) {
               return (
                 <div
                   key={i}
-                  className={`flex items-center gap-3 px-5 py-3 ${resultado ? rowBg[resultado] : ""}`}
+                  className={`flex items-center gap-3 px-4 py-4 transition-colors hover:bg-green-400/[0.035] sm:gap-5 sm:px-6 ${resultado ? rowBg[resultado] : ""}`}
                 >
                   <div className='text-[10px] text-green-700 font-bold uppercase w-14 shrink-0'>
                     <div>Fecha {match.fecha_id}</div>
@@ -232,22 +238,22 @@ export default function ClubProfile({ club }) {
                   </div>
                   <a
                     href={withTorneoParam(`/club/${slugify(rival?.nombre || "")}`, selectedTorneoId)}
-                    className='flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity'
+                    className='flex min-w-0 flex-1 items-center gap-3 transition-opacity hover:opacity-80'
                   >
                     {rival?.nombre && (
                       <img
                         src={getEscudoPath(rival.nombre)}
                         alt={rival.nombre}
-                        className='w-5 h-5 object-contain shrink-0'
+                        className='h-7 w-7 shrink-0 object-contain'
                       />
                     )}
-                    <span className='text-green-100 font-semibold text-xs truncate'>
+                    <span className='truncate font-[var(--font-display)] text-sm font-bold uppercase tracking-wide text-green-100'>
                       {rival?.nombre}
                     </span>
                   </a>
                   <div className='shrink-0 text-right'>
                     {seJugo ? (
-                      <span className='font-black text-sm text-green-400'>
+                      <span className='font-[var(--font-display)] text-lg font-black text-yellow-200'>
                         {match.goles_local} - {match.goles_visitante}
                       </span>
                     ) : match.estado?.toLowerCase() === 'suspendido' ? (
@@ -280,7 +286,7 @@ export default function ClubProfile({ club }) {
       <div className='mt-6 text-center'>
         <a
           href={withTorneoParam('/', selectedTorneoId)}
-          className='text-green-500 hover:text-green-400 text-sm font-medium transition-colors'
+          className='inline-flex rounded-full border border-green-700/60 px-4 py-2 font-[var(--font-display)] text-xs font-bold uppercase tracking-wide text-green-400 transition-colors hover:border-yellow-300/50 hover:text-yellow-300'
         >
           ← Volver al inicio
         </a>

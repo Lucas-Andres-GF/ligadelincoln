@@ -119,72 +119,72 @@ export default function StandingsTable({
 
   return (
     <div className='relative'>
-      <div className='w-full overflow-x-auto text-xs'>
-        <table className='w-full border-collapse min-w-[500px]'>
+      <div className='w-full overflow-x-auto rounded-xl border border-green-800/55 bg-green-950/20 text-xs'>
+        <table className='w-full min-w-[620px] border-collapse'>
         <thead>
-          <tr className='text-green-500/50 border-b border-green-900/30 uppercase italic'>
-            <th className='py-1 text-left px-1'>Club</th>
-            <th className='py-1 px-1 text-center text-green-400 font-bold'>PTS</th>
-            <th className='py-1 px-1 text-center'>PJ</th>
-            <th className='py-1 px-1 text-center'>PG</th>
-            <th className='py-1 px-1 text-center'>PE</th>
-            <th className='py-1 px-1 text-center'>PP</th>
-            <th className='py-1 px-1 text-center'>GF</th>
-            <th className='py-1 px-1 text-center'>GC</th>
-            <th className='py-1 px-1 text-center'>DIF</th>
-            {showUltimos5 && <th className='py-1 px-1 text-center'>Últ. 5</th>}
+          <tr className='border-b border-green-800/60 bg-[#092716] font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.12em] text-green-600'>
+            <th className='px-3 py-2.5 text-left'>Posición / club</th>
+            <th className='px-2 py-2.5 text-center text-yellow-200'>PTS</th>
+            <th className='px-2 py-2.5 text-center'>PJ</th>
+            <th className='px-2 py-2.5 text-center'>PG</th>
+            <th className='px-2 py-2.5 text-center'>PE</th>
+            <th className='px-2 py-2.5 text-center'>PP</th>
+            <th className='px-2 py-2.5 text-center'>GF</th>
+            <th className='px-2 py-2.5 text-center'>GC</th>
+            <th className='px-2 py-2.5 text-center'>DIF</th>
+            {showUltimos5 && <th className='px-3 py-2.5 text-center'>Forma</th>}
           </tr>
         </thead>
-        <tbody className='divide-y divide-green-900/20'>
+        <tbody className='divide-y divide-green-800/45'>
           {standings.map((row, index) => (
             <tr
               key={index}
-              className='hover:bg-green-400/5 transition-colors group'
+              className={`group transition-colors hover:bg-green-400/[0.055] ${index === 0 ? 'bg-yellow-300/[0.035]' : ''}`}
             >
-              <td className='py-2 px-1 font-bold text-green-100'>
+              <td className='px-3 py-2.5 font-bold text-green-100'>
                 <a
                   href={withTorneoParam(`/club/${slugify(row.clubes?.nombre || "")}?categoria=${categoriaId}`, selectedTorneoId)}
-                  className='flex items-center gap-1 hover:opacity-80 transition-opacity'
+                  className='flex items-center gap-2 transition-opacity hover:opacity-80'
                 >
-                  <span className='text-[9px] text-green-700 w-3'>
+                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md font-[var(--font-display)] text-xs font-black ${index === 0 ? 'bg-yellow-300 text-[#082310]' : index < 3 ? 'bg-green-400/15 text-green-300' : 'bg-black/10 text-green-600'}`}>
                     {index + 1}
                   </span>
                   {row.clubes?.nombre && (
                       <img
                         src={getEscudoPath(row.clubes.nombre)}
                         alt={row.clubes.nombre}
-                        className="w-5 h-5 object-contain"
+                        className="h-7 w-7 object-contain"
                       />
                   )}
-                  <span className='truncate text-[10px]'>{row.clubes?.nombre}</span>
+                  <span className='truncate text-[11px] font-extrabold sm:text-xs'>{row.clubes?.nombre}</span>
                 </a>
               </td>
-              <td className='py-2 px-1 text-center font-black text-green-400 text-[10px]'>
+              <td className='px-2 py-2.5 text-center font-[var(--font-display)] text-base font-black text-yellow-100'>
                 {row.pts}
               </td>
-              <td className='py-2 px-1 text-center text-green-400/60 text-[10px]'>
+              <td className='px-2 py-2.5 text-center text-[10px] font-semibold text-green-300/70'>
                 {row.pj}
               </td>
-              <td className='py-2 px-1 text-center text-green-400/60 text-[10px]'>
+              <td className='px-2 py-2.5 text-center text-[10px] font-semibold text-green-300/70'>
                 {row.pg}
               </td>
-              <td className='py-2 px-1 text-center text-green-400/60 text-[10px]'>
+              <td className='px-2 py-2.5 text-center text-[10px] font-semibold text-green-300/70'>
                 {row.pe}
               </td>
-              <td className='py-2 px-1 text-center text-green-400/60 text-[10px]'>
+              <td className='px-2 py-2.5 text-center text-[10px] font-semibold text-green-300/70'>
                 {row.pp}
               </td>
-              <td className='py-2 px-1 text-center text-green-400/60 text-[10px]'>
+              <td className='px-2 py-2.5 text-center text-[10px] font-semibold text-green-300/70'>
                 {row.gf}
               </td>
-              <td className='py-2 px-1 text-center text-green-400/60 text-[10px]'>
+              <td className='px-2 py-2.5 text-center text-[10px] font-semibold text-green-300/70'>
                 {row.gc}
               </td>
-              <td className='py-2 px-1 text-center text-green-400/60 text-[10px]'>
+              <td className='px-2 py-2.5 text-center text-[10px] font-bold text-green-100'>
                 {row.dif}
               </td>
               {showUltimos5 && (
-                <td className='py-3 px-3 text-center'>
+                <td className='px-3 py-2.5 text-center'>
                   <div className='flex items-center justify-center gap-0.5'>
                     {(() => {
                       const ult = row.ultimos_5;
@@ -196,7 +196,7 @@ export default function StandingsTable({
                       return arrInvertido.map((r, i) => (
                         <span
                           key={i}
-                          className={`w-4 h-4 flex items-center justify-center rounded text-[10px] font-bold ${
+                          className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${
                             r === 'G'
                               ? 'bg-green-500/20 text-green-400'
                               : r === 'P'
@@ -216,7 +216,7 @@ export default function StandingsTable({
         </tbody>
       </table>
       </div>
-      <div className='pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0f2d0f] to-transparent md:hidden flex items-center justify-end pr-2'>
+      <div className='pointer-events-none absolute bottom-0 right-0 top-0 flex w-10 items-center justify-end bg-gradient-to-l from-[#0b2e1a] to-transparent pr-2 md:hidden'>
         <svg className='w-4 h-4 text-green-600 animate-pulse' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
           <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
         </svg>

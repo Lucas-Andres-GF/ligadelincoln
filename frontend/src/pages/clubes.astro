@@ -42,28 +42,37 @@ const { data: clubs } = await supabase
 ---
 
 <Layout title="Clubes - Liga De Lincoln" description="Todos los clubes de la Liga Amateur de Deportes de Lincoln">
-  <div class="text-center py-6">
-    <h1
-      class="inline-block mt-2 px-3 py-0.5 text-[16px] font-bold uppercase tracking-widest text-green-400 border border-green-700/40 rounded-full bg-green-900/20"
-    >
-      Todos los Clubes
-    </h1>
-  </div>
+  <header class="relative mb-6 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0a2b19] px-5 py-7 shadow-[0_24px_60px_rgba(0,0,0,0.24)] sm:px-8 sm:py-9">
+    <div class="absolute -right-16 -top-20 h-64 w-64 rounded-full border-[38px] border-green-400/[0.035]" aria-hidden="true"></div>
+    <div class="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.28em] text-green-500">Instituciones</p>
+        <h1 class="mt-1 font-[var(--font-display)] text-4xl font-black uppercase leading-none tracking-wide text-green-50 sm:text-5xl">Clubes de la liga</h1>
+        <p class="mt-3 max-w-2xl text-sm leading-relaxed text-green-200/65">Escudos, fixture por categoría y recorrido de cada institución que forma parte de la competencia.</p>
+      </div>
+      <div class="w-fit rounded-xl border border-yellow-300/20 bg-yellow-300/[0.06] px-4 py-2.5">
+        <span class="block text-[9px] font-extrabold uppercase tracking-[0.2em] text-yellow-300/65">Instituciones</span>
+        <strong class="font-[var(--font-display)] text-2xl font-black text-yellow-200">{clubs?.length || 0}</strong>
+      </div>
+    </div>
+  </header>
 
-  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-6">
     {clubs?.map((club) => (
       <a
         href={`/club/${slugify(club.nombre)}`}
-        class="group flex flex-col items-center gap-2 p-4 bg-[#143814] rounded-xl border border-green-900/40 hover:bg-green-900/20 hover:border-green-700/40 transition-all"
+        class="group relative flex min-h-44 flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-green-800/55 bg-[#0b2e1a]/90 p-5 text-center shadow-[0_16px_36px_rgba(0,0,0,0.16)] transition duration-300 hover:-translate-y-1 hover:border-green-400/40 hover:bg-[#0d3820]"
       >
+        <span class="absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 bg-yellow-300 transition-transform duration-300 group-hover:scale-x-100"></span>
         <img
           src={getEscudoPath(club.nombre)}
           alt={club.nombre}
-          class="w-16 h-16 object-contain group-hover:scale-110 transition-transform"
+          class="h-20 w-20 object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-110"
         />
-        <span class="text-xs font-medium text-green-200 text-center line-clamp-2 group-hover:text-green-400 transition-colors">
+        <span class="line-clamp-2 font-[var(--font-display)] text-base font-black uppercase leading-tight tracking-wide text-green-100 transition-colors group-hover:text-yellow-200">
           {club.nombre}
         </span>
+        <span class="text-[8px] font-extrabold uppercase tracking-[0.2em] text-green-700 transition-colors group-hover:text-green-500">Ver perfil</span>
       </a>
     ))}
   </div>

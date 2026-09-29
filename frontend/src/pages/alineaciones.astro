@@ -6,15 +6,16 @@ import Layout from '../layouts/Layout.astro'
   title='Alineaciones - Liga De Lincoln'
   description='Consultá las alineaciones desde el detalle de cada partido de Primera División.'
 >
-  <section class='mx-auto max-w-2xl rounded-2xl border border-green-400/20 bg-[#143814] p-6 text-center shadow-2xl'>
-    <p class='text-[10px] font-black uppercase tracking-[0.28em] text-green-500'>Alineaciones</p>
-    <h1 class='mt-2 text-2xl font-black uppercase tracking-tight text-green-100'>Elegí un partido de Primera</h1>
-    <p class='mx-auto mt-3 max-w-lg text-sm leading-relaxed text-green-300/80'>
+  <section class='relative mx-auto max-w-4xl overflow-hidden rounded-2xl border border-green-800/60 bg-[#0a2b19] p-7 text-center shadow-[0_24px_60px_rgba(0,0,0,0.24)] sm:p-12'>
+    <div class='absolute -left-16 -top-20 h-64 w-64 rounded-full border-[38px] border-green-400/[0.035]' aria-hidden='true'></div>
+    <p class='relative font-[var(--font-display)] text-[10px] font-black uppercase tracking-[0.28em] text-green-500'>Alineaciones</p>
+    <h1 class='relative mt-2 font-[var(--font-display)] text-3xl font-black uppercase leading-none tracking-wide text-green-100 sm:text-5xl'>Elegí un partido de Primera</h1>
+    <p class='relative mx-auto mt-4 max-w-xl text-sm leading-relaxed text-green-300/70'>
       Las formaciones se muestran dentro del detalle de cada partido jugado, siempre vinculadas al torneo seleccionado.
     </p>
     <a
       href='/primera#fixture'
-      class='mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-300 px-5 py-2 text-xs font-black uppercase tracking-wider text-green-950 transition hover:bg-yellow-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-100'
+      class='relative mt-7 inline-flex min-h-11 items-center justify-center rounded-xl bg-yellow-300 px-6 py-3 font-[var(--font-display)] text-sm font-black uppercase tracking-wider text-green-950 transition hover:-translate-y-0.5 hover:bg-yellow-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-100'
     >
       Ver fixture de Primera
     </a>

@@ -116,11 +116,11 @@ export default function HistoricalChampions({ categoriaId }) {
   }
 
   return (
-    <div className='space-y-4'>
+    <div className={normalizedCategoriaId ? 'space-y-4' : 'grid items-start gap-4 lg:grid-cols-2'}>
       {categories.map((category) => (
-        <section key={category.id} aria-labelledby={`historial-categoria-${category.id}`} className='overflow-hidden rounded-xl border border-green-400/15 bg-green-950/20'>
-          <div className='flex items-center justify-between border-b border-green-400/10 bg-green-950/30 px-3 py-2'>
-            <h3 id={`historial-categoria-${category.id}`} className='text-[11px] font-black uppercase tracking-[0.2em] text-green-300'>
+        <section key={category.id} aria-labelledby={`historial-categoria-${category.id}`} className='overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/90 shadow-[0_16px_40px_rgba(0,0,0,0.16)]'>
+          <div className='flex items-center justify-between border-b border-green-800/50 bg-[#092716] px-4 py-3'>
+            <h3 id={`historial-categoria-${category.id}`} className='font-[var(--font-display)] text-lg font-black uppercase tracking-[0.12em] text-green-200'>
               {category.label}
             </h3>
             <span className='text-[9px] font-bold uppercase tracking-widest text-green-700'>Campeones oficiales</span>
@@ -133,9 +133,9 @@ export default function HistoricalChampions({ categoriaId }) {
               const isSharedChampionship = champions.length > 1
 
               return (
-                <article key={`${torneo.id}:${category.id}`} className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-green-400/[0.04] sm:grid-cols-[minmax(150px,0.75fr)_minmax(180px,1fr)_auto]'>
+                <article key={`${torneo.id}:${category.id}`} className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3.5 transition-colors hover:bg-green-400/[0.04] sm:grid-cols-[minmax(150px,0.75fr)_minmax(180px,1fr)_auto]'>
                   <div className='min-w-0'>
-                    <p className='truncate text-xs font-black uppercase text-green-50'>{torneo.nombre}</p>
+                    <p className='truncate font-[var(--font-display)] text-sm font-black uppercase tracking-wide text-green-50'>{torneo.nombre}</p>
                     <p className='mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-600'>
                       {championGroup?.season || torneo.temporada || 'Temporada sin informar'}
                     </p>
@@ -151,7 +151,7 @@ export default function HistoricalChampions({ categoriaId }) {
                           loading='lazy'
                         />
                         <div className='min-w-0'>
-                          <p className='truncate text-xs font-bold text-green-100'>{champions[0].clubName}</p>
+                          <p className='truncate font-[var(--font-display)] text-sm font-bold uppercase tracking-wide text-green-100'>{champions[0].clubName}</p>
                           {championGroup.title && (
                             <p className='truncate text-[9px] font-bold uppercase tracking-wide text-yellow-300/80'>{championGroup.title}</p>
                           )}

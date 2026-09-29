@@ -1,49 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import StandingsTable from "../components/StandingsTable.jsx";
-import FixtureCategoria from "../components/FixtureCategoria.jsx";
-import TournamentTitle from "../components/TournamentTitle.jsx";
-import HistoricalChampions from "../components/HistoricalChampions.jsx";
+import DivisionDashboard from "../components/DivisionDashboard.astro";
 ---
 
 <Layout
   title="Primera División - Liga De Lincoln | Fixture y Posiciones 2026"
   description="Fixture completo y tabla de posiciones de la Primera División de la Liga Amateur de Lincoln. Seguimiento en vivo de todos los partidos del torneo seleccionado 2026."
 >
-  <TournamentTitle divisionLabel='Primera División' client:load />
-  <div class='grid grid-cols-1 md:grid-cols-2 gap-6'>
-    <section
-      id='fixture'
-      class='scroll-mt-24 bg-[#143814] rounded-xl border border-green-900/40 overflow-hidden shadow-2xl'
-    >
-      <div class='px-5 py-4 border-b border-green-900/40 bg-green-950/20'>
-        <h2 class='text-sm font-bold uppercase tracking-wider text-green-400'>
-          Fixture
-        </h2>
-      </div>
-      <div class='p-4'>
-        <FixtureCategoria categoria={1} client:load />
-      </div>
-    </section>
-    <section
-      id='tabla'
-      class='scroll-mt-24 bg-[#143814] rounded-xl border border-green-900/40 overflow-hidden shadow-2xl'
-    >
-      <div class='px-5 py-4 border-b border-green-900/40 bg-green-950/20'>
-        <h2 class='text-sm font-bold uppercase tracking-wider text-green-400'>
-          Tabla de Posiciones
-        </h2>
-      </div>
-      <div class='p-4'>
-        <StandingsTable categoriaId={1} client:load />
-      </div>
-    </section>
-  </div>
-  <section id='historial' class='scroll-mt-24 mt-6 bg-[#143814] rounded-xl border border-green-900/40 overflow-hidden shadow-2xl'>
-    <div class='px-5 py-4 border-b border-green-900/40 bg-green-950/20 flex items-center justify-between gap-3'>
-      <h2 class='text-sm font-bold uppercase tracking-wider text-green-400'>Historial de campeones</h2>
-      <a href='/historial' class='text-[10px] font-bold uppercase tracking-wider text-yellow-300 hover:text-yellow-200'>Ver todo</a>
-    </div>
-    <div class='p-4'><HistoricalChampions categoriaId={1} client:load /></div>
-  </section>
+  <DivisionDashboard categoriaId={1} divisionLabel='Primera División' />
 </Layout>

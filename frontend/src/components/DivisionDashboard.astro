@@ -1,0 +1,67 @@
+---
+import StandingsTable from './StandingsTable.jsx'
+import FixtureCategoria from './FixtureCategoria.jsx'
+import TournamentTitle from './TournamentTitle.jsx'
+import HistoricalChampions from './HistoricalChampions.jsx'
+import TournamentDeciderSeries from './TournamentDeciderSeries.jsx'
+
+interface Props {
+  categoriaId: number
+  divisionLabel: string
+}
+
+const { categoriaId, divisionLabel } = Astro.props
+---
+
+<TournamentTitle divisionLabel={divisionLabel} client:load />
+
+<div class='grid grid-cols-1 items-start gap-5 2xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] 2xl:gap-6'>
+  <section
+    id='fixture'
+    class='scroll-mt-24 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/95 shadow-[0_24px_60px_rgba(0,0,0,0.24)]'
+  >
+    <header class='flex items-center justify-between gap-4 border-b border-green-800/60 bg-[#092716] px-4 py-3.5 sm:px-5'>
+      <div>
+        <p class='font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.24em] text-green-600'>Partidos</p>
+        <h2 class='font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-50'>Fixture</h2>
+      </div>
+      <span class='rounded-full border border-green-500/20 bg-green-500/[0.07] px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.14em] text-green-400'>Fecha por fecha</span>
+    </header>
+    <FixtureCategoria categoria={categoriaId} client:load />
+  </section>
+
+  <section
+    id='tabla'
+    class='scroll-mt-24 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/95 shadow-[0_24px_60px_rgba(0,0,0,0.24)]'
+  >
+    <header class='flex items-center justify-between gap-4 border-b border-green-800/60 bg-[#092716] px-4 py-3.5 sm:px-5'>
+      <div>
+        <p class='font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.24em] text-green-600'>Clasificación</p>
+        <h2 class='font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-50'>Tabla de posiciones</h2>
+      </div>
+      <span class='font-[var(--font-display)] text-3xl font-black italic text-green-500/20' aria-hidden='true'>#</span>
+    </header>
+    <div class='p-3 sm:p-4'>
+      <StandingsTable categoriaId={categoriaId} client:load />
+    </div>
+  </section>
+</div>
+
+<TournamentDeciderSeries categoria={categoriaId} client:load />
+
+<section
+  id='historial'
+  class='mt-6 scroll-mt-24 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/95 shadow-[0_24px_60px_rgba(0,0,0,0.24)]'
+>
+  <header class='flex items-center justify-between gap-3 border-b border-green-800/60 bg-[#092716] px-4 py-3.5 sm:px-5'>
+    <div>
+      <p class='font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.24em] text-green-600'>Archivo de la liga</p>
+      <h2 class='font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-50'>Historial de campeones</h2>
+    </div>
+    <a
+      href='/historial'
+      class='rounded-full border border-yellow-300/25 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-yellow-300 transition hover:border-yellow-300/60 hover:bg-yellow-300/10'
+    >Ver todo</a>
+  </header>
+  <div class='p-3 sm:p-4'><HistoricalChampions categoriaId={categoriaId} client:load /></div>
+</section>
