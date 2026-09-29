@@ -164,15 +164,6 @@ export default function TournamentDeciderSeries({ categoria, torneoId }) {
                 </div>
               </div>
 
-              <a
-                href={item.sourceUrl}
-                target='_blank'
-                rel='noopener noreferrer'
-                aria-label={`Ver fuente oficial de ${item.name} (se abre en una pestaña nueva)`}
-                className='mt-4 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-yellow-300 underline decoration-yellow-300/35 underline-offset-4 transition-colors hover:text-yellow-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300'
-              >
-                Fuente oficial <span aria-hidden='true'>↗</span>
-              </a>
             </article>
           )
         })}
