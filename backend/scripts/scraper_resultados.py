@@ -583,6 +583,11 @@ def build_result_plan(
         is_observation_row = row.pending and (row.local_goals is None or row.visitor_goals is None)
         if is_observation_row and not row.observation.strip():
             continue
+        if is_observation_row and "SUSPEND" not in _identity_text(row.observation):
+            # Result pages often publish scheduling notes such as "Juegan 29-9-26"
+            # before a score exists. Schedule fields belong to scraper_horarios;
+            # importing those notes here would replace the state and clear the time.
+            continue
 
         label = _result_label(row)
         row_issues: list[str] = []
@@ -652,26 +657,13 @@ def build_result_plan(
         matched_targets.append(target.id)
 
         if is_observation_row:
-            norm_obs = _identity_text(row.observation)
-            parsed_obs_date = _parse_date(row.observation)
-            if "SUSPEND" in norm_obs:
-                target_state = "suspendido"
-            elif "JUEGA" in norm_obs:
-                target_state = row.observation.strip()
-            else:
-                target_state = row.observation.strip()
-
             desired = {
-                "estado": target_state,
+                "estado": "suspendido",
                 "hora": None,
             }
-            if parsed_obs_date is not None:
-                desired["dia"] = parsed_obs_date
-
             needs_update = (
-                target.state.strip().lower() != target_state.lower()
+                target.state.strip().lower() != "suspendido"
                 or target.hora is not None
-                or (parsed_obs_date is not None and target.date != parsed_obs_date)
             )
             if needs_update:
                 entries.append(ResultUpdate(target_id=target.id, row=row, values=desired))

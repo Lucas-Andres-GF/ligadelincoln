@@ -871,7 +871,7 @@ class ObservationResultPlanTests(unittest.TestCase):
         self.assertEqual(entry.values["estado"], "suspendido")
         self.assertIsNone(entry.values["hora"])
 
-    def test_plans_rescheduled_date_for_juegan_note(self) -> None:
+    def test_juegan_note_is_no_op_and_preserves_schedule(self) -> None:
         fixture = results.FixtureRecord(
             id=502,
             tournament_id=3,
@@ -904,12 +904,14 @@ class ObservationResultPlanTests(unittest.TestCase):
         )
         plan = results.build_result_plan([row], [fixture], 3)
         self.assertTrue(plan.valid)
-        self.assertEqual(len(plan.entries), 1)
-        entry = plan.entries[0]
-        self.assertEqual(entry.target_id, 502)
-        self.assertEqual(entry.values["estado"], "Juegan 22-9-26")
-        self.assertEqual(entry.values["dia"], "2026-09-22")
-        self.assertIsNone(entry.values["hora"])
+        self.assertEqual(plan.entries, ())
+        self.assertEqual(plan.matched_target_ids, ())
+
+        projected = results.overlay_planned_results([fixture], plan)
+        self.assertEqual(projected, [fixture])
+        self.assertEqual(projected[0].state, "programado")
+        self.assertEqual(projected[0].date, "2026-09-20")
+        self.assertEqual(projected[0].hora, "14:35:00")
 
     def test_already_suspended_fixture_is_idempotent_no_op(self) -> None:
         fixture = results.FixtureRecord(
