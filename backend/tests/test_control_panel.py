@@ -8,7 +8,9 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
@@ -37,6 +39,167 @@ def load_control_panel():
 
 
 panel = load_control_panel()
+
+
+class ScheduleValidationTests(unittest.TestCase):
+    def valid_params(self, **overrides):
+        params = {
+            "script": "ambos",
+            "torneo_id": "3",
+            "fecha": "9",
+            "category": "primera",
+            "mode": "date",
+            "run_date": "2026-10-02",
+            "start_time": "19:00",
+            "end_time": "19:20",
+            "interval_minutes": "10",
+            "confirm_text": "ESCRIBIR",
+        }
+        params.update(overrides)
+        return params
+
+    def test_date_schedule_is_normalized_and_expanded_inclusively(self):
+        schedule = panel.validate_schedule_params(
+            self.valid_params(), today=date(2026, 9, 30)
+        )
+
+        self.assertEqual(schedule["torneo_id"], 3)
+        self.assertEqual(schedule["fecha"], 9)
+        self.assertEqual(schedule["interval_minutes"], 10)
+        self.assertEqual(
+            panel.schedule_calendar_entries(schedule),
+            [
+                "2026-10-02 19:00:00",
+                "2026-10-02 19:10:00",
+                "2026-10-02 19:20:00",
+            ],
+        )
+
+    def test_weekly_schedule_uses_systemd_weekday(self):
+        schedule = panel.validate_schedule_params(
+            self.valid_params(mode="weekly", weekday="wednesday"),
+            today=date(2026, 9, 30),
+        )
+
+        self.assertEqual(
+            panel.schedule_calendar_entries(schedule)[0],
+            "Wed *-*-* 19:00:00",
+        )
+
+    def test_alignments_require_round_and_confirmation(self):
+        for overrides in (
+            {"fecha": ""},
+            {"confirm_text": "SI"},
+        ):
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(panel.RequestValidationError):
+                    panel.validate_schedule_params(
+                        self.valid_params(**overrides), today=date(2026, 9, 30)
+                    )
+
+    def test_rejects_past_dates_bad_windows_and_unsupported_intervals(self):
+        invalid = (
+            {"run_date": "2026-09-29"},
+            {"start_time": "21:00", "end_time": "20:00"},
+            {"interval_minutes": "7"},
+        )
+        for overrides in invalid:
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(panel.RequestValidationError):
+                    panel.validate_schedule_params(
+                        self.valid_params(**overrides), today=date(2026, 9, 30)
+                    )
+
+    def test_both_unit_runs_results_then_alignments_without_a_shell(self):
+        schedule = panel.validate_schedule_params(
+            self.valid_params(), today=date(2026, 9, 30)
+        )
+        schedule["id"] = "abcdef123456"
+        service, timer = panel.build_schedule_units(
+            schedule,
+            project_dir=Path("/srv/ligadelincoln"),
+            python=Path("/srv/ligadelincoln/backend/venv/bin/python"),
+        )
+
+        self.assertEqual(service.count("ExecStart="), 2)
+        self.assertIn("scraper_resultados.py", service)
+        self.assertIn("scraper_alineaciones.py", service)
+        self.assertEqual(service.count("--execute"), 2)
+        self.assertNotIn("/bin/sh", service)
+        self.assertEqual(timer.count("OnCalendar="), 3)
+
+
+class SchedulePersistenceTests(unittest.TestCase):
+    def valid_params(self):
+        return {
+            "script": "resultados",
+            "torneo_id": "3",
+            "category": "",
+            "mode": "date",
+            "run_date": "2026-10-02",
+            "start_time": "20:00",
+            "end_time": "20:10",
+            "interval_minutes": "5",
+            "confirm_text": "ESCRIBIR",
+        }
+
+    def test_create_list_and_delete_manage_exact_user_units(self):
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append((command, kwargs))
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            state_dir = root / "state"
+            systemd_dir = root / "systemd"
+            schedule = panel.create_schedule(
+                self.valid_params(),
+                state_dir=state_dir,
+                systemd_dir=systemd_dir,
+                project_dir=PROJECT_DIR,
+                python=Path("/venv/bin/python"),
+                runner=runner,
+                today=date(2026, 9, 30),
+            )
+
+            unit = f"liga-panel-{schedule['id']}"
+            self.assertTrue((systemd_dir / f"{unit}.service").is_file())
+            self.assertTrue((systemd_dir / f"{unit}.timer").is_file())
+            self.assertEqual(panel.list_schedules(state_dir=state_dir), [schedule])
+            self.assertIn(
+                ["systemctl", "--user", "enable", "--now", f"{unit}.timer"],
+                [call[0] for call in calls],
+            )
+
+            panel.delete_schedule(
+                schedule["id"],
+                state_dir=state_dir,
+                systemd_dir=systemd_dir,
+                runner=runner,
+            )
+
+            self.assertEqual(panel.list_schedules(state_dir=state_dir), [])
+            self.assertFalse((systemd_dir / f"{unit}.service").exists())
+            self.assertFalse((systemd_dir / f"{unit}.timer").exists())
+
+    def test_api_dispatch_keeps_validation_server_side(self):
+        created = []
+        response, status = panel.dispatch_schedule_create(
+            {"params": self.valid_params()},
+            lambda params: created.append(params) or {"id": "abcdef123456"},
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(response["id"], "abcdef123456")
+        self.assertEqual(len(created), 1)
+
+        response, status = panel.dispatch_schedule_create(
+            {"params": {**self.valid_params(), "confirm_text": ""}},
+            lambda params: panel.create_schedule(params),
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("ESCRIBIR", response["error"])
 
 
 class HttpRequestBoundaryTests(unittest.TestCase):

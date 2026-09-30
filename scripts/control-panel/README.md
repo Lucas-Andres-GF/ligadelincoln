@@ -47,6 +47,27 @@ La previsualización es el comportamiento predeterminado de los scripts backend.
 
 La ingesta de horarios, resultados o alineaciones no construye ni despliega el frontend. Cualquier despliegue es una operación manual y separada.
 
+## Programaciones especiales en Linux Mint
+
+La sección **Programador** permite crear una ventana adicional para resultados, alineaciones o ambos procesos. Está pensada para partidos postergados o jornadas fuera de la programación habitual de sábados y domingos.
+
+Se puede elegir:
+
+- Una fecha puntual o un día semanal.
+- Hora de inicio y de finalización.
+- Frecuencia de 5, 10, 15, 20, 30 o 60 minutos.
+- ID de torneo, categoría opcional para resultados y número de fecha para alineaciones.
+
+Guardar exige confirmar `ESCRIBIR`. El backend valida todos los campos, genera unidades persistentes de `systemd --user` y las activa sin usar una shell intermedia. Las programaciones se guardan en `~/.local/share/ligadelincoln/schedules` y sus unidades en `~/.config/systemd/user`; cerrar el navegador o el panel no las cancela. Cada tarjeta activa se puede eliminar desde el mismo dashboard.
+
+Esta función debe usarse abriendo el panel desde Mint. No reemplaza ni modifica los timers globales ya instalados para el fin de semana. Los timers de usuario vuelven a estar disponibles al iniciar sesión; si necesitás que corran antes del login, el administrador del equipo puede habilitar *linger* una sola vez para ese usuario.
+
+Para auditar lo programado desde una terminal de Mint:
+
+```bash
+systemctl --user list-timers 'liga-panel-*'
+```
+
 ## Otras acciones
 
 Las operaciones de medios y redes conservan su comportamiento:
