@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { cachedQuery } from '../utils/supabaseCached'
 import { slugify } from '../utils/slugify'
 import { isMatchPlayed } from '../utils/matchState'
+import { isMatchLive } from '../utils/matchTiming'
 import { buildLineupScorerLabels } from '../utils/lineupScorers'
+import { useMatchClock } from '../hooks/useMatchClock'
+import LiveMatchBadge from './LiveMatchBadge'
 import {
   getSelectedTorneoId,
   listenToTorneoChange,
@@ -139,18 +142,22 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
   const [selectedTorneoId, setSelectedTorneoId] = useState(() =>
     getSelectedTorneoId(torneoId),
   )
+  const now = useMatchClock()
+  const liveMatchesRef = useRef(false)
 
   useEffect(() => listenToTorneoChange(setSelectedTorneoId), [])
 
   useEffect(() => {
     let cancelled = false
 
-    async function fetchFixture() {
-      setAllMatches({})
-      setAvailableFechas([])
-      setFechaActual(null)
-      setDropdownOpen(false)
-      setError(null)
+    async function fetchFixture({ background = false } = {}) {
+      if (!background) {
+        setAllMatches({})
+        setAvailableFechas([])
+        setFechaActual(null)
+        setDropdownOpen(false)
+        setError(null)
+      }
 
       const scopedTorneoId = parseTorneoId(selectedTorneoId)
       if (scopedTorneoId === null) {
@@ -158,9 +165,9 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
         return
       }
 
-      setIsLoading(true)
+      if (!background) setIsLoading(true)
       const cacheKey = `fixture_torneo_${scopedTorneoId}_categoria_${categoria}`
-      const { data, error: partidosError } = await cachedQuery(cacheKey, () =>
+      const queryFixture = () =>
         supabase
           .from('partidos')
           .select(`
@@ -171,14 +178,18 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
           .eq('categoria_id', categoria)
           .eq('torneo_id', scopedTorneoId)
           .order('fecha_id')
-          .order('id'),
-      )
+          .order('id')
+      const { data, error: partidosError } = background
+        ? await queryFixture()
+        : await cachedQuery(cacheKey, queryFixture)
 
       if (cancelled) return
       if (partidosError) {
         console.error('Error fetching partidos:', partidosError)
-        setError('No se pudo cargar el fixture de este torneo.')
-        setIsLoading(false)
+        if (!background) {
+          setError('No se pudo cargar el fixture de este torneo.')
+          setIsLoading(false)
+        }
         return
       }
 
@@ -229,13 +240,23 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
       const fechas = Object.keys(grouped).sort((a, b) => Number(a) - Number(b))
       setAllMatches(grouped)
       setAvailableFechas(fechas)
-      setFechaActual(detectarFechaActual(grouped, fechas))
-      setIsLoading(false)
+      setFechaActual((current) => (
+        current !== null && fechas.includes(String(current))
+          ? current
+          : detectarFechaActual(grouped, fechas)
+      ))
+      if (!background) setIsLoading(false)
     }
 
     fetchFixture()
+    const refreshInterval = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && liveMatchesRef.current) {
+        fetchFixture({ background: true })
+      }
+    }, 60_000)
     return () => {
       cancelled = true
+      window.clearInterval(refreshInterval)
     }
   }, [categoria, selectedTorneoId])
 
@@ -244,6 +265,7 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
     () => (fechaActual === null ? [] : allMatches[fechaActual] || []),
     [allMatches, fechaActual],
   )
+  liveMatchesRef.current = matches.some((match) => isMatchLive(match, now))
 
   if (parseTorneoId(selectedTorneoId) === null) {
     return (
@@ -337,6 +359,7 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
           {matches.map((match) => {
             const isLibre = match.visitante_id === null
             const seJugo = isMatchPlayed(match)
+            const enJuego = isMatchLive(match, now)
             const estadoNormalizado = String(match.estado || '').trim().toLowerCase()
             const esSuspendido = estadoNormalizado === 'suspendido'
             const tieneObservacion = Boolean(match.estado && !['programado', 'jugado', 'libre'].includes(estadoNormalizado))
@@ -370,6 +393,8 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
                     <span className='text-red-400 font-bold uppercase tracking-wide'>SUSPENDIDO</span>
                   ) : tieneObservacion ? (
                     <span className='text-yellow-400 font-bold uppercase tracking-wide'>{match.estado}</span>
+                  ) : enJuego ? (
+                    <LiveMatchBadge />
                   ) : match.hora ? (
                     <span>{formatearFechaMostrar(match.dia) || 'A DEFINIR'} - {match.hora.slice(0, 5)}hs</span>
                   ) : (

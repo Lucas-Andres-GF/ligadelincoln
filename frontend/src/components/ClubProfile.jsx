@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { slugify } from "../utils/slugify";
 import { getSelectedTorneoId, listenToTorneoChange, parseTorneoId, withTorneoParam } from "../utils/torneoSelection";
+import { isMatchLive } from "../utils/matchTiming";
+import { useMatchClock } from "../hooks/useMatchClock";
+import LiveMatchBadge from "./LiveMatchBadge";
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -72,22 +75,27 @@ export default function ClubProfile({ club }) {
   const [selectedTorneoId, setSelectedTorneoId] = useState(() =>
     getSelectedTorneoId(null),
   );
+  const now = useMatchClock();
+  const liveMatchesRef = useRef(false);
+  liveMatchesRef.current = fixture.some((match) => isMatchLive(match, now));
 
   useEffect(() => listenToTorneoChange(setSelectedTorneoId), []);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchFixture() {
-      setFixture([]);
-      setError(null);
+    async function fetchFixture({ background = false } = {}) {
+      if (!background) {
+        setFixture([]);
+        setError(null);
+      }
       const scopedTorneoId = parseTorneoId(selectedTorneoId);
       if (scopedTorneoId === null) {
         setIsLoading(false);
         return;
       }
 
-      setIsLoading(true);
+      if (!background) setIsLoading(true);
       const { data, error: fixtureError } = await supabase
         .from("partidos")
         .select(
@@ -101,15 +109,21 @@ export default function ClubProfile({ club }) {
       if (cancelled) return;
       if (fixtureError) {
         console.error("Error fetching club fixture:", fixtureError);
-        setError("No se pudo cargar el fixture del club.");
+        if (!background) setError("No se pudo cargar el fixture del club.");
       } else {
         setFixture(data || []);
       }
-      setIsLoading(false);
+      if (!background) setIsLoading(false);
     }
     fetchFixture();
+    const refreshInterval = window.setInterval(() => {
+      if (document.visibilityState === "visible" && liveMatchesRef.current) {
+        fetchFixture({ background: true });
+      }
+    }, 60_000);
     return () => {
       cancelled = true;
+      window.clearInterval(refreshInterval);
     };
   }, [club.id, categoriaId, selectedTorneoId]);
 
@@ -202,6 +216,7 @@ export default function ClubProfile({ club }) {
 
               const seJugo =
                 match.goles_local !== null && match.goles_visitante !== null;
+              const enJuego = isMatchLive(match, now);
               const isLocal = match.local?.id === club.id;
               const rival = isLocal ? match.visitante : match.local;
 
@@ -264,6 +279,8 @@ export default function ClubProfile({ club }) {
                       <span className='text-yellow-400 text-[11px] font-bold uppercase'>
                         {match.estado}
                       </span>
+                    ) : enJuego ? (
+                      <LiveMatchBadge />
                     ) : (
                       <span className='text-green-700 text-xs font-medium'>
                         Próximo

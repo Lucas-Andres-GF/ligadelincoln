@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { slugify } from '../utils/slugify'
 import { getSelectedTorneoId, listenToTorneoChange, parseTorneoId, withTorneoParam } from '../utils/torneoSelection'
 import { isMatchPlayed } from '../utils/matchState'
+import { isMatchLive } from '../utils/matchTiming'
 import { buildLineupScorerLabels } from '../utils/lineupScorers'
+import { useMatchClock } from '../hooks/useMatchClock'
+import LiveMatchBadge from './LiveMatchBadge'
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
@@ -130,6 +133,9 @@ export default function PartidosHoy() {
   const [selectedTorneoId, setSelectedTorneoId] = useState(() =>
     getSelectedTorneoId(null),
   )
+  const now = useMatchClock()
+  const liveMatchesRef = useRef(false)
+  liveMatchesRef.current = matches.some((match) => isMatchLive(match, now))
 
   useEffect(() => listenToTorneoChange(setSelectedTorneoId), [])
 
@@ -215,10 +221,12 @@ export default function PartidosHoy() {
 
     let cancelled = false
 
-    async function fetchMatches() {
-      setMatches([])
-      setError(null)
-      setIsLoading(true)
+    async function fetchMatches({ background = false } = {}) {
+      if (!background) {
+        setMatches([])
+        setError(null)
+        setIsLoading(true)
+      }
       const queryDate = formatDateForQuery(selectedDate)
       
       const { data, error } = await supabase
@@ -248,8 +256,10 @@ export default function PartidosHoy() {
 
       if (error) {
         console.error('Error fetching matches:', error)
-        setMatches([])
-        setError('No se pudieron cargar los partidos de esta fecha.')
+        if (!background) {
+          setMatches([])
+          setError('No se pudieron cargar los partidos de esta fecha.')
+        }
       } else {
         let goleadoresMap = {}
         if (data?.length) {
@@ -276,12 +286,18 @@ export default function PartidosHoy() {
 
         setMatches(matchesWithScorers)
       }
-      setIsLoading(false)
+      if (!background) setIsLoading(false)
     }
     
     fetchMatches()
+    const refreshInterval = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && liveMatchesRef.current) {
+        fetchMatches({ background: true })
+      }
+    }, 60_000)
     return () => {
       cancelled = true
+      window.clearInterval(refreshInterval)
     }
   }, [selectedDate, selectedTorneoId])
 
@@ -450,6 +466,7 @@ export default function PartidosHoy() {
                   {groupedByCategory[categoriaId].map((match) => {
                     const isLibre = match.visitante_id === null
                     const seJugo = isMatchPlayed(match)
+                    const enJuego = isMatchLive(match, now)
                     const estadoNormalizado = String(match.estado || '').trim().toLowerCase()
                     const esSuspendido = estadoNormalizado === 'suspendido'
                     const tieneObservacion = Boolean(match.estado && !['programado', 'jugado', 'libre'].includes(estadoNormalizado))
@@ -489,6 +506,8 @@ export default function PartidosHoy() {
                             <span className='text-red-400 font-bold uppercase tracking-wide'>SUSPENDIDO</span>
                           ) : tieneObservacion ? (
                             <span className='text-yellow-400 font-bold uppercase tracking-wide'>{match.estado}</span>
+                          ) : enJuego ? (
+                            <LiveMatchBadge />
                           ) : match.hora ? (
                             <span>{formatDateForDisplay(selectedDate)} - {match.hora.slice(0, 5)}hs</span>
                           ) : (
