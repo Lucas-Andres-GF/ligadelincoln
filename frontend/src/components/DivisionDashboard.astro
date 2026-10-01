@@ -4,6 +4,7 @@ import FixtureCategoria from './FixtureCategoria.jsx'
 import TournamentTitle from './TournamentTitle.jsx'
 import HistoricalChampions from './HistoricalChampions.jsx'
 import TournamentDeciderSeries from './TournamentDeciderSeries.jsx'
+import ScorersTable from './ScorersTable.jsx'
 
 interface Props {
   categoriaId: number
@@ -46,6 +47,22 @@ const { categoriaId, divisionLabel } = Astro.props
     </div>
   </section>
 </div>
+
+{categoriaId === 1 && (
+  <section
+    id='goleadores'
+    class='mt-6 scroll-mt-24 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/95 shadow-[0_24px_60px_rgba(0,0,0,0.24)]'
+  >
+    <header class='flex items-center justify-between gap-4 border-b border-green-800/60 bg-[#092716] px-4 py-3.5 sm:px-5'>
+      <div>
+        <p class='font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.24em] text-green-600'>Rendimiento individual</p>
+        <h2 class='font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-50'>Tabla de goleadores</h2>
+      </div>
+      <span class='rounded-full border border-yellow-300/25 bg-yellow-300/[0.07] px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-yellow-300'>Primera</span>
+    </header>
+    <div class='p-3 sm:p-4'><ScorersTable client:load /></div>
+  </section>
+)}
 
 <TournamentDeciderSeries categoria={categoriaId} client:load />
 
