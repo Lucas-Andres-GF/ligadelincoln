@@ -331,6 +331,16 @@ def _systemd_quote(value):
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def _systemd_working_directory(value):
+    """Render a systemd path directive without turning quotes into path bytes."""
+    value = value.as_posix() if isinstance(value, Path) else str(value)
+    if "\n" in value or "\r" in value or "\0" in value:
+        raise ScheduleOperationError("WorkingDirectory inválido para una unidad systemd")
+    if not value.startswith("/"):
+        raise ScheduleOperationError("WorkingDirectory debe ser una ruta absoluta de Linux")
+    return value.replace("%", "%%")
+
+
 def build_schedule_commands(schedule, *, project_dir=PROJECT_DIR, python=None):
     """Build direct, shell-free scraper commands for a scheduled service."""
     project_dir = Path(project_dir)
@@ -378,7 +388,7 @@ Description=Liga de Lincoln - {schedule['script']} ({schedule['id']})
 
 [Service]
 Type=oneshot
-WorkingDirectory={_systemd_quote(Path(project_dir))}
+WorkingDirectory={_systemd_working_directory(Path(project_dir))}
 Environment=PYTHONIOENCODING=utf-8
 {exec_lines}
 """

@@ -126,7 +126,17 @@ class ScheduleValidationTests(unittest.TestCase):
         self.assertIn("scraper_alineaciones.py", service)
         self.assertEqual(service.count("--execute"), 2)
         self.assertNotIn("/bin/sh", service)
+        self.assertIn("WorkingDirectory=/srv/ligadelincoln", service)
+        self.assertNotIn('WorkingDirectory="', service)
         self.assertEqual(timer.count("OnCalendar="), 3)
+
+    def test_working_directory_must_be_an_unquoted_absolute_linux_path(self):
+        self.assertEqual(
+            panel._systemd_working_directory("/home/gallardo/Documentos/ligadelincoln"),
+            "/home/gallardo/Documentos/ligadelincoln",
+        )
+        with self.assertRaises(panel.ScheduleOperationError):
+            panel._systemd_working_directory('"/home/gallardo/Documentos/ligadelincoln"')
 
 
 class SchedulePersistenceTests(unittest.TestCase):
@@ -158,7 +168,7 @@ class SchedulePersistenceTests(unittest.TestCase):
                 self.valid_params(),
                 state_dir=state_dir,
                 systemd_dir=systemd_dir,
-                project_dir=PROJECT_DIR,
+                project_dir=Path("/srv/ligadelincoln"),
                 python=Path("/venv/bin/python"),
                 runner=runner,
                 today=date(2026, 9, 30),
