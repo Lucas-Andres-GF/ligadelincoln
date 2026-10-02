@@ -184,6 +184,20 @@ class LineupParsingTests(unittest.TestCase):
         with self.assertRaisesRegex(lineups.LineupParseError, "Malformed local player"):
             lineups.parse_lineups_html(malformed)
 
+    def test_zero_name_placeholder_is_skipped_without_shifting_player_numbers(self) -> None:
+        html = single_match_html().replace(
+            "<td>4</td><td>PABLO MUÑOZ</td>",
+            "<td>4</td><td>0</td>",
+        )
+
+        with self.assertWarnsRegex(RuntimeWarning, "visiting player placeholder #4"):
+            match = lineups.parse_lineups_html(html)[0]
+
+        self.assertEqual(
+            [(player.number, player.name) for player in match.visitor_players],
+            [(1, "JOSÉ GÓMEZ")],
+        )
+
     def test_scorer_without_valid_cumulative_score_fails_closed(self) -> None:
         for score in ("", "not-a-score"):
             with self.subTest(score=score), self.assertRaisesRegex(

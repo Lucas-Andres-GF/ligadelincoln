@@ -7,6 +7,7 @@ import argparse
 import re
 import sys
 import unicodedata
+import warnings
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -441,28 +442,46 @@ def _parse_match_block(
         visitor_number = texts[3]
         if local_number.isdigit():
             name = texts[1]
-            if not name or name == "0":
-                raise LineupParseError(f"Malformed local player at source row {row_number}")
-            local_players.append(
-                OfficialPlayer(
-                    team_id=local_id,
-                    number=int(local_number),
-                    name=name,
-                    red_card=len(cells) > 2 and cell_has_red_background(cells[2], class_styles),
+            if name == "0":
+                warnings.warn(
+                    "Skipping official local player placeholder "
+                    f"#{local_number} at source row {row_number}",
+                    RuntimeWarning,
+                    stacklevel=2,
                 )
-            )
+            elif not name:
+                raise LineupParseError(f"Malformed local player at source row {row_number}")
+            else:
+                local_players.append(
+                    OfficialPlayer(
+                        team_id=local_id,
+                        number=int(local_number),
+                        name=name,
+                        red_card=len(cells) > 2
+                        and cell_has_red_background(cells[2], class_styles),
+                    )
+                )
         if visitor_number.isdigit():
             name = texts[4]
-            if not name or name == "0":
-                raise LineupParseError(f"Malformed visiting player at source row {row_number}")
-            visitor_players.append(
-                OfficialPlayer(
-                    team_id=visitor_id,
-                    number=int(visitor_number),
-                    name=name,
-                    red_card=len(cells) > 5 and cell_has_red_background(cells[5], class_styles),
+            if name == "0":
+                warnings.warn(
+                    "Skipping official visiting player placeholder "
+                    f"#{visitor_number} at source row {row_number}",
+                    RuntimeWarning,
+                    stacklevel=2,
                 )
-            )
+            elif not name:
+                raise LineupParseError(f"Malformed visiting player at source row {row_number}")
+            else:
+                visitor_players.append(
+                    OfficialPlayer(
+                        team_id=visitor_id,
+                        number=int(visitor_number),
+                        name=name,
+                        red_card=len(cells) > 5
+                        and cell_has_red_background(cells[5], class_styles),
+                    )
+                )
 
     if not local_players or not visitor_players:
         raise LineupParseError(
