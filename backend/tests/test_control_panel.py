@@ -20,6 +20,7 @@ RUNNER_RESULTADOS = PROJECT_DIR / "scripts" / "run_scraper_resultados.sh"
 RUNNER_WRAPPER = PROJECT_DIR / "scripts" / "run_scraper_wrapper.sh"
 RESULTADOS_SERVICE = PROJECT_DIR / "scripts" / "scraper-resultados.service"
 RESULTADOS_TIMER = PROJECT_DIR / "scripts" / "scraper-resultados.timer"
+ALINEACIONES_TIMER = PROJECT_DIR / "scripts" / "scraper-alineaciones.timer"
 SYSTEMD_INSTALLER = PROJECT_DIR / "scripts" / "install_scraper_systemd.sh"
 CRONTAB_PATH = PROJECT_DIR / "scripts" / "crontab"
 PANEL_LAUNCHER = PROJECT_DIR / "abrir-panel-liga.sh"
@@ -587,7 +588,8 @@ class ShellRunnerContractTests(unittest.TestCase):
         self.assertIn('DAY="$(date +%w)"', self.resultados)
         self.assertIn('HOUR="$(date +%H)"', self.resultados)
         self.assertIn('"$DAY" != "6" && "$DAY" != "0"', self.resultados)
-        self.assertIn('"$HOUR" -lt 13 || "$HOUR" -ge 22', self.resultados)
+        self.assertIn('"$HOUR" -lt 13', self.resultados)
+        self.assertNotIn('"$HOUR" -ge 22', self.resultados)
         self.assertIn('LIGA_FORCE', self.resultados)
         self.assertIn('SCRAPER_LOG_DIR:-/home/gallardo/logs', self.resultados)
         self.assertIn('mkdir -p -- "$LOG_DIR"', self.resultados)
@@ -719,6 +721,7 @@ class SystemdContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.service = RESULTADOS_SERVICE.read_text(encoding="utf-8")
         cls.timer = RESULTADOS_TIMER.read_text(encoding="utf-8")
+        cls.alineaciones_timer = ALINEACIONES_TIMER.read_text(encoding="utf-8")
         cls.installer = SYSTEMD_INSTALLER.read_text(encoding="utf-8")
         cls.crontab = CRONTAB_PATH.read_text(encoding="utf-8")
         cls.wrapper = RUNNER_WRAPPER.read_text(encoding="utf-8")
@@ -749,6 +752,12 @@ class SystemdContractTests(unittest.TestCase):
         self.assertIn("generar_placas_resultados.sh", self.crontab)
         self.assertIn("OnCalendar=", self.timer)
         self.assertIn("WantedBy=timers.target", self.timer)
+
+    def test_weekend_timers_run_every_five_minutes_through_2355(self):
+        for timer in (self.timer, self.alineaciones_timer):
+            self.assertIn("OnCalendar=Sat *-*-* 13..23:0/5:00", timer)
+            self.assertIn("OnCalendar=Sun *-*-* 13..23:0/5:00", timer)
+            self.assertNotIn("13..21:0/5:00", timer)
 
     def test_installer_uses_checked_in_system_units_without_user_mode(self):
         self.assertIn('"$SCRIPT_DIR/scraper-resultados.service"', self.installer)
