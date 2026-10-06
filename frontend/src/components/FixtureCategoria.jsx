@@ -398,7 +398,10 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
                   ) : match.hora ? (
                     <span>{formatearFechaMostrar(match.dia) || 'A DEFINIR'} - {match.hora.slice(0, 5)}hs</span>
                   ) : (
-                    formatearFechaMostrar(match.dia) || <span className='font-semibold'>A DEFINIR</span>
+                    <span>
+                      {formatearFechaMostrar(match.dia) ? `${formatearFechaMostrar(match.dia)} - ` : ''}
+                      <span className='font-semibold'>A DEFINIR</span>
+                    </span>
                   )}
                 </div>
                 <div className='flex items-center gap-2'>

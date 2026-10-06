@@ -445,8 +445,9 @@ def build_update_plan(
         if not row.is_reprogramar:
             if row.date is None:
                 row_issues.append(f"Missing date at {label}")
-            if row.calculated_time is None:
-                row_issues.append(f"Missing kickoff time at {label}")
+            # The official schedule sometimes publishes a dated fixture before
+            # confirming its kickoff time.  Keep that fixture actionable and
+            # write a null time so the UI can present it as "A DEFINIR".
         if row_issues:
             issues.extend(row_issues)
             continue

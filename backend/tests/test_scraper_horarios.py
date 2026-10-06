@@ -259,6 +259,43 @@ class SchedulePlanningTests(unittest.TestCase):
         self.assertTrue(any("Unknown category" in issue for issue in plan.issues))
         self.assertTrue(any("Unknown local club" in issue for issue in plan.issues))
 
+    def test_dated_fixture_without_time_is_planned_as_a_definir(self) -> None:
+        row = replace(
+            parsed_rows()[0],
+            scheduled_time=None,
+            calculated_time=None,
+            inherited_time=False,
+        )
+        plan = schedule.build_update_plan([row], fixture_records(), 2)
+
+        self.assertTrue(plan.valid)
+        self.assertEqual(len(plan.entries), 1)
+        self.assertEqual(plan.entries[0].values["dia"], "2026-04-12")
+        self.assertIsNone(plan.entries[0].values["hora"])
+        self.assertEqual(plan.entries[0].values["estado"], "programado")
+
+        client = FakeClient()
+        applied = schedule.execute_update_plan(client, plan)
+
+        self.assertEqual(applied, 1)
+        self.assertIsNone(client.executed_updates[0][0]["hora"])
+        report = schedule.render_report(schedule.OperationContext(tournament_id=2), plan)
+        self.assertIn("A DEFINIR | Primera | ARGENTINO vs EL LINQUEÑO", report)
+
+    def test_undated_non_reprogrammed_fixture_remains_blocking(self) -> None:
+        row = replace(
+            parsed_rows()[0],
+            date=None,
+            scheduled_time=None,
+            calculated_time=None,
+            inherited_time=False,
+        )
+
+        plan = schedule.build_update_plan([row], fixture_records(), 2)
+
+        self.assertFalse(plan.valid)
+        self.assertTrue(any("Missing date" in issue for issue in plan.issues))
+
     def test_null_visitor_fixture_is_tolerated_and_not_matched(self) -> None:
         bye = {
             "id": 900,
