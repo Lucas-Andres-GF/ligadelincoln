@@ -64,6 +64,33 @@ Nunca actives una importación histórica por inferencia y nunca deduzcas el cam
 
 Para panel, systemd, medios, redes y deploy manual, usá [`../COMANDOS.md`](../COMANDOS.md). Para el panel en detalle, consultá [`../scripts/control-panel/README.md`](../scripts/control-panel/README.md).
 
+## Ejecución remota desde el administrador
+
+El administrador web no ejecuta procesos ni recibe credenciales operativas. Inserta una orden validada en `public.scraper_jobs`; el servicio `scraper-worker.service` de Mint la reclama de forma atómica con `claim_scraper_job`, construye un comando desde una lista cerrada y publica estado, salida y código de retorno en la misma tabla.
+
+Antes de instalar el worker, aplicar en Supabase SQL Editor:
+
+```text
+backend/migrations/20261007_add_remote_scraper_jobs.sql
+```
+
+Luego, en Mint y desde la raíz del proyecto:
+
+```bash
+sudo ./scripts/install_scraper_systemd.sh
+sudo systemctl status scraper-worker.service
+sudo journalctl -u scraper-worker.service -f
+```
+
+Propiedades de seguridad y operación:
+
+- El navegador autenticado solamente posee `SELECT` y un `INSERT` limitado a los parámetros de una orden.
+- RLS exige `public.is_liga_admin()`; nunca se expone `SUPABASE_SERVICE_ROLE_KEY` al frontend.
+- Mint acepta únicamente horarios, resultados, alineaciones o la secuencia resultados + alineaciones.
+- Los comandos se ejecutan sin shell y con torneo, categoría y fecha nuevamente validados.
+- Existe como máximo una orden `queued` o `running`; un trabajo interrumpido se marca fallido al superar el umbral de recuperación.
+- Si Mint está apagado, la orden permanece en cola y se procesa al volver a iniciar el servicio.
+
 ## Preparar el entorno existente
 
 Trabajá desde la raíz del repositorio. Esta guía **no instala** Python, paquetes ni navegadores: el entorno virtual del proyecto debe existir y estar aprovisionado.

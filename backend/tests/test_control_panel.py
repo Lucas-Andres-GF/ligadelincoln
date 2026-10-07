@@ -764,13 +764,16 @@ class SystemdContractTests(unittest.TestCase):
         self.assertIn('"$SCRIPT_DIR/scraper-resultados.timer"', self.installer)
         self.assertIn('"$SCRIPT_DIR/scraper-alineaciones.service"', self.installer)
         self.assertIn('"$SCRIPT_DIR/scraper-alineaciones.timer"', self.installer)
+        self.assertIn('"$SCRIPT_DIR/scraper-worker.service"', self.installer)
         self.assertIn("/etc/systemd/system/scraper-resultados.service", self.installer)
         self.assertIn("/etc/systemd/system/scraper-resultados.timer", self.installer)
         self.assertIn("/etc/systemd/system/scraper-alineaciones.service", self.installer)
         self.assertIn("/etc/systemd/system/scraper-alineaciones.timer", self.installer)
+        self.assertIn("/etc/systemd/system/scraper-worker.service", self.installer)
         self.assertIn("systemctl daemon-reload", self.installer)
         self.assertIn("systemctl enable --now scraper-resultados.timer", self.installer)
         self.assertIn("systemctl enable --now scraper-alineaciones.timer", self.installer)
+        self.assertIn("systemctl enable --now scraper-worker.service", self.installer)
         self.assertNotIn("--user", self.installer)
 
 

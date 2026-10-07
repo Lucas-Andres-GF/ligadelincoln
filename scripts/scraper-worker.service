@@ -1,0 +1,17 @@
+[Unit]
+Description=Worker remoto de scrapers - Liga de Lincoln
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gallardo
+Group=gallardo
+WorkingDirectory=/home/gallardo/Documentos/ligadelincoln
+ExecStart=/home/gallardo/Documentos/ligadelincoln/backend/venv/bin/python /home/gallardo/Documentos/ligadelincoln/backend/scripts/scraper_worker.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

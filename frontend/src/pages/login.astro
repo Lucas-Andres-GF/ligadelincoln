@@ -77,14 +77,13 @@ import Layout from "../layouts/Layout.astro";
         return;
       }
       
-      if (email !== ADMIN_EMAIL) {
+      if (data.user?.email?.toLowerCase() !== ADMIN_EMAIL) {
         await supabase.auth.signOut();
         errorEl.textContent = "No tienes acceso de administrador";
         errorEl.classList.remove("hidden");
         return;
       }
       
-      sessionStorage.setItem("admin_logged", "true");
       window.location.href = "/admin";
     });
   </script>

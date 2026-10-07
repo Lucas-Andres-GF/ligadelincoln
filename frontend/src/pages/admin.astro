@@ -1,23 +1,22 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import AdminPartidos from "../components/AdminPartidos.jsx";
+import AdminScrapers from "../components/AdminScrapers.jsx";
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 ---
 
-<script is:inline>
-  if (!sessionStorage.getItem("admin_logged")) {
-    window.location.href = "/login";
-  }
-</script>
-
 <Layout title="Admin Partidos - Liga De Lincoln" robots="noindex, nofollow">
-  <div class="max-w-4xl mx-auto">
+  <div id="admin-loading" class="mx-auto max-w-xl py-20 text-center text-sm text-green-600">
+    Verificando acceso seguro…
+  </div>
+  <div id="admin-shell" class="mx-auto hidden max-w-6xl">
     <div class="flex items-center justify-between mb-8">
-      <h1 class="text-2xl font-bold text-green-400">
-        Administración de Partidos
-      </h1>
+      <div>
+        <p class="font-[var(--font-display)] text-[10px] font-black uppercase tracking-[0.2em] text-green-600">Liga de Lincoln</p>
+        <h1 class="font-[var(--font-display)] text-3xl font-black uppercase text-green-100">Administración</h1>
+      </div>
       <button
         id="logout-btn"
         class="px-4 py-2 bg-red-700 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors"
@@ -25,6 +24,12 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
         Cerrar sesión
       </button>
     </div>
+
+    <AdminScrapers
+      client:only="react"
+      supabaseUrl={supabaseUrl}
+      supabaseKey={supabaseKey}
+    />
     
     <div id="admin-content">
       <AdminPartidos 
@@ -41,10 +46,19 @@ const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
     const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
     const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const ADMIN_EMAIL = "gallardolucas003@gmail.com";
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) {
+      await supabase.auth.signOut();
+      window.location.replace("/login");
+    } else {
+      document.getElementById("admin-loading")?.classList.add("hidden");
+      document.getElementById("admin-shell")?.classList.remove("hidden");
+    }
     
     document.getElementById("logout-btn").addEventListener("click", async () => {
       await supabase.auth.signOut();
-      sessionStorage.removeItem("admin_logged");
       window.location.href = "/login";
     });
   </script>
