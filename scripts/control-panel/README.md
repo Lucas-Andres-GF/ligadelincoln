@@ -70,9 +70,17 @@ systemctl --user list-timers 'liga-panel-*'
 
 ## Otras acciones
 
-Las operaciones de medios y redes conservan su comportamiento:
+El bloque de contenido social usa un único diseño y siempre toma el torneo indicado, sin textos de campeonatos anteriores. Permite crear:
 
-- Generar tablas, fixture y placas de resultados.
+- Fixture, resultados y tablas de posiciones por división.
+- Tabla acumulada de goleadores de Primera.
+- Un pack completo con portada y todas las piezas.
+- Formato **publicación** (1080 × 1350), **historia** (1080 × 1920) o ambos.
+
+Los archivos se guardan en `social-images/<torneo>/fecha_<n>/<formato>/`, separados por tipo de contenido. Cada ejecución también deja un manifiesto JSON con el detalle de las imágenes creadas.
+
+La publicación en redes reutiliza las placas nuevas en formato publicación:
+
 - Validar tablas sociales en modo dry-run.
 - Subir tablas a Supabase Storage.
 - Publicar tablas, resultados o fixture en Instagram/Facebook.
@@ -87,6 +95,13 @@ Las publicaciones externas exigen su confirmación propia (`S` o `Y`) y el panel
 4. Elegir `both`, `instagram` o `facebook`.
 
 Para resultados, el orden editorial recomendado es **Décima → Novena → Octava → Séptima → Primera**, seguido por tablas y fixture.
+
+La primera instalación necesita el renderizador de imágenes dentro del entorno virtual del backend:
+
+```bash
+backend/venv/bin/python -m pip install -r scripts/generador-placas/requirements.txt
+backend/venv/bin/python -m playwright install chromium
+```
 
 ## Seguridad
 

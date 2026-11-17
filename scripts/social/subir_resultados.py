@@ -10,14 +10,15 @@ from meta_client import MetaConfigError, publish_facebook_carousel, publish_inst
 from image_prepare import prepare_image_for_meta
 from registry import get_publication, publication_key, record_publication
 from storage import SOCIAL_STORAGE_BUCKET, upload_public_image
+from dotenv import load_dotenv
+from social_paths import SOCIAL_GENERATOR, active_tournament_id, publication_dir
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent.parent
-RESULTADOS_DIR = PROJECT_DIR / "placares_generados"
-GENERADOR_RESULTADOS = PROJECT_DIR / "scripts" / "generador-placas" / "generar_placas_resultados.py"
+load_dotenv(PROJECT_DIR / "backend" / ".env")
 
 CATEGORIAS = {
     "primera": "Primera",
@@ -37,24 +38,19 @@ def categoria_hashtag(slug):
 
 
 def resultados_dir(fecha, categoria):
-    return RESULTADOS_DIR / categoria / f"fecha_{fecha}"
+    return publication_dir(fecha) / "resultados"
 
 
 def expected_images(fecha, categoria):
-    folder = resultados_dir(fecha, categoria)
-    if not folder.exists():
-        return []
-
-    portada = sorted(folder.glob("portada_*.png"))
-    resultados = sorted(folder.glob("resultado_*.png"))
-    libres = sorted(folder.glob("libre_*.png"))
-    return [("Portada", path) for path in portada[:1]] + [("Resultado", path) for path in resultados] + [("Libre", path) for path in libres]
+    root = publication_dir(fecha)
+    images = [("Portada", root / "00-portada-resultados.png")]
+    paths = sorted((root / "resultados").glob(f"resultados-{categoria}-*.png"))
+    images.extend(("Resultado", path) for path in (paths or [root / "resultados" / f"resultados-{categoria}-01.png"]))
+    return images
 
 
 def run_generation(fecha, categoria, force=False):
-    cmd = [sys.executable, str(GENERADOR_RESULTADOS), "--fecha", str(fecha), "--categoria", categoria]
-    if force:
-        cmd.append("--force")
+    cmd = [sys.executable, str(SOCIAL_GENERATOR), "--tipo", "resultados", "--formato", "publicacion", "--torneo-id", str(active_tournament_id()), "--fecha", str(fecha), "--categoria", categoria]
     print(f"🚀 Generando placas: {' '.join(cmd)}")
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
@@ -189,7 +185,7 @@ def parse_args():
 def main():
     args = parse_args()
     images = expected_images(args.fecha, args.categoria)
-    missing = [] if images else [("Carpeta de resultados", resultados_dir(args.fecha, args.categoria))]
+    missing = [(label, path) for label, path in images if not path.exists()]
     already_published = get_publication("resultados", args.fecha, args.categoria)
 
     print_carousel_plan(args.fecha, args.categoria, images, missing, already_published)
@@ -207,9 +203,12 @@ def main():
     else:
         run_generation(args.fecha, args.categoria, args.force)
         images = expected_images(args.fecha, args.categoria)
+        missing = [(label, path) for label, path in images if not path.exists()]
 
-    if not images:
-        print("\n⛔ Abortado: no hay imágenes para publicar.")
+    if missing:
+        print("\n⛔ Abortado: faltan imágenes para publicar.")
+        for label, path in missing:
+            print(f"   - {label}: {path}")
         sys.exit(1)
 
     print("\n✅ Carrusel listo para publicar.")

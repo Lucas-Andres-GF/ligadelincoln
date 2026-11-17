@@ -7,6 +7,7 @@ import { isMatchLive } from '../utils/matchTiming'
 import { buildLineupScorerLabels } from '../utils/lineupScorers'
 import { useMatchClock } from '../hooks/useMatchClock'
 import LiveMatchBadge from './LiveMatchBadge'
+import MatchRoundBadge from './MatchRoundBadge'
 import {
   getSelectedTorneoId,
   listenToTorneoChange,
@@ -371,10 +372,13 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
 
             if (isLibre) {
               return (
-                <div key={match.id} className='flex items-center justify-center gap-2 bg-green-950/20 px-3 py-3 text-xs'>
-                  <span className='text-green-100 font-medium text-xs sm:text-sm'>{match.local?.nombre}</span>
-                  {match.local?.nombre && <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className='w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0' />}
-                  <span className='text-green-700 font-semibold text-xs sm:text-sm'>LIBRE</span>
+                <div key={match.id} className='flex items-center gap-2 bg-green-950/20 px-3 py-3 text-xs'>
+                  <div className='flex flex-1 items-center justify-center gap-2'>
+                    <span className='text-green-100 font-medium text-xs sm:text-sm'>{match.local?.nombre}</span>
+                    {match.local?.nombre && <img src={getEscudoPath(match.local.nombre)} alt={match.local.nombre} className='w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0' />}
+                    <span className='text-green-700 font-semibold text-xs sm:text-sm'>LIBRE</span>
+                  </div>
+                  <MatchRoundBadge fechaId={match.fecha_id} />
                 </div>
               )
             }
@@ -386,23 +390,26 @@ export default function FixtureCategoria({ categoria, torneoId = null }) {
                 {...(matchUrl ? { href: matchUrl, 'aria-label': `Ver detalle de ${match.local?.nombre} contra ${match.visitante?.nombre}` } : {})}
                 className={`group flex flex-col gap-0 bg-transparent px-3 py-2.5 text-xs transition-colors hover:bg-green-400/[0.055] ${linkPartido ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-yellow-300' : ''}`}
               >
-                <div className='mb-1.5 font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.1em] text-green-600 sm:text-xs'>
-                  {seJugo ? (
-                    formatearFechaMostrar(match.dia) ? <span>{formatearFechaMostrar(match.dia)} <span className='text-green-400 font-semibold'>JUGADO</span></span> : <span className='text-green-400 font-semibold'>JUGADO</span>
-                  ) : esSuspendido ? (
-                    <span className='text-red-400 font-bold uppercase tracking-wide'>SUSPENDIDO</span>
-                  ) : tieneObservacion ? (
-                    <span className='text-yellow-400 font-bold uppercase tracking-wide'>{match.estado}</span>
-                  ) : enJuego ? (
-                    <LiveMatchBadge />
-                  ) : match.hora ? (
-                    <span>{formatearFechaMostrar(match.dia) || 'A DEFINIR'} - {match.hora.slice(0, 5)}hs</span>
-                  ) : (
-                    <span>
-                      {formatearFechaMostrar(match.dia) ? `${formatearFechaMostrar(match.dia)} - ` : ''}
-                      <span className='font-semibold'>A DEFINIR</span>
-                    </span>
-                  )}
+                <div className='mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
+                  <div className='font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.1em] text-green-600 sm:text-xs'>
+                    {seJugo ? (
+                      formatearFechaMostrar(match.dia) ? <span>{formatearFechaMostrar(match.dia)} <span className='text-green-400 font-semibold'>JUGADO</span></span> : <span className='text-green-400 font-semibold'>JUGADO</span>
+                    ) : esSuspendido ? (
+                      <span className='text-red-400 font-bold uppercase tracking-wide'>SUSPENDIDO</span>
+                    ) : tieneObservacion ? (
+                      <span className='text-yellow-400 font-bold uppercase tracking-wide'>{match.estado}</span>
+                    ) : enJuego ? (
+                      <LiveMatchBadge />
+                    ) : match.hora ? (
+                      <span>{formatearFechaMostrar(match.dia) || 'A DEFINIR'} - {match.hora.slice(0, 5)}hs</span>
+                    ) : (
+                      <span>
+                        {formatearFechaMostrar(match.dia) ? `${formatearFechaMostrar(match.dia)} - ` : ''}
+                        <span className='font-semibold'>A DEFINIR</span>
+                      </span>
+                    )}
+                  </div>
+                  <MatchRoundBadge fechaId={match.fecha_id} />
                 </div>
                 <div className='flex items-center gap-2'>
                   <div className='flex-1 flex items-center gap-1 justify-end min-w-0'>

@@ -545,19 +545,24 @@ def delete_schedule(
 
 
 def placas_resultados_command(params):
+    return contenido_social_command("resultados", params)
+
+
+def contenido_social_command(tipo, params):
     command = py(
-        PROJECT_DIR / "scripts" / "generador-placas" / "generar_placas_resultados.py",
+        PROJECT_DIR / "scripts" / "generar_contenido_social.py",
+        "--tipo",
+        tipo,
+        "--torneo-id",
+        params.get("torneo_id"),
         "--fecha",
         params.get("fecha"),
+        "--formato",
+        params.get("formato") or "ambos",
     )
-
     categoria = params.get("categoria")
     if categoria:
         command.extend(["--categoria", str(categoria)])
-
-    if params.get("force"):
-        command.append("--force")
-
     return command
 
 
@@ -693,35 +698,68 @@ def action_definitions():
             "command": lambda p: build_scraper_command("alineaciones", p, execute=True),
         },
         "capturar_tablas": {
-            "title": "Generar tablas",
-            "description": "Genera portada y placas de tablas de posiciones.",
-            "risk": "generates-files",
-            "fields": [{"name": "fecha", "label": "Fecha", "type": "number", "required": True}],
-            "cwd": PROJECT_DIR,
-            "command": lambda p: py(PROJECT_DIR / "scripts" / "capturar_tablas.py", "--fecha", p.get("fecha")),
-        },
-        "capturar_fixture": {
-            "title": "Generar fixture",
-            "description": "Genera portada y placas del fixture.",
+            "title": "Crear tablas de posiciones",
+            "description": "Genera las tablas del torneo elegido listas para publicación, historia o ambas.",
             "risk": "generates-files",
             "fields": [
+                {"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True, "default": os.environ.get("ACTIVE_TORNEO_ID", "")},
                 {"name": "fecha", "label": "Fecha", "type": "number", "required": True},
-                {"name": "categoria", "label": "Categoría opcional", "type": "select", "options": ["", "primera", "septima", "octava", "novena", "decima"]},
+                {"name": "categoria", "label": "División", "type": "select", "options": ["", "primera", "septima", "octava", "novena", "decima"]},
+                {"name": "formato", "label": "Formato", "type": "select", "options": ["ambos", "publicacion", "historia"]},
             ],
             "cwd": PROJECT_DIR,
-            "command": lambda p: py(PROJECT_DIR / "scripts" / "capturar_fixture.py", "--fecha", p.get("fecha"), "--categoria", p.get("categoria")),
+            "command": lambda p: contenido_social_command("posiciones", p),
         },
-        "placas_resultados": {
-            "title": "Generar placas resultados",
-            "description": "Genera placas sociales de resultados por fecha/categoría.",
+        "capturar_fixture": {
+            "title": "Crear fixture",
+            "description": "Genera la agenda de partidos con fecha, hora y cancha en el formato elegido.",
             "risk": "generates-files",
             "fields": [
+                {"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True, "default": os.environ.get("ACTIVE_TORNEO_ID", "")},
                 {"name": "fecha", "label": "Fecha", "type": "number", "required": True},
-                {"name": "categoria", "label": "Categoría opcional", "type": "select", "options": ["", "primera", "septima", "octava", "novena", "decima"]},
-                {"name": "force", "label": "Regenerar aunque exista", "type": "checkbox"},
+                {"name": "categoria", "label": "División", "type": "select", "options": ["", "primera", "septima", "octava", "novena", "decima"]},
+                {"name": "formato", "label": "Formato", "type": "select", "options": ["ambos", "publicacion", "historia"]},
+            ],
+            "cwd": PROJECT_DIR,
+            "command": lambda p: contenido_social_command("fixture", p),
+        },
+        "placas_resultados": {
+            "title": "Crear resultados",
+            "description": "Genera un resumen visual de los marcadores por fecha y división.",
+            "risk": "generates-files",
+            "fields": [
+                {"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True, "default": os.environ.get("ACTIVE_TORNEO_ID", "")},
+                {"name": "fecha", "label": "Fecha", "type": "number", "required": True},
+                {"name": "categoria", "label": "División", "type": "select", "options": ["", "primera", "septima", "octava", "novena", "decima"]},
+                {"name": "formato", "label": "Formato", "type": "select", "options": ["ambos", "publicacion", "historia"]},
             ],
             "cwd": PROJECT_DIR,
             "command": placas_resultados_command,
+        },
+        "crear_goleadores": {
+            "title": "Crear tabla de goleadores",
+            "description": "Genera el ranking acumulado de goleadores de Primera con club, escudo y total.",
+            "risk": "generates-files",
+            "fields": [
+                {"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True, "default": os.environ.get("ACTIVE_TORNEO_ID", "")},
+                {"name": "fecha", "label": "Fecha de actualización", "type": "number", "required": True},
+                {"name": "formato", "label": "Formato", "type": "select", "options": ["ambos", "publicacion", "historia"]},
+            ],
+            "cwd": PROJECT_DIR,
+            "command": lambda p: contenido_social_command("goleadores", p),
+        },
+        "crear_pack_social": {
+            "title": "Crear pack completo",
+            "description": "Crea portada, fixture, resultados, posiciones y goleadores en una sola ejecución.",
+            "risk": "generates-files",
+            "fields": [
+                {"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True, "default": os.environ.get("ACTIVE_TORNEO_ID", "")},
+                {"name": "fecha", "label": "Fecha", "type": "number", "required": True},
+                {"name": "categoria", "label": "División", "type": "select", "options": ["", "primera", "septima", "octava", "novena", "decima"]},
+                {"name": "formato", "label": "Formato", "type": "select", "options": ["ambos", "publicacion", "historia"]},
+            ],
+            "cwd": PROJECT_DIR,
+            "command": lambda p: contenido_social_command("todos", p),
         },
         "subir_tablas_dry_run": {
             "title": "Subir tablas dry-run",

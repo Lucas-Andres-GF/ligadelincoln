@@ -6,24 +6,20 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-from supabase import create_client
 
 from caption_ai import CaptionConfigError, CaptionGenerationError, generate_captions
 from image_prepare import prepare_image_for_meta
 from meta_client import MetaConfigError, publish_facebook_carousel_from_files, publish_instagram_carousel
 from registry import get_publication, publication_key, record_publication
 from storage import SOCIAL_STORAGE_BUCKET, upload_public_image
+from social_paths import SOCIAL_GENERATOR, active_tournament_id, publication_dir
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent.parent
-FIXTURE_DIR = PROJECT_DIR / "tablas-images"
-CAPTURAR_FIXTURE = PROJECT_DIR / "scripts" / "capturar_fixture.py"
-
 load_dotenv(PROJECT_DIR / "backend" / ".env")
-supabase = create_client(os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY"))
 
 CATEGORIAS_ORDEN_FIXTURE = [
     ("primera", "Primera"),
@@ -32,101 +28,21 @@ CATEGORIAS_ORDEN_FIXTURE = [
     ("novena", "Novena"),
     ("decima", "Décima"),
 ]
-CATEGORIAS_BY_ID = {
-    1: ("primera", "Primera"),
-    2: ("septima", "Séptima"),
-    3: ("octava", "Octava"),
-    4: ("novena", "Novena"),
-    5: ("decima", "Décima"),
-}
-
-
-def get_fixture_dates(fecha):
-    response = (
-        supabase.table("partidos")
-        .select("dia")
-        .eq("fecha_id", fecha)
-        .not_.is_("dia", "null")
-        .execute()
-    )
-    return sorted({row["dia"] for row in response.data or [] if row.get("dia")})
-
-
-def discover_postponed_items(fecha):
-    dates = get_fixture_dates(fecha)
-    if not dates:
-        return []
-
-    response = (
-        supabase.table("partidos")
-        .select("fecha_id, categoria_id, dia")
-        .in_("dia", dates)
-        .neq("fecha_id", fecha)
-        .not_.is_("visitante_id", "null")
-        .execute()
-    )
-
-    seen = set()
-    items = []
-    for row in response.data or []:
-        categoria = CATEGORIAS_BY_ID.get(row.get("categoria_id"))
-        fecha_postergada = row.get("fecha_id")
-        dia = row.get("dia")
-        if not categoria or not fecha_postergada or not dia:
-            continue
-
-        slug, label = categoria
-        key = (slug, fecha_postergada, dia)
-        if key in seen:
-            continue
-        seen.add(key)
-        items.append({"slug": slug, "label": label, "fecha": fecha_postergada, "dia": dia})
-
-    category_order = {slug: index for index, (slug, _) in enumerate(CATEGORIAS_ORDEN_FIXTURE)}
-    return sorted(items, key=lambda item: (category_order[item["slug"]], item["fecha"], item["dia"]))
-
-
 def expected_images(fecha, postponed_items=None):
-    postponed_items = postponed_items or []
-    images = [("Portada", FIXTURE_DIR / "portada_fixture.png")]
-    postponed_by_slug = {}
-    for item in postponed_items:
-        postponed_by_slug.setdefault(item["slug"], []).append(item)
-
+    root = publication_dir(fecha)
+    images = [("Portada", root / "00-portada-fixture.png")]
     for slug, label in CATEGORIAS_ORDEN_FIXTURE:
-        images.append((label, FIXTURE_DIR / slug / f"fecha_{fecha}" / "fixture.png"))
-        for item in postponed_by_slug.get(slug, []):
-            images.append((
-                f"Postergados {label} Fecha {item['fecha']}",
-                FIXTURE_DIR / slug / f"postergados_fecha_{item['fecha']}" / "fixture.png",
-            ))
+        paths = sorted((root / "fixture").glob(f"fixture-{slug}-*.png"))
+        images.extend((label, path) for path in (paths or [root / "fixture" / f"fixture-{slug}-01.png"]))
     return images
 
 
 def run_generation(fecha, postponed_items=None):
-    postponed_items = postponed_items or []
-    cmd = [sys.executable, str(CAPTURAR_FIXTURE), "--fecha", str(fecha)]
+    cmd = [sys.executable, str(SOCIAL_GENERATOR), "--tipo", "fixture", "--formato", "publicacion", "--torneo-id", str(active_tournament_id()), "--fecha", str(fecha)]
     print(f"🚀 Generando fixture: {' '.join(cmd)}")
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     subprocess.run(cmd, cwd=str(PROJECT_DIR), check=True, env=env)
-
-    for item in postponed_items:
-        cmd = [
-            sys.executable,
-            str(CAPTURAR_FIXTURE),
-            "--fecha",
-            str(item["fecha"]),
-            "--postergados-fecha",
-            str(item["fecha"]),
-            "--dia",
-            item["dia"],
-            "--categoria",
-            item["slug"],
-            "--skip-portada",
-        ]
-        print(f"🚀 Generando fixture postergado: {' '.join(cmd)}")
-        subprocess.run(cmd, cwd=str(PROJECT_DIR), check=True, env=env)
 
 
 def remote_image_path(fecha, index, label, path):
@@ -251,17 +167,12 @@ def parse_args():
 
 def main():
     args = parse_args()
-    postponed_items = discover_postponed_items(args.fecha)
-    images = expected_images(args.fecha, postponed_items)
+    postponed_items = []
+    images = expected_images(args.fecha)
     missing = [(label, path) for label, path in images if not path.exists()]
     already_published = get_publication("fixture", args.fecha)
 
     print_carousel_plan(args.fecha, images, missing, already_published)
-
-    if postponed_items:
-        print("\n📌 Postergados incluidos:")
-        for item in postponed_items:
-            print(f"   - {item['label']}: Fecha {item['fecha']} ({item['dia']})")
 
     if args.dry_run:
         print("\n🧪 DRY RUN: no se generan imágenes, no se publica y no se registra nada.")
@@ -274,8 +185,8 @@ def main():
     if args.skip_generation:
         print("\n⏭️  Generación omitida por --skip-generation. Usando imágenes locales existentes.")
     else:
-        run_generation(args.fecha, postponed_items)
-        images = expected_images(args.fecha, postponed_items)
+        run_generation(args.fecha)
+        images = expected_images(args.fecha)
         missing = [(label, path) for label, path in images if not path.exists()]
 
     if missing:

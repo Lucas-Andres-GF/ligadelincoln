@@ -7,6 +7,7 @@ import { isMatchLive } from '../utils/matchTiming'
 import { buildLineupScorerLabels } from '../utils/lineupScorers'
 import { useMatchClock } from '../hooks/useMatchClock'
 import LiveMatchBadge from './LiveMatchBadge'
+import MatchRoundBadge from './MatchRoundBadge'
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
 const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY
@@ -499,20 +500,23 @@ export default function PartidosHoy() {
                         {...(matchUrl ? { href: matchUrl, 'aria-label': `Ver detalle de ${match.local?.nombre} contra ${match.visitante?.nombre}` } : {})}
                         className={`group flex flex-col gap-0 bg-transparent px-3 py-2.5 text-xs transition-colors hover:bg-green-400/[0.055] ${linkPartido ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-yellow-300' : ''}`}
                       >
-                        <div className='mb-1.5 font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.1em] text-green-600 sm:text-xs'>
-                          {seJugo ? (
-                            <span>{formatDateForDisplay(selectedDate)} <span className='font-semibold text-green-400'>JUGADO</span></span>
-                          ) : esSuspendido ? (
-                            <span className='text-red-400 font-bold uppercase tracking-wide'>SUSPENDIDO</span>
-                          ) : tieneObservacion ? (
-                            <span className='text-yellow-400 font-bold uppercase tracking-wide'>{match.estado}</span>
-                          ) : enJuego ? (
-                            <LiveMatchBadge />
-                          ) : match.hora ? (
-                            <span>{formatDateForDisplay(selectedDate)} - {match.hora.slice(0, 5)}hs</span>
-                          ) : (
-                            <span>{formatDateForDisplay(selectedDate)} - A DEFINIR</span>
-                          )}
+                        <div className='mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
+                          <div className='font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.1em] text-green-600 sm:text-xs'>
+                            {seJugo ? (
+                              <span>{formatDateForDisplay(selectedDate)} <span className='font-semibold text-green-400'>JUGADO</span></span>
+                            ) : esSuspendido ? (
+                              <span className='text-red-400 font-bold uppercase tracking-wide'>SUSPENDIDO</span>
+                            ) : tieneObservacion ? (
+                              <span className='text-yellow-400 font-bold uppercase tracking-wide'>{match.estado}</span>
+                            ) : enJuego ? (
+                              <LiveMatchBadge />
+                            ) : match.hora ? (
+                              <span>{formatDateForDisplay(selectedDate)} - {match.hora.slice(0, 5)}hs</span>
+                            ) : (
+                              <span>{formatDateForDisplay(selectedDate)} - A DEFINIR</span>
+                            )}
+                          </div>
+                          <MatchRoundBadge fechaId={match.fecha_id} />
                         </div>
                         <div className='flex items-center gap-2'>
                           <div className='flex-1 flex items-center gap-1 justify-end min-w-0'>

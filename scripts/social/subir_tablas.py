@@ -5,20 +5,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from registry import get_publication, publication_key
 from registry import record_publication
 from caption_ai import CaptionConfigError, CaptionGenerationError, generate_captions
 from meta_client import MetaConfigError, publish_facebook_carousel, publish_instagram_carousel
 from image_prepare import prepare_image_for_meta
 from storage import SOCIAL_STORAGE_BUCKET, upload_public_image
+from social_paths import SOCIAL_GENERATOR, active_tournament_id, active_tournament_name, publication_dir
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent.parent
-TABLAS_DIR = PROJECT_DIR / "tablas-images"
-CAPTURAR_TABLAS = PROJECT_DIR / "scripts" / "capturar_tablas.py"
+load_dotenv(PROJECT_DIR / "backend" / ".env")
 
 CATEGORIAS_ORDEN_TABLAS = [
     ("primera", "Primera"),
@@ -29,17 +31,17 @@ CATEGORIAS_ORDEN_TABLAS = [
 ]
 
 
-def expected_images():
-    images = [("Portada", TABLAS_DIR / "portada_tabla_posiciones.png")]
-    images.extend(
-        (label, TABLAS_DIR / f"posiciones_{slug}.png")
-        for slug, label in CATEGORIAS_ORDEN_TABLAS
-    )
+def expected_images(fecha):
+    root = publication_dir(fecha)
+    images = [("Portada", root / "00-portada-posiciones.png")]
+    for slug, label in CATEGORIAS_ORDEN_TABLAS:
+        paths = sorted((root / "posiciones").glob(f"posiciones-{slug}-*.png"))
+        images.extend((label, path) for path in (paths or [root / "posiciones" / f"posiciones-{slug}-01.png"]))
     return images
 
 
 def run_generation(fecha):
-    cmd = [sys.executable, str(CAPTURAR_TABLAS), "--fecha", str(fecha)]
+    cmd = [sys.executable, str(SOCIAL_GENERATOR), "--tipo", "posiciones", "--formato", "publicacion", "--torneo-id", str(active_tournament_id()), "--fecha", str(fecha)]
     print(f"🚀 Generando imágenes: {' '.join(cmd)}")
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
@@ -93,7 +95,7 @@ def upload_carousel_images(fecha, images):
 def build_caption(fecha):
     return (
         f"📊 Tabla de posiciones - Fecha {fecha}\n\n"
-        "Torneo Apertura 2026\n"
+        f"{active_tournament_name()}\n"
         "Liga Deportiva Amateur de Lincoln\n\n"
         "#LigaDeLincoln #FutbolLocal #Lincoln"
     )
@@ -160,7 +162,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    images = expected_images()
+    images = expected_images(args.fecha)
     missing = [(label, path) for label, path in images if not path.exists()]
     already_published = get_publication("tablas", args.fecha)
 
@@ -169,7 +171,7 @@ def main():
     if args.dry_run:
         print("\n🧪 DRY RUN: no se generan imágenes, no se publica y no se registra nada.")
         if missing:
-            print(f"   Para generar: python {CAPTURAR_TABLAS} --fecha {args.fecha}")
+            print(f"   Para generar: python {SOCIAL_GENERATOR} --tipo posiciones --fecha {args.fecha}")
         return
 
     if already_published and not args.force:
@@ -183,7 +185,7 @@ def main():
         # podemos subir una portada vieja (por ejemplo Fecha 6) a una ruta nueva
         # (por ejemplo fecha-7). Por eso el modo real regenera siempre.
         run_generation(args.fecha)
-        images = expected_images()
+        images = expected_images(args.fecha)
         missing = [(label, path) for label, path in images if not path.exists()]
 
     if missing:

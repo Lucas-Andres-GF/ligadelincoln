@@ -56,6 +56,18 @@ DATE_PATTERN = re.compile(
 )
 ROUND_PATTERN = re.compile(r"fecha\s*(\d+)", re.IGNORECASE)
 TIME_PATTERN = re.compile(r"(\d{1,2})[:.](\d{2})")
+ROUND_WORDS = {
+    "primera": 1,
+    "segunda": 2,
+    "tercera": 3,
+    "cuarta": 4,
+    "quinta": 5,
+    "sexta": 6,
+    "septima": 7,
+    "octava": 8,
+    "novena": 9,
+    "decima": 10,
+}
 
 
 class ScheduleParseError(ValueError):
@@ -242,16 +254,58 @@ def _parse_time(value: str) -> Optional[str]:
     return f"{hour:02d}:{minute:02d}"
 
 
+def _parse_round_id(value: str) -> Optional[int]:
+    numeric = ROUND_PATTERN.search(value)
+    if numeric is not None:
+        return int(numeric.group(1))
+    normalized = _identity_text(value).lower()
+    return next(
+        (round_id for word, round_id in ROUND_WORDS.items() if f"{word} fecha" in normalized),
+        None,
+    )
+
+
+def _schedule_table_score(rows: list[list[str]]) -> int:
+    """Identify the official schedule by its schema, not by an editorial title."""
+    has_header = False
+    fixture_rows = 0
+    date_rows = 0
+    for cells in rows:
+        normalized_cells = [_identity_text(cell) for cell in cells]
+        normalized_row = " ".join(normalized_cells)
+        if all(label in normalized_row for label in ("DIVISION", "LOCAL", "VISITANTE", "HORA", "CANCHA")):
+            has_header = True
+        if len(cells) >= 4 and normalized_cells[2] == "VS":
+            fixture_rows += 1
+        if DATE_PATTERN.search(" ".join(cells)) is not None:
+            date_rows += 1
+    if not has_header or fixture_rows == 0:
+        return 0
+    return fixture_rows * 10 + date_rows
+
+
+def _select_schedule_table(tables: Sequence[list[list[str]]]) -> Optional[list[list[str]]]:
+    titled = next(
+        (rows for rows in tables if "CRONOGRAMA" in _identity_text(" ".join(sum(rows, [])))),
+        None,
+    )
+    if titled is not None:
+        return titled
+
+    scored = [(_schedule_table_score(rows), rows) for rows in tables]
+    score, table = max(scored, key=lambda item: item[0], default=(0, None))
+    return table if score > 0 else None
+
+
 def parse_schedule_html(html: str) -> list[ScheduleRow]:
     """Parse fixture-like rows from the official schedule table."""
     parser = _ScheduleTableParser()
     parser.feed(html)
-    table = next(
-        (rows for rows in parser.tables if "CRONOGRAMA" in _identity_text(" ".join(sum(rows, [])))),
-        None,
-    )
+    table = _select_schedule_table(parser.tables)
     if table is None:
-        raise ScheduleParseError("Schedule table containing CRONOGRAMA was not found")
+        raise ScheduleParseError(
+            "Schedule table containing CRONOGRAMA or the official schedule headers was not found"
+        )
 
     rows: list[ScheduleRow] = []
     current_date: Optional[str] = None
@@ -267,9 +321,8 @@ def parse_schedule_html(html: str) -> list[ScheduleRow]:
         date_match = DATE_PATTERN.search(text)
         if date_match is not None:
             current_date = _parse_date(date_match)
-            round_match = ROUND_PATTERN.search(text)
             is_postponed = "postergado" in normalized_text
-            current_round = int(round_match.group(1)) if round_match else None
+            current_round = _parse_round_id(text)
             ignore_postponed_block = is_postponed and current_round is None
             is_reprogramar_block = False
             last_time = None
@@ -285,7 +338,13 @@ def parse_schedule_html(html: str) -> list[ScheduleRow]:
             last_venue = ""
             continue
 
-        if any(term in normalized_text for term in ("reprogramar", "a definir")) and len(cells) < 4:
+        pending_schedule_terms = (
+            "reprogramar",
+            "a definir",
+            "dia y hora a confirmar",
+            "dia y horario a confirmar",
+        )
+        if any(term in normalized_text for term in pending_schedule_terms) and len(cells) < 4:
             is_reprogramar_block = True
             ignore_postponed_block = False
             current_date = None
@@ -314,11 +373,15 @@ def parse_schedule_html(html: str) -> list[ScheduleRow]:
         if len(cells) >= 6 and cells[5].strip():
             last_venue = cells[5].strip()
 
+        row_round = current_round
+        if is_reprogramar_block and row_round is None:
+            row_round = _parse_round_id(last_venue)
+
         rows.append(
             ScheduleRow(
                 source_row=source_row,
                 date=current_date,
-                round_id=current_round,
+                round_id=row_round,
                 category_raw=category_raw,
                 category_key=category_key,
                 category_id=category_id,
@@ -344,9 +407,23 @@ def _add_minutes(value: str, minutes: int) -> str:
 
 def calculate_schedule_times(rows: Iterable[ScheduleRow]) -> list[ScheduleRow]:
     """Deduplicate source rows and calculate inherited kickoff times per date/venue."""
+    source_rows = list(rows)
+    confirmed_keys = {
+        (row.round_id, row.category_id, row.local_id, row.visitor_id)
+        for row in source_rows
+        if not row.is_reprogramar
+        and row.date is not None
+        and row.round_id is not None
+        and row.category_id is not None
+        and row.local_id is not None
+        and row.visitor_id is not None
+    }
     unique: list[ScheduleRow] = []
     seen: set[tuple[Any, ...]] = set()
-    for row in rows:
+    for row in source_rows:
+        fixture_key = (row.round_id, row.category_id, row.local_id, row.visitor_id)
+        if row.is_reprogramar and fixture_key in confirmed_keys:
+            continue
         key = (
             row.date,
             row.round_id,

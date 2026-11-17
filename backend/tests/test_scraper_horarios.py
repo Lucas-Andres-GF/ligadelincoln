@@ -145,6 +145,28 @@ class ScheduleParsingTests(unittest.TestCase):
         with self.assertRaisesRegex(schedule.ScheduleParseError, "CRONOGRAMA"):
             schedule.parse_schedule_html("<table><tr><td>not a schedule</td></tr></table>")
 
+    def test_parses_current_schedule_table_without_cronograma_title(self) -> None:
+        html = """
+            <html><head><title>cronograma</title></head><body>
+              <table><tr><td>Actualizado al: Martes, 17 Noviembre, 2026</td></tr></table>
+              <table>
+                <tr><td colspan="6">Miércoles 18 de Noviembre de 2026 (Novena Fecha)</td></tr>
+                <tr><td>Division</td><td>Local</td><td></td><td>Visitante</td><td>Hora</td><td>Cancha</td></tr>
+                <tr><td>Décima</td><td>San Martin</td><td>vs.</td><td>El Linqueño</td><td>20:15</td><td>San Martin</td></tr>
+                <tr><td>Novena</td><td>San Martin</td><td>vs.</td><td>El Linqueño</td></tr>
+              </table>
+            </body></html>
+        """
+
+        rows = schedule.parse_schedule_html(html)
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].date, "2026-11-18")
+        self.assertEqual(rows[0].round_id, 9)
+        self.assertEqual(rows[0].scheduled_time, "20:15")
+        self.assertEqual(rows[1].scheduled_time, "20:15")
+        self.assertTrue(rows[1].inherited_time)
+
 
     def test_parses_nested_schedule_table(self) -> None:
         html = """
@@ -431,6 +453,49 @@ class ScheduleCliSafetyTests(unittest.TestCase):
 
 
 class ScheduleReprogramarTests(unittest.TestCase):
+    def test_day_and_time_to_confirm_does_not_inherit_previous_date(self) -> None:
+        for pending_title in ("Día y hora a confirmar", "Día y horario a confirmar"):
+            with self.subTest(pending_title=pending_title):
+                html = f"""
+                    <table>
+                      <tr><th>CRONOGRAMA</th></tr>
+                      <tr><th>Lunes 23 de Noviembre de 2026</th></tr>
+                      <tr><td>Primera</td><td>El Linqueño</td><td>vs</td><td>C A Pintense</td><td>19:40</td><td>El Linqueño</td></tr>
+                      <tr><th>{pending_title}</th></tr>
+                      <tr><td>Décima</td><td>Dep Gral Pinto</td><td>vs</td><td>Caset</td><td></td><td>Dep Gral Pinto</td></tr>
+                      <tr><td>Primera</td><td>Dep Gral Pinto</td><td>vs</td><td>Caset</td><td></td><td></td></tr>
+                    </table>
+                """
+
+                rows = schedule.calculate_schedule_times(schedule.parse_schedule_html(html))
+                self.assertEqual(len(rows), 3)
+                self.assertEqual(rows[0].date, "2026-11-23")
+                self.assertEqual(rows[0].calculated_time, "19:40")
+                for row in rows[1:]:
+                    self.assertIsNone(row.date)
+                    self.assertIsNone(row.calculated_time)
+                    self.assertTrue(row.is_reprogramar)
+
+    def test_confirmed_match_wins_over_stale_reprogramar_entry(self) -> None:
+        html = """
+            <table>
+              <tr><th>CRONOGRAMA</th></tr>
+              <tr><th>Jueves 19 de Noviembre de 2026 (Novena Fecha)</th></tr>
+              <tr><td>Novena</td><td>C A Pintense</td><td>vs</td><td>Dep Gral Pinto</td><td>19:00</td><td>Dep Gral Pinto</td></tr>
+              <tr><th>A reprogramar</th></tr>
+              <tr><td>Novena</td><td>C A Pintense</td><td>vs</td><td>Dep Gral Pinto</td><td></td><td>NOVENA FECHA</td></tr>
+            </table>
+        """
+
+        parsed = schedule.parse_schedule_html(html)
+        self.assertEqual([row.round_id for row in parsed], [9, 9])
+
+        rows = schedule.calculate_schedule_times(parsed)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].date, "2026-11-19")
+        self.assertEqual(rows[0].calculated_time, "19:00")
+        self.assertFalse(rows[0].is_reprogramar)
+
     def test_differentiates_day_end_and_reprogramar_section(self) -> None:
         html = """
             <table>

@@ -16,6 +16,7 @@ launch.json
 .env*.local
 placares_generados/
 tablas-images/
+social-images/
 frontend/public/escudos_hd/
 .agents
 .claude

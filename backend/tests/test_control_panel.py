@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -147,7 +147,7 @@ class SchedulePersistenceTests(unittest.TestCase):
             "torneo_id": "3",
             "category": "",
             "mode": "date",
-            "run_date": "2026-10-02",
+            "run_date": (date.today() + timedelta(days=1)).isoformat(),
             "start_time": "20:00",
             "end_time": "20:10",
             "interval_minutes": "5",
