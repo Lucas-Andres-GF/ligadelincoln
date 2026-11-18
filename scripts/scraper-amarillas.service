@@ -1,0 +1,12 @@
+[Unit]
+Description=Importar amarillas acumuladas - Liga de Lincoln
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=gallardo
+Group=gallardo
+WorkingDirectory=/home/gallardo/Documentos/ligadelincoln
+ExecStart=/home/gallardo/Documentos/ligadelincoln/backend/venv/bin/python -u /home/gallardo/Documentos/ligadelincoln/backend/scripts/scraper_amarillas.py --torneo-id 3 --execute
+TimeoutStartSec=120

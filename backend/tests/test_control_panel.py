@@ -759,7 +759,7 @@ class SystemdContractTests(unittest.TestCase):
             self.assertIn("OnCalendar=Sun *-*-* 13..23:0/5:00", timer)
             self.assertNotIn("13..21:0/5:00", timer)
 
-    def test_installer_uses_checked_in_system_units_without_user_mode(self):
+    def test_installer_keeps_results_alignments_and_worker_as_system_units(self):
         self.assertIn('"$SCRIPT_DIR/scraper-resultados.service"', self.installer)
         self.assertIn('"$SCRIPT_DIR/scraper-resultados.timer"', self.installer)
         self.assertIn('"$SCRIPT_DIR/scraper-alineaciones.service"', self.installer)
@@ -774,7 +774,12 @@ class SystemdContractTests(unittest.TestCase):
         self.assertIn("systemctl enable --now scraper-resultados.timer", self.installer)
         self.assertIn("systemctl enable --now scraper-alineaciones.timer", self.installer)
         self.assertIn("systemctl enable --now scraper-worker.service", self.installer)
-        self.assertNotIn("--user", self.installer)
+        for line in self.installer.splitlines():
+            if "systemctl" in line and any(
+                unit in line for unit in ("scraper-resultados", "scraper-alineaciones", "scraper-worker")
+            ):
+                self.assertNotIn("--user", line)
+        self.assertIn("systemctl --user enable --now scraper-amarillas.timer scraper-boletines.timer", self.installer)
 
 
 class PanelLauncherContractTests(unittest.TestCase):
@@ -896,7 +901,7 @@ class OperatorGuidanceTests(unittest.TestCase):
         lowered = self.operator_docs.lower()
         self.assertNotIn("--dry-run", self.operator_docs)
         self.assertNotIn("--no-deploy", self.operator_docs)
-        self.assertNotIn("systemctl --user", self.operator_docs)
+        self.assertNotRegex(self.operator_docs, r"systemctl --user[^\n]*scraper-(?:resultados|alineaciones|worker)")
         self.assertNotIn("deploy ya queda incluido", lowered)
         self.assertNotIn("deploy del frontend si guardó", lowered)
         self.assertNotIn("cada 15 min", lowered)

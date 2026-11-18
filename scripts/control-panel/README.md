@@ -42,6 +42,12 @@ Cada scraper tiene dos acciones explícitas. Todas exigen un **ID de torneo posi
 | Ejecutar resultados | Torneo y categoría opcional | Pasa `--execute`; exige `ESCRIBIR` |
 | Previsualizar alineaciones | Torneo y fecha; solo Primera | No pasa `--execute`; no escribe en DB |
 | Ejecutar alineaciones | Torneo y fecha; solo Primera | Pasa `--execute`; exige `ESCRIBIR` |
+| Previsualizar amarillas | Torneo 3, Primera | Lee y valida el PDF sin guardar cambios |
+| Actualizar amarillas | Torneo 3, Primera | Archiva el PDF si es nuevo; exige `ESCRIBIR` |
+
+En Windows, estas acciones aparecen al abrir `abrir-panel-liga.bat`. Si el panel
+ya estaba abierto, cerralo y volvé a iniciarlo. El entorno virtual necesita
+`pypdf`, incluido en `backend/requirements.txt`.
 
 La previsualización es el comportamiento predeterminado de los scripts backend. Una escritura real requiere tanto elegir la acción **Ejecutar** como confirmar `ESCRIBIR`; el servidor vuelve a validar torneo, fecha, categoría y confirmación antes de crear el proceso.
 

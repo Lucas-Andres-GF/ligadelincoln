@@ -58,6 +58,8 @@ SYSTEMD_USER_DIR = Path(
     )
 )
 SCRAPER_ACTIONS = {
+    "scraper_amarillas_preview": ("amarillas", False),
+    "scraper_amarillas_execute": ("amarillas", True),
     "scraper_horarios_preview": ("horarios", False),
     "scraper_horarios_execute": ("horarios", True),
     "scraper_resultados_preview": ("resultados", False),
@@ -187,7 +189,7 @@ def validate_scraper_params(scraper, params):
             raise RequestValidationError(f"category inválida; opciones: {allowed}")
         else:
             normalized["category"] = category
-    elif scraper != "horarios":
+    elif scraper not in ("horarios", "amarillas"):
         raise RequestValidationError(f"scraper inválido: {scraper}")
 
     return normalized
@@ -622,6 +624,27 @@ def publicar_fixture_command(params):
 
 def action_definitions():
     return {
+        "scraper_amarillas_preview": {
+            "title": "Previsualizar amarillas",
+            "description": "Lee y valida el último informe de amarillas de Primera sin guardarlo.",
+            "risk": "safe",
+            "scraper": "amarillas",
+            "execute": False,
+            "fields": [{"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True}],
+            "cwd": BACKEND_SCRIPTS,
+            "command": lambda p: build_scraper_command("amarillas", p),
+        },
+        "scraper_amarillas_execute": {
+            "title": "Actualizar amarillas",
+            "description": "Archiva el PDF oficial y actualiza la tabla cuando hay un informe más reciente.",
+            "risk": "writes-db",
+            "scraper": "amarillas",
+            "execute": True,
+            "confirm": "ESCRIBIR",
+            "fields": [{"name": "torneo_id", "label": "ID de torneo", "type": "number", "required": True}],
+            "cwd": BACKEND_SCRIPTS,
+            "command": lambda p: build_scraper_command("amarillas", p, execute=True),
+        },
         "scraper_horarios_preview": {
             "title": "Previsualizar horarios",
             "description": "Muestra los cambios de fecha, hora y cancha sin escribir en la base de datos.",

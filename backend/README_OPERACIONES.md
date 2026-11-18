@@ -499,6 +499,10 @@ La comparación indica aumentos, reducciones y personas que aparecen o dejan de 
 Los cambios reflejan lo informado por la Liga. El PDF de amarillas no indica el motivo
 de una corrección ni confirma si una sanción se cumplió.
 
+En Mint, `scraper-amarillas.timer` consulta el PDF los lunes a las 14:00 y 19:00
+y los martes a las 14:00 (hora argentina). El servicio apunta al torneo 3.
+Revisá ese alcance al cambiar de campeonato.
+
 ## Boletines del Tribunal
 
 Aplicá `backend/migrations/20261118_add_tribunal_boletines.sql` antes de la primera carga.
@@ -519,9 +523,19 @@ systemctl list-timers --all scraper-boletines.timer
 journalctl -u scraper-boletines.service -n 30 --no-pager
 ```
 
+Para instalar ambos temporizadores de disciplina como usuario `gallardo`,
+con las migraciones aplicadas y `Linger=yes` en Mint:
+
+```bash
+backend/venv/bin/python -m pip install -r backend/requirements.txt
+bash scripts/install_scraper_systemd.sh --user-disciplina
+systemctl --user list-timers --all scraper-amarillas.timer scraper-boletines.timer
+journalctl --user -u scraper-amarillas.service -u scraper-boletines.service -n 30 --no-pager
+```
+
 ## Scheduler de resultados y alineaciones: systemd de sistema
 
-Los únicos schedulers de ingesta son `scraper-resultados.timer` y `scraper-alineaciones.timer`, ambos a nivel sistema. `scripts/crontab` conserva solamente automatización de medios y **no debe** invocar los runners de ingesta.
+Los schedulers de resultados y alineaciones son `scraper-resultados.timer` y `scraper-alineaciones.timer`, ambos a nivel sistema. `scripts/crontab` conserva solamente automatización de medios y **no debe** invocar los runners de ingesta.
 
 Ambos timers disparan cada 5 minutos los sábados y domingos de 13:00 a 23:55 (ventana solicitada de 13:00 a 23:59, hora Argentina), según la zona horaria local del host. Cada runner vuelve a validar `13 <= hora <= 23` y sábado/domingo antes de ejecutar. El unit no fija `Timezone=`: verificá la zona del host con `timedatectl` antes de confiar en el horario.
 

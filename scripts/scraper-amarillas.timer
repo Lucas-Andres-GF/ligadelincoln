@@ -1,0 +1,10 @@
+[Unit]
+Description=Consultar amarillas los lunes y martes (hora argentina)
+
+[Timer]
+OnCalendar=Mon *-*-* 14,19:00:00 America/Argentina/Buenos_Aires
+OnCalendar=Tue *-*-* 14:00:00 America/Argentina/Buenos_Aires
+Persistent=true
+
+[Install]
+WantedBy=timers.target
