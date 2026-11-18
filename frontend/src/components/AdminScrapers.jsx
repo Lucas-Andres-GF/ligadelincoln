@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { ACTIVE_TORNEO_ID } from '../config/torneo'
+import AdminScraperSchedules from './AdminScraperSchedules'
 
 const OPERATIONS = [
   {
@@ -280,6 +281,8 @@ export default function AdminScrapers({ supabaseUrl, supabaseKey }) {
           {error || notice}
         </div>
       )}
+
+      <AdminScraperSchedules supabase={supabase} operations={OPERATIONS} categories={CATEGORIES} formatDateTime={formatDateTime} statuses={STATUS_META} />
 
       <div className='border-t border-green-400/15 bg-black/10 px-4 py-5 sm:px-6'>
         <div className='mb-3 flex items-center justify-between'>

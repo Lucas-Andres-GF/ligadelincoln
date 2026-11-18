@@ -91,6 +91,23 @@ Propiedades de seguridad y operación:
 - Existe como máximo una orden `queued` o `running`; un trabajo interrumpido se marca fallido al superar el umbral de recuperación.
 - Si Mint está apagado, la orden permanece en cola y se procesa al volver a iniciar el servicio.
 
+## Programaciones desde /admin
+
+Aplicá `backend/migrations/20261118_add_scraper_schedules.sql` después de la
+migración de la cola remota. El worker existente de Mint usa la misma función
+para reclamar trabajos manuales y programados.
+
+En `/admin` → **Programaciones**, elegí proceso, torneo, día puntual o semanal,
+hora inicial y final en Argentina, y frecuencia. Alineaciones requieren la jornada
+de Primera. Confirmá con `ESCRIBIR`. El panel muestra la próxima corrida, el estado
+de la última orden y permite pausar o reanudar. Los logs están en **Últimas ejecuciones**.
+
+Los turnos vencidos fuera de la franja no se recuperan. Si Mint vuelve durante
+la franja, puede ejecutar el turno vigente si estaba programado y sigue pendiente.
+Las órdenes manuales tienen prioridad y pausar una programación impide sus
+próximas corridas. Los temporizadores de Mint siguen administrándose por separado,
+así que evitá programar dos actualizaciones para el mismo proceso y horario.
+
 ## Preparar el entorno existente
 
 Trabajá desde la raíz del repositorio. Esta guía **no instala** Python, paquetes ni navegadores: el entorno virtual del proyecto debe existir y estar aprovisionado.
