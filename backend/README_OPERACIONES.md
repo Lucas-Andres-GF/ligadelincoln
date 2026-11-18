@@ -467,6 +467,38 @@ El importador puede continuar después de una falla de categoría y dejar el tor
 4. Solo cuando el alcance sea reemplazable y esté respaldado, previsualizá `--replace-existing` por una categoría y ejecutá ese mismo plan.
 5. Después, reiniciá el flujo normal desde verificación de fixture; no actives hasta completar posiciones.
 
+## Amarillas acumuladas de Primera
+
+El importador valida el torneo, la fase y el total declarado en el PDF de COMET.
+El torneo habilitado inicialmente es Primavera/Verano 2026 (ID 3).
+Para probarlo localmente con datos reales, desde la raíz del repositorio:
+
+```powershell
+& backend/venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+& backend/venv/Scripts/python.exe backend/scripts/scraper_amarillas.py --torneo-id 3 --preview-json frontend/.astro/amarillas-preview.json
+pnpm -C frontend dev
+```
+
+Abrí `/primera?torneo=3#amarillas`. La copia se carga solo en desarrollo y queda fuera de Git.
+Se puede repetir la previsualización para renovar la copia.
+
+Para publicar, aplicar primero `backend/migrations/20261118_add_amarillas_importaciones.sql`
+y luego correr `backend/venv/bin/python backend/scripts/scraper_amarillas.py --torneo-id 3 --execute`
+desde Mint, con las credenciales del backend. Cada PDF original y sus filas validadas
+se guardan juntos en una sola operación, con deduplicación por hash. El PDF archivado
+(`pdf_base64`) y los identificadores COMET quedan privados. La web lee las filas del
+informe de emisión más reciente, incluyendo correcciones que reduzcan un acumulado.
+
+Para comparar los dos últimos informes guardados del mismo torneo:
+
+```bash
+backend/venv/bin/python backend/scripts/scraper_amarillas.py --torneo-id 3 --compare-history
+```
+
+La comparación indica aumentos, reducciones y personas que aparecen o dejan de figurar.
+Los cambios reflejan lo informado por la Liga. El PDF de amarillas no indica el motivo
+de una corrección ni confirma si una sanción se cumplió.
+
 ## Scheduler de resultados y alineaciones: systemd de sistema
 
 Los únicos schedulers de ingesta son `scraper-resultados.timer` y `scraper-alineaciones.timer`, ambos a nivel sistema. `scripts/crontab` conserva solamente automatización de medios y **no debe** invocar los runners de ingesta.

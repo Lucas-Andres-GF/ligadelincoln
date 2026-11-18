@@ -2,3 +2,4 @@ requests
 beautifulsoup4
 supabase
 python-dotenv
+pypdf>=7,<8

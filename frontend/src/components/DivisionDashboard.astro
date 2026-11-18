@@ -5,6 +5,7 @@ import TournamentTitle from './TournamentTitle.jsx'
 import HistoricalChampions from './HistoricalChampions.jsx'
 import TournamentDeciderSeries from './TournamentDeciderSeries.jsx'
 import ScorersTable from './ScorersTable.jsx'
+import YellowCards from './YellowCards.jsx'
 
 interface Props {
   categoriaId: number
@@ -63,6 +64,8 @@ const { categoriaId, divisionLabel } = Astro.props
     <div class='p-3 sm:p-4'><ScorersTable client:load /></div>
   </section>
 )}
+
+{categoriaId === 1 && <YellowCards client:load />}
 
 <TournamentDeciderSeries categoria={categoriaId} client:load />
 

@@ -3,6 +3,7 @@ import { getEscudoPath, supabase } from '../utils/supabase'
 import { cachedQuery } from '../utils/supabaseCached'
 import { buildScorersTable } from '../utils/scorers'
 import { slugify } from '../utils/slugify'
+import RankingToggle from './RankingToggle'
 import {
   getSelectedTorneoId,
   listenToTorneoChange,
@@ -115,9 +116,11 @@ export default function ScorersTable({ torneoId = null }) {
 
   const visibleScorers = isExpanded ? scorers : scorers.slice(0, 5)
   const canExpand = scorers.length > 5
+  const toggle = { expanded: isExpanded, controls: 'scorers-ranking', onToggle: () => setIsExpanded((value) => !value) }
 
   return (
     <div className='overflow-hidden rounded-xl border border-green-800/55 bg-green-950/20'>
+      {canExpand && <RankingToggle {...toggle} className='border-b border-green-700/70' />}
       <div className='grid grid-cols-[minmax(0,1fr)_58px] border-b border-green-800/60 bg-[#092716] px-3 py-2.5 font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.14em] text-green-600 sm:grid-cols-[minmax(0,1fr)_72px] sm:px-4'>
         <span>Jugador / club</span>
         <span className='text-center'>Goles</span>
@@ -145,27 +148,7 @@ export default function ScorersTable({ torneoId = null }) {
           </li>
         ))}
       </ol>
-      {canExpand && (
-        <button
-          type='button'
-          onClick={() => setIsExpanded((expanded) => !expanded)}
-          aria-expanded={isExpanded}
-          aria-controls='scorers-ranking'
-          className='group flex w-full items-center justify-center gap-1.5 border-t border-green-700/70 bg-[#082a17] px-4 py-2.5 font-[var(--font-display)] text-[10px] font-black uppercase tracking-[0.16em] text-green-400 transition-colors hover:bg-green-400/10 hover:text-yellow-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-yellow-300'
-        >
-          {isExpanded ? 'Ver menos' : 'Ver más'}
-          <svg
-            viewBox='0 0 20 20'
-            fill='none'
-            stroke='currentColor'
-            strokeWidth='2.5'
-            className={`h-3 w-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : 'group-hover:translate-y-0.5'}`}
-            aria-hidden='true'
-          >
-            <path d='m5 7.5 5 5 5-5' strokeLinecap='round' strokeLinejoin='round' />
-          </svg>
-        </button>
-      )}
+      {canExpand && <RankingToggle {...toggle} className='border-t border-green-700/70' />}
     </div>
   )
 }
