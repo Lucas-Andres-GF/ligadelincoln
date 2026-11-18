@@ -6,6 +6,7 @@ import HistoricalChampions from './HistoricalChampions.jsx'
 import TournamentDeciderSeries from './TournamentDeciderSeries.jsx'
 import ScorersTable from './ScorersTable.jsx'
 import YellowCards from './YellowCards.jsx'
+import TribunalBulletins from './TribunalBulletins.jsx'
 
 interface Props {
   categoriaId: number
@@ -65,7 +66,12 @@ const { categoriaId, divisionLabel } = Astro.props
   </section>
 )}
 
-{categoriaId === 1 && <YellowCards client:load />}
+  <div class='@container mt-6 [--discipline-card-height:38rem] lg:[--discipline-card-height:40rem]'>
+    <div class:list={['grid grid-cols-1 items-start gap-4', { '@min-[720px]:grid-cols-2': categoriaId === 1 }]}>
+      <TribunalBulletins categoriaId={categoriaId} client:load />
+      {categoriaId === 1 && <YellowCards client:load />}
+    </div>
+  </div>
 
 <TournamentDeciderSeries categoria={categoriaId} client:load />
 

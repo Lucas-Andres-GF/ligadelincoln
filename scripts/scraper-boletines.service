@@ -1,0 +1,12 @@
+[Unit]
+Description=Importar boletines del Tribunal - Liga de Lincoln
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=gallardo
+Group=gallardo
+WorkingDirectory=/home/gallardo/Documentos/ligadelincoln
+ExecStart=/home/gallardo/Documentos/ligadelincoln/backend/venv/bin/python -u /home/gallardo/Documentos/ligadelincoln/backend/scripts/scraper_boletines.py --execute
+TimeoutStartSec=240

@@ -3,7 +3,6 @@ import { getEscudoPath, supabase } from '../utils/supabase'
 import { cachedQuery } from '../utils/supabaseCached'
 import { buildScorersTable } from '../utils/scorers'
 import { slugify } from '../utils/slugify'
-import RankingToggle from './RankingToggle'
 import {
   getSelectedTorneoId,
   listenToTorneoChange,
@@ -30,7 +29,6 @@ export default function ScorersTable({ torneoId = null }) {
   const [scorers, setScorers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [isExpanded, setIsExpanded] = useState(false)
   const [selectedTorneoId, setSelectedTorneoId] = useState(() => getSelectedTorneoId(torneoId))
 
   useEffect(() => listenToTorneoChange(setSelectedTorneoId), [])
@@ -41,7 +39,6 @@ export default function ScorersTable({ torneoId = null }) {
     async function fetchScorers() {
       setScorers([])
       setError(null)
-      setIsExpanded(false)
       const scopedTorneoId = parseTorneoId(selectedTorneoId)
       if (scopedTorneoId === null) {
         setIsLoading(false)
@@ -114,19 +111,14 @@ export default function ScorersTable({ torneoId = null }) {
     return <div className='py-8 text-center text-xs uppercase tracking-widest text-green-700'>Todavía no hay goles registrados.</div>
   }
 
-  const visibleScorers = isExpanded ? scorers : scorers.slice(0, 5)
-  const canExpand = scorers.length > 5
-  const toggle = { expanded: isExpanded, controls: 'scorers-ranking', onToggle: () => setIsExpanded((value) => !value) }
-
   return (
-    <div className='overflow-hidden rounded-xl border border-green-800/55 bg-green-950/20'>
-      {canExpand && <RankingToggle {...toggle} className='border-b border-green-700/70' />}
-      <div className='grid grid-cols-[minmax(0,1fr)_58px] border-b border-green-800/60 bg-[#092716] px-3 py-2.5 font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.14em] text-green-600 sm:grid-cols-[minmax(0,1fr)_72px] sm:px-4'>
+    <div role='region' aria-label='Listado de goleadores' tabIndex={0} className='h-[23rem] overflow-y-auto overscroll-y-contain rounded-xl border border-green-800/55 bg-green-950/20 [scrollbar-gutter:stable] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-yellow-300 sm:h-96'>
+      <div className='sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_58px] border-b border-green-800/60 bg-[#092716] px-3 py-2.5 font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.14em] text-green-600 sm:grid-cols-[minmax(0,1fr)_72px] sm:px-4'>
         <span>Jugador / club</span>
         <span className='text-center'>Goles</span>
       </div>
       <ol id='scorers-ranking' className='divide-y divide-green-800/45'>
-        {visibleScorers.map((scorer) => (
+        {scorers.map((scorer) => (
           <li
             key={`${scorer.teamId}-${scorer.name}`}
             className='grid grid-cols-[minmax(0,1fr)_58px] items-center px-3 py-2.5 transition-colors hover:bg-green-400/[0.055] sm:grid-cols-[minmax(0,1fr)_72px] sm:px-4'
@@ -148,7 +140,6 @@ export default function ScorersTable({ torneoId = null }) {
           </li>
         ))}
       </ol>
-      {canExpand && <RankingToggle {...toggle} className='border-t border-green-700/70' />}
     </div>
   )
 }

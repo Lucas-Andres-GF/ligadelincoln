@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getEscudoPath, supabase } from '../utils/supabase'
 import { getSelectedTorneoId, listenToTorneoChange } from '../utils/torneoSelection'
-import RankingToggle from './RankingToggle'
 
 const dateFormatter = new Intl.DateTimeFormat('es-AR', {
   dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Argentina/Buenos_Aires',
@@ -15,7 +14,6 @@ export default function YellowCards() {
   const [role, setRole] = useState('jugador')
   const [club, setClub] = useState('')
   const [query, setQuery] = useState('')
-  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => listenToTorneoChange(setTorneo), [])
   useEffect(() => {
@@ -47,30 +45,20 @@ export default function YellowCards() {
   const report = current?.report
   const all = report?.filas ?? []
   const clubs = [...new Set(all.map((row) => row.club))].sort((a, b) => a.localeCompare(b, 'es'))
-  const searching = Boolean(query.trim() || club)
   const matching = all.filter((row) => row.rol === role && (!club || row.club === club)
     && normalize(row.nombre).includes(normalize(query.trim())))
     .sort((a, b) => b.amarillas - a.amarillas || a.club.localeCompare(b.club, 'es')
       || a.nombre.localeCompare(b.nombre, 'es'))
-  const highlighted = matching.filter((row) => row.amarillas >= 4)
-  const canExpand = !searching && role === 'jugador' && highlighted.length > 0 && highlighted.length < matching.length
-  const visible = canExpand && !expanded ? highlighted : matching
   const groups = new Map()
-  for (const row of visible) {
+  for (const row of matching) {
     const key = `${row.amarillas}-${row.club_id}`
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(row)
   }
-  const toggle = {
-    expanded,
-    controls: 'yellow-cards-ranking',
-    onToggle: () => setExpanded((value) => !value),
-    moreLabel: `Ver más (${matching.length})`,
-  }
 
   return (
-    <section id='amarillas' aria-labelledby='amarillas-title' className='mt-6 scroll-mt-24 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]'>
-      <header className='border-b border-green-800/60 bg-[#092716] px-4 py-4 sm:px-5'>
+    <section id='amarillas' aria-labelledby='amarillas-title' className='@container flex h-[var(--discipline-card-height)] min-w-0 scroll-mt-24 flex-col overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]'>
+      <header className='shrink-0 border-b border-green-800/60 bg-[#092716] px-4 py-4 sm:px-5'>
         <p className='text-[10px] font-bold uppercase tracking-[0.24em] text-yellow-300'>Disciplina</p>
         <h2 id='amarillas-title' className='font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-50'>Amarillas acumuladas</h2>
         {report && <p className='mt-1 text-xs text-green-200/75'>{current.preview ? 'Vista local · ' : ''}Informe del <time dateTime={report.emitido_en}>{dateFormatter.format(new Date(report.emitido_en))}</time></p>}
@@ -80,8 +68,8 @@ export default function YellowCards() {
           {!torneo || current ? (current?.error ? 'No se pudo cargar el informe.' : 'Todavía no hay un informe para este torneo.') : 'Cargando informe…'}
         </p>
       ) : (
-        <div className='space-y-3 p-3 sm:p-4'>
-          <div className='grid gap-2 sm:grid-cols-[1fr_auto_auto]'>
+        <div className='flex min-h-0 flex-1 flex-col gap-3 p-3 sm:p-4'>
+          <div className='grid shrink-0 gap-2 @min-[540px]:grid-cols-[1fr_auto_auto]'>
             <input aria-label='Buscar por nombre' placeholder='Buscar por nombre' value={query} onChange={(event) => setQuery(event.target.value)} className={controlClass} />
             <select aria-label='Filtrar por club' value={club} onChange={(event) => setClub(event.target.value)} className={controlClass}>
               <option value=''>Todos los clubes</option>
@@ -92,12 +80,11 @@ export default function YellowCards() {
               <option value='cuerpo_tecnico'>Cuerpo técnico</option>
             </select>
           </div>
-          {role === 'jugador' && <p className='text-xs text-green-100/80'>Cinco amarillas alcanzan el umbral de una fecha de suspensión. Consultá al Tribunal para confirmar su vigencia.</p>}
-          {visible.length ? (
-            <div className='overflow-hidden rounded-xl border border-green-800/60'>
-              {canExpand && <RankingToggle {...toggle} className='border-b border-green-700/70' />}
+          {role === 'jugador' && <p className='shrink-0 text-xs text-green-100/80'>Cinco amarillas alcanzan el umbral de una fecha de suspensión. Consultá al Tribunal para confirmar su vigencia.</p>}
+          {matching.length ? (
+            <div role='region' aria-label='Listado de amarillas' tabIndex={0} className='min-h-0 flex-1 overflow-y-auto overscroll-y-contain rounded-xl border border-green-800/60 [scrollbar-gutter:stable] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-yellow-300'>
               <table id='yellow-cards-ranking' className='w-full text-left text-sm text-green-50'>
-                <thead className='bg-[#092716] text-xs text-green-200'>
+                <thead className='sticky top-0 bg-[#092716] text-xs text-green-200'>
                   <tr><th scope='col' className='px-3 py-2'>Nombre y club</th><th scope='col' className='px-3 py-2 text-right'>Amarillas</th></tr>
                 </thead>
                 {[...groups].map(([key, rows]) => {
@@ -125,7 +112,6 @@ export default function YellowCards() {
                   )
                 })}
               </table>
-              {canExpand && <RankingToggle {...toggle} className='border-t border-green-700/70' />}
             </div>
           ) : <p role='status' className='py-3 text-sm text-green-100'>Sin coincidencias para esos filtros.</p>}
         </div>

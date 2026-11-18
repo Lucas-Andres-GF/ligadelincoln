@@ -499,6 +499,26 @@ La comparación indica aumentos, reducciones y personas que aparecen o dejan de 
 Los cambios reflejan lo informado por la Liga. El PDF de amarillas no indica el motivo
 de una corrección ni confirma si una sanción se cumplió.
 
+## Boletines del Tribunal
+
+Aplicá `backend/migrations/20261118_add_tribunal_boletines.sql` antes de la primera carga.
+El importador consulta hasta los últimos 12 boletines del índice oficial por defecto.
+Archiva una versión nueva cuando cambia la fecha o el contenido de las resoluciones.
+La web muestra la última versión de cada boletín, ordenada por fecha y filtrada por división.
+
+```bash
+backend/venv/bin/python backend/scripts/scraper_boletines.py
+backend/venv/bin/python backend/scripts/scraper_boletines.py --execute
+```
+
+En Mint, con el código actualizado, `sudo bash scripts/install_scraper_systemd.sh`
+habilita la consulta de lunes a viernes a las 16:00 (hora argentina).
+
+```bash
+systemctl list-timers --all scraper-boletines.timer
+journalctl -u scraper-boletines.service -n 30 --no-pager
+```
+
 ## Scheduler de resultados y alineaciones: systemd de sistema
 
 Los únicos schedulers de ingesta son `scraper-resultados.timer` y `scraper-alineaciones.timer`, ambos a nivel sistema. `scripts/crontab` conserva solamente automatización de medios y **no debe** invocar los runners de ingesta.
