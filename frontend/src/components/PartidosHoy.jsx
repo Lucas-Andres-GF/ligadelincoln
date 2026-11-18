@@ -4,7 +4,8 @@ import { slugify } from '../utils/slugify'
 import { getSelectedTorneoId, listenToTorneoChange, parseTorneoId, withTorneoParam } from '../utils/torneoSelection'
 import { isMatchPlayed } from '../utils/matchState'
 import { isMatchLive } from '../utils/matchTiming'
-import { buildLineupScorerLabels } from '../utils/lineupScorers'
+import { buildLineupScorerLabels, countLineupRedCards } from '../utils/lineupScorers'
+import MatchScore from './MatchScore'
 import { useMatchClock } from '../hooks/useMatchClock'
 import LiveMatchBadge from './LiveMatchBadge'
 import MatchRoundBadge from './MatchRoundBadge'
@@ -263,19 +264,21 @@ export default function PartidosHoy() {
         }
       } else {
         let goleadoresMap = {}
+        let redCardsByMatch = {}
         if (data?.length) {
           const partidoIds = data.map((partido) => partido.id)
           const { data: aliData, error: alineacionesError } = await supabase
             .from('alineaciones')
-            .select('partido_id, equipo_id, nombre, goleo, goles_en_contra')
+            .select('partido_id, equipo_id, nombre, goleo, goles_en_contra, roja')
             .in('partido_id', partidoIds)
-            .or('goleo.gt.0,goles_en_contra.gt.0')
+            .or('goleo.gt.0,goles_en_contra.gt.0,roja.is.true')
 
           if (cancelled) return
           if (alineacionesError) {
             console.error('Error fetching alineaciones:', alineacionesError)
           } else {
             goleadoresMap = buildLineupScorerLabels(data, aliData)
+            redCardsByMatch = countLineupRedCards(data, aliData)
           }
         }
 
@@ -283,6 +286,7 @@ export default function PartidosHoy() {
           ...match,
           goleadoresLocal: goleadoresMap[match.id]?.local || [],
           goleadoresVisita: goleadoresMap[match.id]?.visitor || [],
+            redCards: redCardsByMatch[match.id],
         }))
 
         setMatches(matchesWithScorers)
@@ -525,7 +529,7 @@ export default function PartidosHoy() {
                           </div>
                           <div className='flex min-w-[46px] shrink-0 items-center justify-center rounded-md bg-black/15 px-1.5 py-1'>
                             {seJugo ? (
-                              <><span className='text-base font-black tabular-nums text-white sm:text-lg'>{match.goles_local}</span><span className='mx-1 text-green-700'>–</span><span className='text-base font-black tabular-nums text-white sm:text-lg'>{match.goles_visitante}</span></>
+                              <MatchScore match={match} />
                             ) : (
                               <span className='font-[var(--font-display)] text-xs font-bold uppercase text-green-600'>vs</span>
                             )}

@@ -69,3 +69,27 @@ export function buildLineupScorerLabels(matches, lineupRows) {
 
   return labelsByMatch
 }
+
+export function countLineupRedCards(matches, lineupRows) {
+  const teamsByMatch = new Map()
+  for (const match of matches) {
+    const id = normalizeIdentity(match.id)
+    const local = normalizeIdentity(match.local_id)
+    const visitor = normalizeIdentity(match.visitante_id)
+    if (id && local && visitor && local !== visitor) teamsByMatch.set(id, { local, visitor })
+  }
+
+  const counts = {}
+  for (const row of lineupRows ?? []) {
+    if (row.roja !== true) continue
+    const id = normalizeIdentity(row.partido_id)
+    const team = normalizeIdentity(row.equipo_id)
+    const teams = teamsByMatch.get(id)
+    if (!teams || (team !== teams.local && team !== teams.visitor)) continue
+
+    const side = team === teams.local ? 'local' : 'visitor'
+    counts[id] ??= { local: 0, visitor: 0 }
+    counts[id][side] += 1
+  }
+  return counts
+}

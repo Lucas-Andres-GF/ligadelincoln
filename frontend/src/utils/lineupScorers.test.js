@@ -1,13 +1,25 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildLineupScorerLabels } from './lineupScorers.js'
+import { buildLineupScorerLabels, countLineupRedCards } from './lineupScorers.js'
 
 const match = {
   id: 101,
   local_id: 10,
   visitante_id: 20,
 }
+
+test('counts expulsions per team even when the players did not score', () => {
+  const rows = [
+    { partido_id: 101, equipo_id: 10, roja: true, goleo: 0 },
+    { partido_id: '101', equipo_id: '10', roja: true },
+    { partido_id: 101, equipo_id: 20, roja: true, goles_en_contra: 1 },
+    { partido_id: 101, equipo_id: 20, roja: false, goleo: 1 },
+    { partido_id: 101, equipo_id: 30, roja: true },
+    { partido_id: 999, equipo_id: 10, roja: true },
+  ]
+  assert.deepEqual(countLineupRedCards([match], rows), { 101: { local: 2, visitor: 1 } })
+})
 
 test('keeps normal goals on the scoring player team and abbreviates names', () => {
   const labels = buildLineupScorerLabels(
