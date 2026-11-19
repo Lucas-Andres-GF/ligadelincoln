@@ -22,13 +22,13 @@ from config import supabase
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPTS_DIR.parents[1]
-ALLOWED_SCRAPERS = {"horarios", "resultados", "alineaciones", "resultados_alineaciones"}
+ALLOWED_SCRAPERS = {"horarios", "resultados", "alineaciones", "resultados_alineaciones", "amarillas", "boletines"}
 ALLOWED_MODES = {"preview", "execute"}
 ALLOWED_CATEGORIES = {"primera", "septima", "octava", "novena", "decima"}
 MAX_OUTPUT_CHARS = 60_000
 DEFAULT_POLL_SECONDS = 5.0
 DEFAULT_TIMEOUT_SECONDS = 900.0
-WORKER_VERSION = "1"
+WORKER_VERSION = "2"
 STOP_EVENT = threading.Event()
 
 
@@ -74,8 +74,8 @@ class ScraperJob:
         if fecha is not None and fecha <= 0:
             raise JobValidationError("La fecha debe ser positiva")
 
-        if scraper == "horarios" and (categoria is not None or fecha is not None):
-            raise JobValidationError("Horarios no acepta categoría ni fecha")
+        if scraper in {"horarios", "amarillas", "boletines"} and (categoria is not None or fecha is not None):
+            raise JobValidationError(f"{scraper.capitalize()} no acepta categoría ni fecha")
         if scraper == "resultados" and fecha is not None:
             raise JobValidationError("Resultados no acepta fecha")
         if scraper == "alineaciones" and (categoria is not None or fecha is None):
@@ -105,9 +105,9 @@ def build_job_commands(job: ScraperJob, *, python: str | Path = sys.executable) 
             str(python),
             "-u",
             str(SCRIPTS_DIR / f"scraper_{name}.py"),
-            "--torneo-id",
-            str(job.torneo_id),
         ]
+        if name != "boletines":
+            result.extend(["--torneo-id", str(job.torneo_id)])
         if name == "resultados" and job.categoria:
             result.extend(["--category", job.categoria])
         if name == "alineaciones":
@@ -122,6 +122,8 @@ def build_job_commands(job: ScraperJob, *, python: str | Path = sys.executable) 
         "horarios": "Horarios",
         "resultados": "Resultados",
         "alineaciones": "Alineaciones",
+        "amarillas": "Amarillas acumuladas",
+        "boletines": "Boletines del Tribunal",
     }[job.scraper]
     return [(display_name, command(job.scraper))]
 

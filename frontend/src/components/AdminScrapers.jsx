@@ -8,6 +8,7 @@ const OPERATIONS = [
     id: 'horarios',
     eyebrow: 'Agenda',
     title: 'Horarios',
+    manualOnly: true,
     description: 'Fecha, hora y cancha desde el cronograma oficial.',
   },
   {
@@ -27,6 +28,22 @@ const OPERATIONS = [
     eyebrow: 'Jornada',
     title: 'Resultados + alineaciones',
     description: 'Ejecuta ambos procesos en ese orden.',
+  },
+  {
+    id: 'amarillas',
+    eyebrow: 'Disciplina',
+    title: 'Amarillas acumuladas',
+    description: 'Lee y archiva el informe oficial de Primera.',
+    manualOnly: true,
+    workerVersion: 2,
+  },
+  {
+    id: 'boletines',
+    eyebrow: 'Disciplina',
+    title: 'Boletines del Tribunal',
+    description: 'Busca resoluciones nuevas o corregidas para todas las divisiones.',
+    manualOnly: true,
+    workerVersion: 2,
   },
 ]
 
@@ -85,6 +102,8 @@ export default function AdminScrapers({ supabaseUrl, supabaseKey }) {
   const needsFecha = scraper === 'alineaciones' || scraper === 'resultados_alineaciones'
   const acceptsCategory = scraper === 'resultados' || scraper === 'resultados_alineaciones'
   const activeJob = jobs.find((job) => ['queued', 'running'].includes(job.status))
+  const requiredWorkerVersion = OPERATIONS.find((operation) => operation.id === scraper)?.workerVersion
+  const workerNeedsUpdate = requiredWorkerVersion && Number(worker?.version || 0) < requiredWorkerVersion
   const workerOnline = worker?.last_seen_at
     ? Date.now() - new Date(worker.last_seen_at).getTime() < 30_000
     : false
@@ -135,6 +154,10 @@ export default function AdminScrapers({ supabaseUrl, supabaseKey }) {
     setError('')
     setNotice('')
 
+    if (workerNeedsUpdate) {
+      setError('Mint tiene que reportar la versión nueva para ejecutar esta consulta.')
+      return
+    }
     if (ACTIVE_TORNEO_ID === null) {
       setError('No hay un torneo activo válido configurado.')
       return
@@ -268,10 +291,10 @@ export default function AdminScrapers({ supabaseUrl, supabaseKey }) {
 
           <button
             type='submit'
-            disabled={submitting || loading || Boolean(activeJob) || (mode === 'execute' && confirmation !== 'ESCRIBIR')}
+            disabled={submitting || loading || Boolean(activeJob) || Boolean(workerNeedsUpdate) || (mode === 'execute' && confirmation !== 'ESCRIBIR')}
             className={`mt-5 w-full rounded-xl px-4 py-3.5 font-[var(--font-display)] text-base font-black uppercase tracking-[0.08em] transition enabled:hover:-translate-y-0.5 disabled:opacity-35 ${mode === 'execute' ? 'bg-yellow-300 text-[#1d1904] enabled:hover:bg-yellow-200' : 'bg-green-300 text-[#06200e] enabled:hover:bg-green-200'}`}
           >
-            {submitting ? 'Enviando…' : activeJob ? `Trabajo #${activeJob.id} activo` : mode === 'execute' ? 'Enviar ejecución a Mint' : 'Enviar previsualización'}
+            {submitting ? 'Enviando…' : workerNeedsUpdate ? 'Esperando actualización de Mint' : activeJob ? `Trabajo #${activeJob.id} activo` : mode === 'execute' ? 'Enviar ejecución a Mint' : 'Enviar previsualización'}
           </button>
         </div>
       </form>

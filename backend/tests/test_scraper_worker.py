@@ -59,6 +59,21 @@ class RecordingClient:
 
 
 class ScraperJobValidationTests(unittest.TestCase):
+    def test_discipline_commands_keep_each_scripts_arguments(self) -> None:
+        for scraper, mode, expected_flags in [
+            ("amarillas", "preview", ["--torneo-id", "3"]),
+            ("amarillas", "execute", ["--torneo-id", "3", "--execute"]),
+            ("boletines", "preview", []),
+            ("boletines", "execute", ["--execute"]),
+        ]:
+            with self.subTest(scraper=scraper, mode=mode):
+                job = worker.ScraperJob.from_mapping(
+                    {"id": 9, "scraper": scraper, "mode": mode, "torneo_id": 3}
+                )
+                [(_, command)] = worker.build_job_commands(job, python="python")
+                self.assertEqual(Path(command[2]).name, f"scraper_{scraper}.py")
+                self.assertEqual(command[3:], expected_flags)
+
     def test_builds_execute_results_without_using_a_shell(self) -> None:
         job = worker.ScraperJob.from_mapping(
             {
@@ -104,6 +119,8 @@ class ScraperJobValidationTests(unittest.TestCase):
         invalid_jobs = [
             {"id": 1, "scraper": "shell", "mode": "execute", "torneo_id": 3},
             {"id": 1, "scraper": "horarios", "mode": "execute", "torneo_id": 3, "fecha": 2},
+            {"id": 1, "scraper": "amarillas", "mode": "execute", "torneo_id": 3, "fecha": 2},
+            {"id": 1, "scraper": "boletines", "mode": "preview", "torneo_id": 3, "categoria": "primera"},
             {"id": 1, "scraper": "alineaciones", "mode": "execute", "torneo_id": 3},
             {"id": 1, "scraper": "resultados", "mode": "root", "torneo_id": 3},
         ]

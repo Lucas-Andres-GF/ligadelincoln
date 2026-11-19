@@ -90,7 +90,7 @@ export default function AdminScraperSchedules({ supabase, operations, categories
         <fieldset disabled={busy || items === null || Boolean(loadError)} className='grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
           <Field label='Proceso'>
             <select className={inputClass} value={scraper} onChange={(e) => setScraper(e.target.value)}>
-              {operations.filter((op) => op.id !== 'horarios').map((op) => <option key={op.id} value={op.id}>{op.title}</option>)}
+              {operations.filter((op) => !op.manualOnly).map((op) => <option key={op.id} value={op.id}>{op.title}</option>)}
             </select>
           </Field>
           <Field label='ID de torneo'>
