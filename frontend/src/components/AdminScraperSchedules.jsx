@@ -5,6 +5,21 @@ const week = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', '
 const frequencies = [5, 10, 15, 20, 30, 60]
 const inputClass = 'w-full min-w-0 rounded-lg border border-green-400/25 bg-[#0a2816] px-3 py-2 text-sm text-white focus-visible:outline-2 focus-visible:outline-green-300'
 
+function formatScheduleWindow(item) {
+  const start = item.start_time.slice(0, 5)
+  const end = item.end_time.slice(0, 5)
+  const day = item.run_date ? item.run_date.split('-').reverse().join('/') : week[item.weekday - 1]
+  if (end >= start) return `${day} · ${start}–${end}`
+
+  let nextDay = week[item.weekday % 7]
+  if (item.run_date) {
+    const date = new Date(`${item.run_date}T00:00:00Z`)
+    date.setUTCDate(date.getUTCDate() + 1)
+    nextDay = date.toISOString().slice(0, 10).split('-').reverse().join('/')
+  }
+  return `${day} ${start} → ${nextDay} ${end}`
+}
+
 function Field({ label, children }) {
   return (
     <label className='grid min-w-0 gap-1 text-xs font-semibold text-green-100'>
@@ -21,6 +36,9 @@ export default function AdminScraperSchedules({ supabase, operations, categories
   const [busy, setBusy] = useState(false)
   const [scraper, setScraper] = useState('resultados')
   const [kind, setKind] = useState('date')
+  const [start, setStart] = useState('19:00')
+  const [end, setEnd] = useState('23:00')
+  const endsNextDay = Boolean(start && end && end < start)
 
   const refresh = useCallback(async () => {
     const { data, error } = await supabase.rpc('list_scraper_schedules')
@@ -43,10 +61,6 @@ export default function AdminScraperSchedules({ supabase, operations, categories
     setActionError('')
     if (fields.get('confirm') !== 'ESCRIBIR') {
       setActionError('Para guardar una programación, escribí ESCRIBIR.')
-      return
-    }
-    if (fields.get('start_time') > fields.get('end_time')) {
-      setActionError('La hora de fin debe ser igual o posterior a la de inicio.')
       return
     }
     const payload = {
@@ -113,14 +127,14 @@ export default function AdminScraperSchedules({ supabase, operations, categories
             </select>
           </Field>
           {kind === 'date' ? (
-            <Field label='Día de ejecución'><input className={inputClass} type='date' name='run_date' required /></Field>
+            <Field label='Fecha de inicio'><input className={inputClass} type='date' name='run_date' required /></Field>
           ) : (
-            <Field label='Día de la semana'>
+            <Field label='Día de inicio'>
               <select className={inputClass} name='weekday'>{week.map((day, i) => <option key={day} value={i + 1}>{day}</option>)}</select>
             </Field>
           )}
-          <Field label='Desde'><input className={inputClass} type='time' name='start_time' defaultValue='19:00' required /></Field>
-          <Field label='Hasta'><input className={inputClass} type='time' name='end_time' defaultValue='23:00' required /></Field>
+          <Field label='Desde'><input className={inputClass} type='time' name='start_time' value={start} onChange={(e) => setStart(e.target.value)} required /></Field>
+          <Field label={endsNextDay ? 'Hasta (del día siguiente)' : 'Hasta'}><input className={inputClass} type='time' name='end_time' value={end} onChange={(e) => setEnd(e.target.value)} required /></Field>
           <Field label='Frecuencia'>
             <select className={inputClass} name='interval_minutes'>{frequencies.map((value) => <option key={value} value={value}>Cada {value} min</option>)}</select>
           </Field>
@@ -136,7 +150,7 @@ export default function AdminScraperSchedules({ supabase, operations, categories
           <li key={item.id} className='flex flex-wrap items-start justify-between gap-3 rounded-xl border border-green-400/20 bg-[#082411] p-3'>
             <div className='min-w-0 space-y-1 text-sm text-green-100'>
               <strong className='text-white'>{operations.find((op) => op.id === item.scraper)?.title}</strong>
-              <p>{item.run_date ? item.run_date.split('-').reverse().join('/') : week[item.weekday - 1]} · {item.start_time.slice(0, 5)}–{item.end_time.slice(0, 5)} · cada {item.interval_minutes} min</p>
+              <p>{formatScheduleWindow(item)} · cada {item.interval_minutes} min</p>
               <p className='text-xs'>Torneo {item.torneo_id}{item.fecha && ` · Jornada ${item.fecha}`}{item.categoria && ` · ${categories.find(([id]) => id === item.categoria)?.[1]}`}</p>
               <p className='text-xs'>{!item.enabled ? 'Pausada' : item.next_run_at ? `Próxima corrida ${formatDateTime(item.next_run_at)}` : 'Sin corridas pendientes'}</p>
               {item.last_job_id && <p className='text-xs'>Última orden #{item.last_job_id} · {statuses[item.last_status]?.label || item.last_status} · {formatDateTime(item.last_run_at)}</p>}
