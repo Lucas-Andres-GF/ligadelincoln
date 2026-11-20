@@ -132,6 +132,7 @@ class UpdatePlan:
     tournament_id: int
     entries: tuple[UpdatePlanEntry, ...]
     issues: tuple[str, ...]
+    warnings: tuple[str, ...] = ()
 
     @property
     def valid(self) -> bool:
@@ -505,6 +506,7 @@ def build_update_plan(
     scoped_fixtures = [item for item in fixtures if item.tournament_id == tournament_id]
     entries: list[UpdatePlanEntry] = []
     issues: list[str] = []
+    warnings: list[str] = []
     claimed_targets: set[int] = set()
 
     if not schedule_rows:
@@ -529,14 +531,17 @@ def build_update_plan(
             issues.extend(row_issues)
             continue
 
-        matches = [
+        candidates = [
             fixture
             for fixture in scoped_fixtures
             if fixture.category_id == row.category_id
             and fixture.local_id == row.local_id
             and fixture.visitor_id == row.visitor_id
-            and (row.round_id is None or fixture.round_id == row.round_id)
         ]
+        matches = [
+            fixture for fixture in candidates
+            if row.round_id is None or fixture.round_id == row.round_id
+        ] or candidates
         if not matches:
             issues.append(f"Missing fixture target for {label}")
             continue
@@ -549,6 +554,12 @@ def build_update_plan(
             issues.append(f"Fixture target {target.id} was matched more than once ({label})")
             continue
         claimed_targets.add(target.id)
+        if row.round_id is not None and row.round_id != target.round_id:
+            fixture_round = target.round_id if target.round_id is not None else "unspecified"
+            warnings.append(
+                f"Round mismatch for {label}: schedule round {row.round_id}, "
+                f"fixture round {fixture_round}; using unique target {target.id}"
+            )
         next_status = target.estado if target.estado == "jugado" else "programado"
         entries.append(
             UpdatePlanEntry(
@@ -567,6 +578,7 @@ def build_update_plan(
         tournament_id=tournament_id,
         entries=tuple(entries),
         issues=tuple(issues),
+        warnings=tuple(warnings),
     )
 
 
@@ -588,6 +600,7 @@ def render_report(context: OperationContext, plan: UpdatePlan) -> str:
             f"  TARGET {entry.target_id}: {time_display} | "
             f"{row.category_raw} | {row.local} vs {row.visitor} | {row.venue or '-'}{status_suffix}"
         )
+    lines.extend(f"  WARNING: {warning}" for warning in plan.warnings)
     if plan.issues:
         lines.append(f"Blocking issues: {len(plan.issues)}")
         lines.extend(f"  ERROR: {issue}" for issue in plan.issues)

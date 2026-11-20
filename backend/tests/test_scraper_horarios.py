@@ -214,6 +214,32 @@ class ScheduleParsingTests(unittest.TestCase):
 
 
 class SchedulePlanningTests(unittest.TestCase):
+    def test_wrong_round_heading_matches_a_unique_fixture_without_changing_its_round(self) -> None:
+        row = replace(parsed_rows()[0], round_id=9)
+        fixture = replace(fixture_records()[0], round_id=10)
+
+        plan = schedule.build_update_plan([row], [fixture], 2)
+
+        self.assertTrue(plan.valid)
+        self.assertEqual(plan.entries[0].target_id, fixture.id)
+        self.assertNotIn("fecha_id", plan.entries[0].values)
+        self.assertIn("schedule round 9, fixture round 10", plan.warnings[0])
+
+    def test_wrong_round_heading_blocks_when_the_same_clubs_have_multiple_fixtures(self) -> None:
+        row = replace(parsed_rows()[0], round_id=9)
+        fixture = replace(fixture_records()[0], round_id=10)
+        rematch = replace(fixture, id=999, round_id=11)
+
+        plan = schedule.build_update_plan([row], [fixture, rematch], 2)
+        exact_plan = schedule.build_update_plan([replace(row, round_id=11)], [fixture, rematch], 2)
+
+        self.assertFalse(plan.valid)
+        self.assertFalse(plan.entries)
+        self.assertIn("Ambiguous fixture target", plan.issues[0])
+        self.assertTrue(exact_plan.valid)
+        self.assertEqual(exact_plan.entries[0].target_id, rematch.id)
+        self.assertFalse(exact_plan.warnings)
+
     def test_unique_matches_produce_a_complete_tournament_scoped_plan(self) -> None:
         plan = schedule.build_update_plan(parsed_rows(), fixture_records(), 2)
 
