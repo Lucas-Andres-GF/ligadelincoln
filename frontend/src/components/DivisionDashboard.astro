@@ -50,7 +50,6 @@ const { categoriaId, divisionLabel } = Astro.props
   </section>
 </div>
 
-{categoriaId === 1 && (
   <section
     id='goleadores'
     class='mt-6 scroll-mt-24 overflow-hidden rounded-2xl border border-green-800/60 bg-[#0b2e1a]/95 shadow-[0_24px_60px_rgba(0,0,0,0.24)]'
@@ -60,11 +59,10 @@ const { categoriaId, divisionLabel } = Astro.props
         <p class='font-[var(--font-display)] text-[10px] font-bold uppercase tracking-[0.24em] text-green-600'>Rendimiento individual</p>
         <h2 class='font-[var(--font-display)] text-xl font-black uppercase tracking-wide text-green-50'>Tabla de goleadores</h2>
       </div>
-      <span class='rounded-full border border-yellow-300/25 bg-yellow-300/[0.07] px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-yellow-300'>Primera</span>
+      <span class='rounded-full border border-yellow-300/25 bg-yellow-300/[0.07] px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-yellow-300'>{divisionLabel}</span>
     </header>
-    <div class='p-3 sm:p-4'><ScorersTable client:load /></div>
+    <div class='p-3 sm:p-4'><ScorersTable categoriaId={categoriaId} client:load /></div>
   </section>
-)}
 
   <div class='@container mt-6 [--discipline-card-height:38rem] lg:[--discipline-card-height:40rem]'>
     <div class:list={['grid grid-cols-1 items-start gap-4', { '@min-[720px]:grid-cols-2': categoriaId === 1 }]}>
