@@ -88,6 +88,9 @@ class FakeQuery:
         self.filters.append((column, value))
         return self
 
+    def is_(self, column: str, value: str) -> "FakeQuery":
+        return self.eq(column, None if value == "null" else value)
+
     def limit(self, value: int) -> "FakeQuery":
         self.client.limit = value
         return self
@@ -240,6 +243,29 @@ class SchedulePlanningTests(unittest.TestCase):
         self.assertEqual(exact_plan.entries[0].target_id, rematch.id)
         self.assertFalse(exact_plan.warnings)
 
+    def test_suspended_fixture_reopens_only_with_a_new_confirmed_day(self) -> None:
+        row = parsed_rows()[0]
+        fixture = replace(fixture_records()[0], estado="suspendido", date=row.date)
+        same_day = schedule.build_update_plan([row], [fixture], 2, today=row.date)
+        no_time = schedule.build_update_plan(
+            [replace(row, date="2026-04-25", calculated_time=None)], [fixture], 2, today=row.date
+        )
+        expired = schedule.build_update_plan([row], [fixture], 2, today="2026-04-13")
+        awaiting_date = replace(fixture, estado="A reprogramar", date=None)
+        stale = schedule.build_update_plan([row], [awaiting_date], 2, today="2026-04-13")
+        confirmed = schedule.build_update_plan(
+            [replace(row, date="2026-04-25")], [awaiting_date], 2, today="2026-04-13"
+        )
+
+        self.assertEqual(same_day.entries[0].values, {"estado": "suspendido", "hora": None})
+        self.assertEqual(no_time.entries[0].values["estado"], "programado")
+        self.assertEqual(no_time.entries[0].values["dia"], "2026-04-25")
+        self.assertIsNone(no_time.entries[0].values["hora"])
+        self.assertEqual(expired.entries[0].values, {"estado": "A reprogramar", "dia": None, "hora": None})
+        self.assertEqual(stale.entries[0].values, expired.entries[0].values)
+        self.assertEqual(confirmed.entries[0].values["estado"], "programado")
+        self.assertEqual(confirmed.entries[0].values["dia"], "2026-04-25")
+
     def test_unique_matches_produce_a_complete_tournament_scoped_plan(self) -> None:
         plan = schedule.build_update_plan(parsed_rows(), fixture_records(), 2)
 
@@ -364,7 +390,7 @@ class SchedulePlanningTests(unittest.TestCase):
         )
         self.assertNotIn(900, [entry.target_id for entry in plan.entries])
 
-    def test_execute_uses_only_target_id_and_tournament_scope(self) -> None:
+    def test_execute_checks_target_scope_and_snapshot(self) -> None:
         plan = schedule.build_update_plan(parsed_rows(), fixture_records(), 2)
         client = FakeClient()
 
@@ -373,6 +399,8 @@ class SchedulePlanningTests(unittest.TestCase):
         self.assertEqual(applied, 4)
         for _, filters in client.executed_updates:
             self.assertIn(("torneo_id", 2), filters)
+            self.assertIn(("estado", None), filters)
+            self.assertIn(("dia", None), filters)
             self.assertEqual(sum(column == "id" for column, _ in filters), 1)
 
     def test_inventory_at_or_above_safety_limit_is_rejected(self) -> None:
@@ -502,7 +530,7 @@ class ScheduleReprogramarTests(unittest.TestCase):
                     self.assertIsNone(row.calculated_time)
                     self.assertTrue(row.is_reprogramar)
 
-    def test_confirmed_match_wins_over_stale_reprogramar_entry(self) -> None:
+    def test_reprogramar_replaces_yesterdays_entry_until_a_new_day_is_published(self) -> None:
         html = """
             <table>
               <tr><th>CRONOGRAMA</th></tr>
@@ -516,11 +544,26 @@ class ScheduleReprogramarTests(unittest.TestCase):
         parsed = schedule.parse_schedule_html(html)
         self.assertEqual([row.round_id for row in parsed], [9, 9])
 
-        rows = schedule.calculate_schedule_times(parsed)
+        rows = schedule.calculate_schedule_times(parsed, today="2026-11-19")
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].date, "2026-11-19")
         self.assertEqual(rows[0].calculated_time, "19:00")
         self.assertFalse(rows[0].is_reprogramar)
+
+        pending = schedule.calculate_schedule_times(parsed, today="2026-11-20")
+        self.assertEqual(pending, [parsed[1]])
+        fixture = schedule.FixtureRecord(638, 3, 4, 4, 7, 9, "programado", "2026-11-19")
+        plan = schedule.build_update_plan(pending, [fixture], 3, today="2026-11-20")
+        self.assertEqual(plan.entries[0].values, {"estado": "A reprogramar", "dia": None, "hora": None})
+
+        for new_day in ("2026-11-20", "2026-11-21", "2026-11-22"):
+            with self.subTest(new_day=new_day):
+                new_row = replace(parsed[0], date=new_day, round_id=None)
+                upcoming = schedule.calculate_schedule_times([*parsed, new_row], today="2026-11-20")
+                self.assertEqual(upcoming, [replace(new_row, calculated_time="19:00")])
+                plan = schedule.build_update_plan(upcoming, [fixture], 3, today="2026-11-20")
+                self.assertEqual(plan.entries[0].values["dia"], new_day)
+                self.assertEqual(plan.entries[0].values["estado"], "programado")
 
     def test_differentiates_day_end_and_reprogramar_section(self) -> None:
         html = """
@@ -575,19 +618,19 @@ class ScheduleReprogramarTests(unittest.TestCase):
         self.assertEqual(plan.entries[1].values["hora"], "20:25")
         self.assertEqual(plan.entries[1].values["estado"], "programado")
 
-        # Entry 203: Décima El Linqueño vs Atl Pasteur (previously suspendido, now A DEFINIR)
+        # Entry 203: Décima El Linqueño vs Atl Pasteur awaits a new date.
         self.assertIsNone(plan.entries[2].values["dia"])
         self.assertIsNone(plan.entries[2].values["hora"])
-        self.assertEqual(plan.entries[2].values["estado"], "programado")
+        self.assertEqual(plan.entries[2].values["estado"], "A reprogramar")
 
-        # Entry 204: Octava El Linqueño vs Atl Pasteur (previously A reprogramar, now A DEFINIR)
+        # Entry 204: Octava El Linqueño vs Atl Pasteur still awaits a new date.
         self.assertIsNone(plan.entries[3].values["dia"])
         self.assertIsNone(plan.entries[3].values["hora"])
-        self.assertEqual(plan.entries[3].values["estado"], "programado")
+        self.assertEqual(plan.entries[3].values["estado"], "A reprogramar")
 
         report = schedule.render_report(schedule.OperationContext(tournament_id=3), plan)
-        self.assertIn("A DEFINIR | Décima | EL LINQUEÑO vs ATL PASTEUR | El Linqueño (A reprogramar)", report)
-        self.assertIn("A DEFINIR | Octava | EL LINQUEÑO vs ATL PASTEUR | El Linqueño (A reprogramar)", report)
+        self.assertIn("A REPROGRAMAR | Décima | EL LINQUEÑO vs ATL PASTEUR | El Linqueño (A reprogramar)", report)
+        self.assertIn("A REPROGRAMAR | Octava | EL LINQUEÑO vs ATL PASTEUR | El Linqueño (A reprogramar)", report)
 
 
 if __name__ == "__main__":

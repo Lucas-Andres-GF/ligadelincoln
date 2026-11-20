@@ -30,6 +30,8 @@ install -m 0644 "$SCRIPT_DIR/scraper-resultados.service" /etc/systemd/system/scr
 install -m 0644 "$SCRIPT_DIR/scraper-resultados.timer" /etc/systemd/system/scraper-resultados.timer
 install -m 0644 "$SCRIPT_DIR/scraper-alineaciones.service" /etc/systemd/system/scraper-alineaciones.service
 install -m 0644 "$SCRIPT_DIR/scraper-alineaciones.timer" /etc/systemd/system/scraper-alineaciones.timer
+install -m 0644 "$SCRIPT_DIR/scraper-suspensiones.service" /etc/systemd/system/scraper-suspensiones.service
+install -m 0644 "$SCRIPT_DIR/scraper-suspensiones.timer" /etc/systemd/system/scraper-suspensiones.timer
 install -m 0644 "$SCRIPT_DIR/scraper-worker.service" /etc/systemd/system/scraper-worker.service
 
 discipline_user_units="/home/gallardo/.config/systemd/user/timers.target.wants"
@@ -47,6 +49,7 @@ done
 systemctl daemon-reload
 systemctl enable --now scraper-resultados.timer
 systemctl enable --now scraper-alineaciones.timer
+systemctl enable --now scraper-suspensiones.timer
 systemctl enable --now scraper-worker.service
 if (( ${#discipline_system_timers[@]} )); then
     systemctl enable --now "${discipline_system_timers[@]}"

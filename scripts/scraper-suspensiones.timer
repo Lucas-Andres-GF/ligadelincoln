@@ -1,0 +1,11 @@
+[Unit]
+Description=Consultar suspensiones y pasar a reprogramar al cambiar el día
+
+[Timer]
+OnCalendar=*-*-* 08..23:0/5:00 America/Argentina/Buenos_Aires
+OnCalendar=*-*-* 00:00:00 America/Argentina/Buenos_Aires
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

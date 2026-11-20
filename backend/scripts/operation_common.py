@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Hashable, Mapping, MutableMapping, Optional, Union
 
@@ -12,9 +13,14 @@ from dotenv import load_dotenv
 
 
 ACTIVE_TOURNAMENT_ENV = "ACTIVE_TORNEO_ID"
+A_REPROGRAMAR = "A reprogramar"
 DEFAULT_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 Environment = Mapping[str, str]
 TournamentIdInput = Union[int, str]
+
+
+def argentina_today() -> str:
+    return datetime.now(timezone(timedelta(hours=-3))).date().isoformat()
 
 
 def load_backend_environment(env_path: Optional[Union[str, Path]] = None) -> bool:

@@ -15,8 +15,10 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 
 from operation_common import (
+    A_REPROGRAMAR,
     OperationContext,
     add_operation_arguments,
+    argentina_today,
     load_backend_environment,
     operation_context_from_args,
     validate_positive_tournament_id,
@@ -102,6 +104,7 @@ class FixtureRecord:
     visitor_id: Optional[int]
     round_id: Optional[int]
     estado: Optional[str] = None
+    date: Optional[str] = None
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "FixtureRecord":
@@ -117,6 +120,7 @@ class FixtureRecord:
             ),
             round_id=(int(value["fecha_id"]) if value.get("fecha_id") is not None else None),
             estado=str(value["estado"]) if value.get("estado") is not None else None,
+            date=str(value["dia"]) if value.get("dia") is not None else None,
         )
 
 
@@ -125,6 +129,8 @@ class UpdatePlanEntry:
     target_id: int
     row: ScheduleRow
     values: Mapping[str, Any]
+    previous_state: Optional[str]
+    previous_date: Optional[str]
 
 
 @dataclass(frozen=True)
@@ -406,25 +412,15 @@ def _add_minutes(value: str, minutes: int) -> str:
     return f"{total // 60:02d}:{total % 60:02d}"
 
 
-def calculate_schedule_times(rows: Iterable[ScheduleRow]) -> list[ScheduleRow]:
+def calculate_schedule_times(
+    rows: Iterable[ScheduleRow], *, today: Optional[str] = None
+) -> list[ScheduleRow]:
     """Deduplicate source rows and calculate inherited kickoff times per date/venue."""
+    today = today or argentina_today()
     source_rows = list(rows)
-    confirmed_keys = {
-        (row.round_id, row.category_id, row.local_id, row.visitor_id)
-        for row in source_rows
-        if not row.is_reprogramar
-        and row.date is not None
-        and row.round_id is not None
-        and row.category_id is not None
-        and row.local_id is not None
-        and row.visitor_id is not None
-    }
     unique: list[ScheduleRow] = []
     seen: set[tuple[Any, ...]] = set()
     for row in source_rows:
-        fixture_key = (row.round_id, row.category_id, row.local_id, row.visitor_id)
-        if row.is_reprogramar and fixture_key in confirmed_keys:
-            continue
         key = (
             row.date,
             row.round_id,
@@ -455,7 +451,32 @@ def calculate_schedule_times(rows: Iterable[ScheduleRow]) -> list[ScheduleRow]:
                 current_time = row.scheduled_time
             calculated.append(replace(row, calculated_time=current_time))
             previous_category = row.category_key
-    return calculated
+    return prefer_current_schedule_rows(calculated, today)
+
+
+def prefer_current_schedule_rows(rows: list[ScheduleRow], today: str) -> list[ScheduleRow]:
+    """Resolve dated and undated copies of the same match in the chronogram."""
+    rounds_by_match: dict[tuple[Any, ...], set[int]] = {}
+    for row in rows:
+        matchup = (row.category_id, row.local_id, row.visitor_id)
+        if None not in matchup and row.round_id is not None:
+            rounds_by_match.setdefault(matchup, set()).add(row.round_id)
+
+    def fixture_key(row: ScheduleRow) -> tuple[Any, ...]:
+        matchup = (row.category_id, row.local_id, row.visitor_id)
+        rounds = rounds_by_match.get(matchup, set())
+        inferred_round = next(iter(rounds)) if len(rounds) == 1 else None
+        return (*matchup, row.round_id or inferred_round)
+
+    pending = {fixture_key(row) for row in rows if row.is_reprogramar}
+    upcoming = {fixture_key(row) for row in rows if row.date and row.date >= today}
+    return [
+        row for row in rows
+        if not (
+            (row.is_reprogramar and fixture_key(row) in upcoming)
+            or (row.date and row.date < today and fixture_key(row) in pending)
+        )
+    ]
 
 
 def fetch_schedule_html(source: str = DEFAULT_SOURCE_URL, timeout: float = 30.0) -> str:
@@ -478,7 +499,7 @@ def read_fixture_inventory(client: Any, tournament_id: int) -> list[FixtureRecor
     tournament_id = validate_positive_tournament_id(tournament_id)
     response = (
         client.table("partidos")
-        .select("id,torneo_id,categoria_id,local_id,visitante_id,fecha_id,estado")
+        .select("id,torneo_id,categoria_id,local_id,visitante_id,fecha_id,estado,dia")
         .eq("torneo_id", tournament_id)
         .limit(INVENTORY_LIMIT)
         .execute()
@@ -499,9 +520,12 @@ def build_update_plan(
     rows: Iterable[ScheduleRow],
     fixtures: Iterable[FixtureRecord],
     tournament_id: int,
+    *,
+    today: Optional[str] = None,
 ) -> UpdatePlan:
     """Match every schedule row to exactly one fixture before any mutation."""
     tournament_id = validate_positive_tournament_id(tournament_id)
+    today = today or argentina_today()
     schedule_rows = list(rows)
     scoped_fixtures = [item for item in fixtures if item.tournament_id == tournament_id]
     entries: list[UpdatePlanEntry] = []
@@ -561,16 +585,29 @@ def build_update_plan(
                 f"fixture round {fixture_round}; using unique target {target.id}"
             )
         next_status = target.estado if target.estado == "jugado" else "programado"
+        values = {
+            "dia": row.date,
+            "hora": row.calculated_time,
+            "cancha": row.venue or None,
+            "estado": next_status,
+        }
+        confirmed_new_slot = bool(row.date and row.date >= today and row.date != target.date)
+        if target.estado == "jugado" and row.is_reprogramar:
+            values = {"estado": "jugado"}
+        elif target.estado == "suspendido" and not confirmed_new_slot and target.date and target.date >= today:
+            values = {"estado": "suspendido", "hora": None}
+        elif target.estado != "jugado" and (
+            row.is_reprogramar
+            or (target.estado in {"suspendido", A_REPROGRAMAR} and not confirmed_new_slot)
+        ):
+            values = {"estado": A_REPROGRAMAR, "dia": None, "hora": None}
         entries.append(
             UpdatePlanEntry(
                 target_id=target.id,
                 row=row,
-                values={
-                    "dia": row.date,
-                    "hora": row.calculated_time,
-                    "cancha": row.venue or None,
-                    "estado": next_status,
-                },
+                values=values,
+                previous_state=target.estado,
+                previous_date=target.date,
             )
         )
 
@@ -596,6 +633,12 @@ def render_report(context: OperationContext, plan: UpdatePlan) -> str:
             else "A DEFINIR"
         )
         status_suffix = " (A reprogramar)" if row.is_reprogramar else ""
+        if entry.values["estado"] == "suspendido":
+            time_display = "SUSPENDIDO"
+        elif entry.values["estado"] == A_REPROGRAMAR:
+            time_display = "A REPROGRAMAR"
+        elif entry.values["estado"] == "jugado" and row.is_reprogramar:
+            time_display = "JUGADO"
         lines.append(
             f"  TARGET {entry.target_id}: {time_display} | "
             f"{row.category_raw} | {row.local} vs {row.visitor} | {row.venue or '-'}{status_suffix}"
@@ -614,15 +657,18 @@ def execute_update_plan(client: Any, plan: UpdatePlan) -> int:
     if not plan.valid:
         raise ValueError("Refusing to execute an invalid or empty schedule plan")
 
+    applied = 0
     for entry in plan.entries:
-        (
+        query = (
             client.table("partidos")
             .update(dict(entry.values))
             .eq("id", entry.target_id)
             .eq("torneo_id", plan.tournament_id)
-            .execute()
         )
-    return len(plan.entries)
+        for column, value in (("estado", entry.previous_state), ("dia", entry.previous_date)):
+            query = query.is_(column, "null") if value is None else query.eq(column, value)
+        applied += len(query.execute().data or [])
+    return applied
 
 
 def build_parser() -> argparse.ArgumentParser:

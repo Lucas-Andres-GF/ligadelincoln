@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 
 from operation_common import (
+    A_REPROGRAMAR,
     OperationContext,
     add_operation_arguments,
     load_backend_environment,
@@ -636,7 +637,7 @@ def build_result_plan(
             continue
 
         target = matches[0]
-        if is_observation_row and target.state.strip().lower() == "jugado":
+        if is_observation_row and target.state.strip().lower() in {"jugado", A_REPROGRAMAR.lower()}:
             continue
         previous = claimed.get(target.id)
         if previous is not None:
