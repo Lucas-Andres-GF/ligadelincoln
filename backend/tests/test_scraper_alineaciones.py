@@ -143,6 +143,22 @@ class FakeClient:
 
 
 class LineupParsingTests(unittest.TestCase):
+    def test_detects_utf8_round_when_the_server_declares_latin1(self) -> None:
+        html = FIXTURE_PATH.read_text(encoding="utf-8").replace(
+            "PRIMERA - FECHA: OCTAVA", "ALINEACIONES DE LOS EQUIPOS - DÉCIMA FECHA"
+        ).replace("Alineaciones - Fecha: Octava", "Alineaciones")
+        for encoding in ("utf-8", "iso-8859-1"):
+            with self.subTest(encoding=encoding), mock.patch.object(lineups, "urlopen") as fetch:
+                response = fetch.return_value.__enter__.return_value
+                response.headers.get_content_charset.return_value = "iso-8859-1"
+                response.read.return_value = html.encode(encoding, errors="xmlcharrefreplace")
+
+                matches = lineups.parse_lineups_html(
+                    lineups.fetch_remote_html(lineups.DEFAULT_SOURCE_URL, 10)
+                )
+                self.assertEqual(matches[0].round_id, 10)
+                self.assertEqual(matches[0].visitor, "EL LINQUEÑO")
+
     def test_parses_round_teams_players_goals_cards_staff_and_encoding(self) -> None:
         matches = parsed_matches()
 

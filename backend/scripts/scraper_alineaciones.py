@@ -577,13 +577,17 @@ def parse_lineups_html(html: str) -> list[OfficialMatch]:
     return matches
 
 
+def _decode_lineup_html(payload: bytes, encoding: str = "cp1252") -> str:
+    # The official site sometimes serves UTF-8 while declaring ISO-8859-1.
+    try:
+        return payload.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return payload.decode(encoding)
+
+
 def load_local_html(path: Path) -> str:
     """Load a local recovery source without network access."""
-    payload = path.read_bytes()
-    try:
-        return payload.decode("utf-8")
-    except UnicodeDecodeError:
-        return payload.decode("cp1252")
+    return _decode_lineup_html(path.read_bytes())
 
 
 def fetch_remote_html(source: str, timeout: float) -> str:
@@ -591,7 +595,7 @@ def fetch_remote_html(source: str, timeout: float) -> str:
     with urlopen(source, timeout=timeout) as response:  # noqa: S310 - operator-selected URL
         payload = response.read()
         encoding = response.headers.get_content_charset() or "iso-8859-1"
-    return payload.decode(encoding)
+    return _decode_lineup_html(payload, encoding)
 
 
 def load_lineup_source(source: str = DEFAULT_SOURCE_URL, timeout: float = 30.0) -> str:
