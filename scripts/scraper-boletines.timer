@@ -1,8 +1,8 @@
 [Unit]
-Description=Consultar boletines del Tribunal los días hábiles
+Description=Consultar boletines del Tribunal los lunes y martes (hora argentina)
 
 [Timer]
-OnCalendar=Mon..Fri *-*-* 16:00:00 America/Argentina/Buenos_Aires
+OnCalendar=Mon,Tue *-*-* 16:00:00 America/Argentina/Buenos_Aires
 Persistent=true
 
 [Install]

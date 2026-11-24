@@ -1,8 +1,9 @@
 [Unit]
-Description=Consultar goleadores oficiales cada hora de 09:00 a 23:00 (hora argentina)
+Description=Consultar goleadores oficiales los lunes y martes de 09:00 a medianoche (hora argentina)
 
 [Timer]
-OnCalendar=*-*-* 09..23:00:00 America/Argentina/Buenos_Aires
+OnCalendar=Mon,Tue *-*-* 09..23:00:00 America/Argentina/Buenos_Aires
+OnCalendar=Tue,Wed *-*-* 00:00:00 America/Argentina/Buenos_Aires
 Persistent=true
 
 [Install]
