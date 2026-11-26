@@ -49,17 +49,20 @@ def parse_resolutions(document):
     else:
         raise ValueError("No se encontró la tabla de resoluciones.")
     entries = []
-    for row in table.find_all("tr"):
+    for row_number, row in enumerate(table.find_all("tr"), start=1):
         if row.find_parent("table") is not table:
             continue
-        values = [" ".join(" ".join(cell.stripped_strings).split())
-                  for cell in row.find_all(["td", "th"], recursive=False)]
+        cells = row.find_all(["td", "th"], recursive=False)
+        values = [" ".join(" ".join(cell.stripped_strings).split()) for cell in cells]
         if not any(values) or tuple(map(normalize, values)) == HEADER:
             continue
+        # Some sanctions span both CANT and SANCION (e.g. SUSP.PROVISIONAL).
+        if len(values) == 5 and cells[-1].get("colspan") == "2":
+            values.insert(4, "")
         if len(values) != len(HEADER):
             if len(values) <= 2 and normalize(values[0]).startswith("RESOLUCIONES DEL TRIBUNAL"):
                 continue
-            raise ValueError("Fila inesperada en la tabla de resoluciones.")
+            raise ValueError(f"Fila {row_number}: se encontraron {len(cells)} celdas en la tabla de resoluciones.")
         role, name, club, division, quantity, sanction = values
         if not all((role, name, club, division, sanction)):
             raise ValueError("Resolución incompleta.")
@@ -95,7 +98,10 @@ def main():
         for number in sorted(links, reverse=True)[:args.limit]:
             title, url = links[number]
             document, html = read_html(session, url)
-            entries = parse_resolutions(document)
+            try:
+                entries = parse_resolutions(document)
+            except ValueError as error:
+                raise ValueError(f"Boletín {number} ({title}): {error}") from error
             bulletin = dict(numero=number, fecha=parse_date(title), fuente=url, resoluciones=entries)
             if args.execute:
                 fingerprint = json.dumps(bulletin, ensure_ascii=False, sort_keys=True)
