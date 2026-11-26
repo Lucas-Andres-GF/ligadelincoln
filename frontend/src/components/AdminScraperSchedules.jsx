@@ -108,6 +108,25 @@ export default function AdminScraperSchedules({ supabase, operations, categories
     setBusy(false)
   }
 
+  async function removeSchedule(item) {
+    const processName = operations.find((op) => op.id === item.scraper)?.title || item.scraper
+    if (!window.confirm(`¿Eliminar la programación #${item.id} de ${processName}?\n${formatScheduleWindow(item)} · cada ${item.interval_minutes} min\n\nSe conservarán las ejecuciones anteriores.`)) return
+
+    setBusy(true)
+    setActionError('')
+    try {
+      const { error } = await supabase.from('scraper_schedules')
+        .delete().eq('id', item.id).select('id').single()
+      if (error) throw error
+      setItems((current) => current.filter((schedule) => schedule.id !== item.id))
+      await refresh()
+    } catch (error) {
+      setActionError(`No se pudo eliminar la programación #${item.id}. ${error.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <section aria-labelledby='admin-schedules-title' className='border-t border-green-400/15 p-4 sm:p-6'>
       <h3 id='admin-schedules-title' className='font-[var(--font-display)] text-xl font-black uppercase text-white'>Programaciones</h3>
@@ -168,9 +187,14 @@ export default function AdminScraperSchedules({ supabase, operations, categories
               <p className='text-xs'>{!item.enabled ? 'Pausada' : item.next_run_at ? `Próxima corrida ${formatDateTime(item.next_run_at)}` : 'Sin corridas pendientes'}</p>
               {item.last_job_id && <p className='text-xs'>Última orden #{item.last_job_id} · {statuses[item.last_status]?.label || item.last_status} · {formatDateTime(item.last_run_at)}</p>}
             </div>
-            <button type='button' disabled={busy || Boolean(loadError)} onClick={() => toggle(item)} className='rounded-lg border border-green-300/35 px-3 py-2 text-xs font-bold text-green-100 enabled:hover:bg-green-300/15 disabled:opacity-50'>
-              {item.enabled ? 'Pausar' : 'Reanudar'}
-            </button>
+            <div className='flex flex-wrap gap-2'>
+              <button type='button' disabled={busy || Boolean(loadError)} onClick={() => toggle(item)} className='rounded-lg border border-green-300/35 px-3 py-2 text-xs font-bold text-green-100 enabled:hover:bg-green-300/15 disabled:opacity-50'>
+                {item.enabled ? 'Pausar' : 'Reanudar'}
+              </button>
+              <button type='button' disabled={busy || Boolean(loadError)} onClick={() => removeSchedule(item)} className='rounded-lg border border-red-300/35 px-3 py-2 text-xs font-bold text-red-200 enabled:hover:bg-red-400/15 disabled:opacity-50'>
+                Eliminar
+              </button>
+            </div>
           </li>
         ))}
       </ul>
