@@ -5,6 +5,16 @@ const week = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', '
 const frequencies = [5, 10, 15, 20, 30, 60]
 const inputClass = 'w-full min-w-0 rounded-lg border border-green-400/25 bg-[#0a2816] px-3 py-2 text-sm text-white focus-visible:outline-2 focus-visible:outline-green-300'
 
+function isScheduleCurrent(item, now) {
+  if (!item.run_date) return true
+  const start = item.start_time.slice(0, 5)
+  const end = item.end_time.slice(0, 5)
+  const endOnStartDate = Date.parse(`${item.run_date}T${end}:00-03:00`)
+  const overnight = end < start ? 24 * 60 * 60_000 : 0
+  // Mint can pick up the final run throughout its scheduled minute.
+  return now < endOnStartDate + overnight + 60_000
+}
+
 function formatScheduleWindow(item) {
   const start = item.start_time.slice(0, 5)
   const end = item.end_time.slice(0, 5)
@@ -45,7 +55,10 @@ export default function AdminScraperSchedules({ supabase, operations, categories
     setLoadError(error?.code === 'PGRST202'
       ? 'Falta instalar el programador en Supabase.'
       : error?.message || '')
-    if (!error) setItems(data ?? [])
+    if (!error) {
+      const now = Date.now()
+      setItems((data ?? []).filter((item) => isScheduleCurrent(item, now)))
+    }
   }, [supabase])
 
   useEffect(() => {
@@ -161,7 +174,7 @@ export default function AdminScraperSchedules({ supabase, operations, categories
           </li>
         ))}
       </ul>
-      {items?.length === 0 && <p className='mt-2 text-sm text-green-100/70'>Todavía no hay programaciones.</p>}
+      {items?.length === 0 && <p className='mt-2 text-sm text-green-100/70'>No hay programaciones vigentes.</p>}
     </section>
   )
 }
