@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase, getEscudoPath } from '../utils/supabase'
+import { fetchDivisionChampions } from '../utils/divisionChampions'
 import { groupHistoricalChampions } from '../utils/historicalChampions'
 import { parseTorneoId } from '../utils/torneoSelection'
 
@@ -34,22 +35,14 @@ export default function HistoricalChampions({ categoriaId }) {
     async function fetchHistory() {
       setStatus('loading')
 
-      let palmaresQuery = supabase
-        .from('palmares')
-        .select('id,nombre,temporada,club_id,torneo_id,categoria_id,club:club_id(nombre)')
-        .order('torneo_id', { ascending: false })
-
-      if (normalizedCategoriaId) {
-        palmaresQuery = palmaresQuery.eq('categoria_id', normalizedCategoriaId)
-      }
-
       const [torneosResult, palmaresResult] = await Promise.all([
         supabase
           .from('torneos')
           .select('id,nombre,temporada,activo')
           .order('temporada', { ascending: false })
           .order('id', { ascending: false }),
-        palmaresQuery,
+        fetchDivisionChampions({ categoriaId: normalizedCategoriaId })
+          .then((data) => ({ data }), (error) => ({ error })),
       ])
 
       if (cancelled) return
@@ -63,7 +56,7 @@ export default function HistoricalChampions({ categoriaId }) {
       }
 
       setTorneos(sortTorneos(torneosResult.data || []))
-      setPalmares(palmaresResult.data || [])
+      setPalmares((palmaresResult.data || []).map((row) => ({ ...row, club: { nombre: row.club_nombre } })))
       setStatus('ready')
     }
 
@@ -123,7 +116,6 @@ export default function HistoricalChampions({ categoriaId }) {
             <h3 id={`historial-categoria-${category.id}`} className='font-[var(--font-display)] text-lg font-black uppercase tracking-[0.12em] text-green-200'>
               {category.label}
             </h3>
-            <span className='text-[9px] font-bold uppercase tracking-widest text-green-700'>Campeones oficiales</span>
           </div>
 
           <div className='divide-y divide-green-400/10'>

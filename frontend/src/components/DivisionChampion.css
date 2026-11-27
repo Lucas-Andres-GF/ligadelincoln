@@ -1,0 +1,32 @@
+.champion-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.champion-confetti i {
+  position: absolute;
+  width: clamp(5px, 0.6vw, 9px);
+  height: clamp(10px, 1.1vw, 16px);
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .champion-confetti i {
+    animation: champion-confetti-fall 3s linear both;
+  }
+}
+
+@keyframes champion-confetti-fall {
+  from { opacity: 0; transform: translate(0, 0); animation-timing-function: ease-out; }
+  5% { opacity: 1; }
+  34% { transform: translate(calc(var(--drift) * 0.65), var(--rise)) rotate(calc(var(--spin) * 0.45)); animation-timing-function: ease-in; }
+  80% { opacity: 1; }
+  to { opacity: 0; transform: translate(var(--drift), 60vh) rotate(var(--spin)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .champion-confetti { display: none; }
+}

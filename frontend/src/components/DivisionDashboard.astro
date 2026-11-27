@@ -7,6 +7,7 @@ import TournamentDeciderSeries from './TournamentDeciderSeries.jsx'
 import ScorersTable from './ScorersTable.jsx'
 import YellowCards from './YellowCards.jsx'
 import TribunalBulletins from './TribunalBulletins.jsx'
+import DivisionChampion from './DivisionChampion.jsx'
 
 interface Props {
   categoriaId: number
@@ -17,6 +18,7 @@ const { categoriaId, divisionLabel } = Astro.props
 ---
 
 <TournamentTitle divisionLabel={divisionLabel} client:load />
+<DivisionChampion categoriaId={categoriaId} client:load />
 
 <div class='grid grid-cols-1 items-start gap-5 2xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] 2xl:gap-6'>
   <section
