@@ -59,12 +59,14 @@ class RecordingClient:
 
 
 class ScraperJobValidationTests(unittest.TestCase):
-    def test_discipline_commands_keep_each_scripts_arguments(self) -> None:
+    def test_manual_import_commands_keep_each_scripts_arguments(self) -> None:
         for scraper, mode, expected_flags in [
             ("amarillas", "preview", ["--torneo-id", "3"]),
             ("amarillas", "execute", ["--torneo-id", "3", "--execute"]),
             ("boletines", "preview", []),
             ("boletines", "execute", ["--execute"]),
+            ("goleadores", "preview", ["--torneo-id", "3"]),
+            ("goleadores", "execute", ["--torneo-id", "3", "--execute"]),
         ]:
             with self.subTest(scraper=scraper, mode=mode):
                 job = worker.ScraperJob.from_mapping(
@@ -121,6 +123,7 @@ class ScraperJobValidationTests(unittest.TestCase):
             {"id": 1, "scraper": "horarios", "mode": "execute", "torneo_id": 3, "fecha": 2},
             {"id": 1, "scraper": "amarillas", "mode": "execute", "torneo_id": 3, "fecha": 2},
             {"id": 1, "scraper": "boletines", "mode": "preview", "torneo_id": 3, "categoria": "primera"},
+            {"id": 1, "scraper": "goleadores", "mode": "preview", "torneo_id": 3, "categoria": "primera"},
             {"id": 1, "scraper": "alineaciones", "mode": "execute", "torneo_id": 3},
             {"id": 1, "scraper": "resultados", "mode": "root", "torneo_id": 3},
         ]

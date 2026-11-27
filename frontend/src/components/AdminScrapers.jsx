@@ -6,6 +6,14 @@ import AdminPendingMatches from './AdminPendingMatches'
 
 const OPERATIONS = [
   {
+    id: 'goleadores',
+    eyebrow: 'Estadísticas',
+    title: 'Goleadores oficiales',
+    description: 'Actualiza el ranking oficial de las cinco divisiones.',
+    manualOnly: true,
+    workerVersion: 3,
+  },
+  {
     id: 'horarios',
     eyebrow: 'Agenda',
     title: 'Horarios',
