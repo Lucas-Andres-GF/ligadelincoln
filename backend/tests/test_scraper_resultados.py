@@ -157,6 +157,24 @@ class FakeClient:
 
 
 class ResultParsingTests(unittest.TestCase):
+    def test_recovers_postponed_score_from_original_round(self):
+        html = """<table>
+        <tr><td>ÚLTIMOS ENCUENTROS</td></tr><tr><td>Fecha: 11</td></tr>
+        <tr><td>Local</td><td>L</td><td>V</td><td>Visitante</td></tr>
+        <tr><td>FIXTURE COMPLETO, TABLAS Y RESULTADOS</td></tr>
+        <tr><td>Fecha:</td><td>9</td></tr><tr><td>Décima División</td><td>14/11/26</td></tr>
+        <tr><td>Local</td><td>L</td><td>V</td><td>Visitante</td></tr>
+        <tr><td>C A PINTENSE</td><td>0</td><td>0</td><td>DEP GRAL PINTO</td><td>Jugado 26-11-26</td></tr>
+        <tr><td>CASET</td><td></td><td></td><td>ATL ROBERTS</td></tr></table>"""
+        rows = results.parse_results_html(html, "decima")
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        fixture = dict(FIXTURES[0], categoria_id=row.category_id, fecha_id=9,
+                       dia="2026-11-26", local_id=row.local_id, visitante_id=row.visitor_id)
+        plan = results.build_result_plan(rows, fixture_records([fixture]), 2)
+        self.assertTrue(plan.valid, plan.issues)
+        self.assertEqual(plan.entries[0].values, {"estado": "jugado", "goles_local": 0, "goles_visitante": 0})
+
     def test_parses_latest_round_date_scores_and_authoritative_aliases(self) -> None:
         rows = official_rows()
 

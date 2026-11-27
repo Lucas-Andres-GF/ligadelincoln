@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { ACTIVE_TORNEO_ID } from '../config/torneo'
 import AdminScraperSchedules from './AdminScraperSchedules'
+import AdminPendingMatches from './AdminPendingMatches'
 
 const OPERATIONS = [
   {
@@ -305,6 +306,7 @@ export default function AdminScrapers({ supabaseUrl, supabaseKey }) {
         </div>
       )}
 
+      <AdminPendingMatches supabase={supabase} lastExecution={jobs.find((job) => job.finished_at)?.finished_at} />
       <AdminScraperSchedules supabase={supabase} operations={OPERATIONS} categories={CATEGORIES} formatDateTime={formatDateTime} statuses={STATUS_META} />
 
       <div className='border-t border-green-400/15 bg-black/10 px-4 py-5 sm:px-6'>

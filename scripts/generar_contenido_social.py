@@ -265,6 +265,14 @@ class SocialData:
         )
         return response.data or []
 
+    def pending_matches(self, category_id: int, through_round: int) -> list[dict[str, Any]]:
+        return (self.client.table("partidos")
+                .select("fecha_id,local:local_id(nombre),visitante:visitante_id(nombre)")
+                .eq("torneo_id", self.tournament_id).eq("categoria_id", category_id)
+                .in_("estado", ["A reprogramar", "suspendido"]).lte("fecha_id", through_round)
+                .not_.is_("local_id", "null").not_.is_("visitante_id", "null")
+                .order("fecha_id").order("id").execute().data or [])
+
     def scorers(self) -> list[dict[str, Any]]:
         matches = (
             self.client.table("partidos")
@@ -446,6 +454,17 @@ def scorer_rows(rows: Sequence[dict[str, Any]], offset: int) -> str:
     return "".join(output)
 
 
+def pending_note(matches):
+    if not matches:
+        return ""
+    lines = []
+    for match in matches:
+        local = html.escape(relation_name(match.get("local")))
+        visitor = html.escape(relation_name(match.get("visitante")))
+        lines.append(f"<div>Fecha {safe_int(match['fecha_id'])} · {local} vs. {visitor}</div>")
+    return '<aside class="pending-note"><strong>Partidos pendientes</strong>' + "".join(lines) + '</aside>'
+
+
 def card_html(
     spec: FormatSpec,
     content_type: str,
@@ -458,6 +477,8 @@ def card_html(
     total_pages: int = 1,
 ) -> str:
     extra_css = """
+    .pending-note { border-top:1px solid var(--line); padding-top:10px; font-size:19px; line-height:1.35; }
+    .pending-note strong { display:block; color:var(--acid); margin-bottom:4px; }
     .match { min-height:134px; background:rgba(2,26,15,.86); border:1px solid var(--line); display:grid; grid-template-columns:1fr 210px 1fr; align-items:center; padding:15px 22px; }
     .team { min-width:0; display:flex; align-items:center; gap:13px; font-size:22px; font-weight:950; line-height:.95; text-transform:uppercase; }
     .team.local { justify-content:flex-end; text-align:right; } .team.visitor { justify-content:flex-start; }
@@ -580,6 +601,7 @@ def make_cards(
     cards: list[tuple[str, FormatSpec, str]] = []
 
     requested_types = ["fixture", "resultados", "posiciones", "goleadores"] if content_type == "todos" else [content_type]
+    pending = {slug: data.pending_matches(category_id, round_id) for slug, category_id, _ in categories} if "posiciones" in requested_types else {}
     for spec in specs:
         format_root = output_root / tournament_slug / f"fecha_{round_id}" / spec.key
         if include_cover:
@@ -620,10 +642,16 @@ def make_cards(
                     raw_rows = rows_for_positions(data.positions(category_id))
                     page_size = spec.page_rows["posiciones"]
                     pages = chunks(raw_rows, page_size)
-                    for page_index, page_rows in enumerate(pages, start=1):
+                    notes = chunks(pending[slug], 4)
+                    total = max(len(pages), len(notes))
+                    for index in range(total):
+                        page_index = index + 1
+                        page_rows = pages[index] if index < len(pages) else []
                         header = '<div class="table-head"><span class="club-head">POSICIÓN / CLUB</span><span class="points-head">PTS</span><span>PJ</span><span>PG</span><span>PE</span><span>PP</span><span>GF</span><span>GC</span><span>DIF</span><span>FORMA</span></div>'
-                        body = header + positions_rows(page_rows, (page_index - 1) * page_size)
-                        markup = card_html(spec, "posiciones", tournament_name, round_id, category_label, f"ACTUALIZADA · FECHA {round_id}", body, page_index, len(pages))
+                        body = header + positions_rows(page_rows, index * page_size) if page_rows else ""
+                        if index < len(notes):
+                            body += pending_note(notes[index])
+                        markup = card_html(spec, "posiciones", tournament_name, round_id, category_label, f"ACTUALIZADA · FECHA {round_id}", body, page_index, total)
                         path = format_root / "posiciones" / f"posiciones-{slug}-{page_index:02d}.png"
                         cards.append((str(path), spec, markup))
     return cards

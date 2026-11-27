@@ -61,6 +61,7 @@ class OfficialResult:
     score_raw: str
     pending: bool = False
     observation: str = ""
+    historical: bool = False
 
 
 @dataclass(frozen=True)
@@ -347,7 +348,7 @@ def _looks_like_incomplete_result_row(cells: Sequence[str]) -> bool:
 
 
 def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
-    """Parse the first supported latest-results block for one category page."""
+    """Read the latest block and completed scores from earlier fixture rounds."""
     category_key, category_id = resolve_category(category_name)
     if category_id is None:
         raise ValueError(f"Unknown configured category: {category_name}")
@@ -368,20 +369,28 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
     current_round: Optional[int] = None
     current_date: Optional[str] = None
     active_round: Optional[int] = None
+    historical = False
     headers_seen = False
     results: list[OfficialResult] = []
 
     for source_row, cells in enumerate(table, start=1):
         text = " ".join(cells)
+        if "FIXTURE COMPLETO" in _identity_text(text):
+            historical = True
+            headers_seen = False
+            current_round = None
+            continue
         if headers_seen and "PROXIMA" in _identity_text(text):
             break
 
         round_match = ROUND_PATTERN.search(text)
         if round_match is not None:
             next_round = int(round_match.group(1))
-            if results and active_round is not None and next_round != active_round:
+            if not historical and results and active_round is not None and next_round != active_round:
                 break
             current_round = next_round
+            current_date = None
+            headers_seen = False
             active_round = active_round if active_round is not None else next_round
 
         parsed_date = _parse_date(text)
@@ -393,6 +402,8 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
             headers_seen = True
             continue
         if not headers_seen:
+            continue
+        if historical and (current_round is None or current_round == active_round):
             continue
         if len(cells) < 4:
             if _looks_like_incomplete_result_row(cells):
@@ -425,6 +436,8 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
             for kw in ("JUEGAN", "SUSPENDIDO", "POSTERGADO", "A CONFIRMAR")
         )
         pending = has_pending_note or has_blank_scores
+        if historical and (pending or parse_score(local_cell) is None or parse_score(visitor_cell) is None):
+            continue
 
         results.append(
             OfficialResult(
@@ -443,6 +456,7 @@ def parse_results_html(html: str, category_name: str) -> list[OfficialResult]:
                 score_raw=f"{cells[1]}-{cells[2]}",
                 pending=pending,
                 observation=observation,
+                historical=historical,
             )
         )
 
@@ -558,6 +572,14 @@ def build_result_plan(
     tournament_id = validate_positive_tournament_id(tournament_id)
     official_rows = list(rows)
     scoped_fixtures = [item for item in fixtures if item.tournament_id == tournament_id]
+    unfinished = {
+        (item.category_id, item.round_id, item.local_id, item.visitor_id)
+        for item in scoped_fixtures if item.state.strip().lower() != "jugado"
+    }
+    official_rows = [
+        row for row in official_rows if not row.historical
+        or (row.category_id, row.round_id, row.local_id, row.visitor_id) in unfinished
+    ]
     issues: list[str] = []
     entries: list[ResultUpdate] = []
     matched_targets: list[int] = []
